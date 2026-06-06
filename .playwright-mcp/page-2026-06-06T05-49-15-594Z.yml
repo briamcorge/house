@@ -1,0 +1,90 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - heading "账单管理" [level=1] [ref=e7]
+      - generic [ref=e9]:
+        - img [ref=e10]
+        - textbox "搜索账单..." [ref=e13]
+      - generic [ref=e14]:
+        - button "全部" [ref=e15] [cursor=pointer]
+        - button "应收" [ref=e16] [cursor=pointer]
+        - button "应付" [ref=e17] [cursor=pointer]
+      - generic [ref=e18]:
+        - button "全部" [ref=e19] [cursor=pointer]
+        - button "未收" [ref=e20] [cursor=pointer]
+        - button "已收" [ref=e21] [cursor=pointer]
+        - button "已逾期" [ref=e22] [cursor=pointer]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - button [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+          - heading "2025年2月" [level=2] [ref=e30]
+          - button [active] [ref=e31]:
+            - img [ref=e32]
+        - generic [ref=e34]:
+          - generic [ref=e35]: 2 笔
+          - generic [ref=e36]: 已收/已付 ¥0 / 总计 ¥5300
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic [ref=e41]:
+                  - heading "房租" [level=3] [ref=e42]
+                  - generic [ref=e43]: 未付
+                  - generic [ref=e44]: 应付（房东）
+                - paragraph [ref=e46]: ¥3800.00
+              - button [ref=e48] [cursor=pointer]:
+                - img [ref=e49]
+            - generic [ref=e53]:
+              - generic [ref=e54]:
+                - img [ref=e55]
+                - generic [ref=e58]: 海淀区中关村大街100号
+              - generic [ref=e59]:
+                - img [ref=e60]
+                - generic [ref=e62]: 应付日：2025-02-01
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]:
+                - generic [ref=e66]:
+                  - heading "房租" [level=3] [ref=e67]
+                  - generic [ref=e68]: 未收
+                  - generic [ref=e69]: 应收（租客）
+                - paragraph [ref=e71]: ¥1500.00
+              - button [ref=e73] [cursor=pointer]:
+                - img [ref=e74]
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - img [ref=e80]
+                - generic [ref=e83]: 朝阳区建国路88号 - B室
+              - generic [ref=e84]:
+                - img [ref=e85]
+                - generic [ref=e88]: 李女士
+              - generic [ref=e89]:
+                - img [ref=e90]
+                - generic [ref=e92]: 应收日：2025-02-01
+      - button "添加账单" [ref=e93] [cursor=pointer]:
+        - img [ref=e94]
+        - text: 添加账单
+  - navigation [ref=e95]:
+    - generic [ref=e96]:
+      - link "首页" [ref=e97] [cursor=pointer]:
+        - /url: /
+        - img [ref=e98]
+        - generic [ref=e101]: 首页
+      - link "房屋" [ref=e102] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e103]
+        - generic [ref=e107]: 房屋
+      - link "租客" [ref=e108] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e109]
+        - generic [ref=e114]: 租客
+      - link "账单" [ref=e115] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e116]
+        - generic [ref=e119]: 账单
+      - link "更多" [ref=e120] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e121]
+        - generic [ref=e125]: 更多

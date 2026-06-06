@@ -1,0 +1,74 @@
+- generic [ref=e3]:
+  - generic [ref=e214]:
+    - generic [ref=e217]:
+      - button [ref=e218] [cursor=pointer]:
+        - img [ref=e219]
+      - generic [ref=e221]:
+        - heading "朝阳区建国路88号 - A 室" [level=1] [ref=e222]
+        - paragraph [ref=e223]: 30㎡ · ¥1800/月
+    - generic [ref=e225]:
+      - generic [ref=e226]:
+        - generic [ref=e227]:
+          - heading "租客信息" [level=2] [ref=e228]:
+            - img [ref=e229]
+            - text: 租客信息
+          - generic [ref=e232]:
+            - button "编辑" [ref=e233] [cursor=pointer]
+            - button "删除" [ref=e234] [cursor=pointer]
+        - generic [ref=e236]:
+          - generic [ref=e237]:
+            - img [ref=e238]
+            - generic [ref=e241]: 张先生
+          - generic [ref=e242]:
+            - img [ref=e243]
+            - generic [ref=e245]: "13800138000"
+          - generic [ref=e246]:
+            - img [ref=e247]
+            - generic [ref=e249]: 合同期：2024-01-01 至 2025-01-01
+      - generic [ref=e250]:
+        - generic [ref=e251]:
+          - heading "租客账单" [level=2] [ref=e252]:
+            - img [ref=e253]
+            - text: 租客账单
+          - button "添加" [ref=e256] [cursor=pointer]:
+            - img [ref=e257]
+            - text: 添加
+        - generic [ref=e258]:
+          - generic [ref=e259]:
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - generic [ref=e262]: 房租
+                - generic [ref=e263]: 已收
+              - generic [ref=e264]: ¥1800.00
+            - generic [ref=e265]:
+              - text: 应收日：2025-01-01
+              - generic [ref=e266]: 实收：2025-01-01
+          - generic [ref=e267]:
+            - generic [ref=e268]:
+              - generic [ref=e269]:
+                - generic [ref=e270]: 水费
+                - generic [ref=e271]: 已逾期
+              - generic [ref=e272]: ¥180.00
+            - generic [ref=e273]: 应收日：2024-12-25
+  - navigation [ref=e94]:
+    - generic [ref=e95]:
+      - link "首页" [ref=e96] [cursor=pointer]:
+        - /url: /
+        - img [ref=e97]
+        - generic [ref=e100]: 首页
+      - link "房屋" [ref=e101] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e102]
+        - generic [ref=e106]: 房屋
+      - link "租客" [ref=e107] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e108]
+        - generic [ref=e113]: 租客
+      - link "账单" [ref=e114] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e115]
+        - generic [ref=e118]: 账单
+      - link "更多" [ref=e119] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e120]
+        - generic [ref=e124]: 更多

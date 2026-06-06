@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  "project_name": "新项目",
+  "historian": {
+    "enabled": true,
+    "model": "deepseek/deepseek-chat"
+  },
+  "dreamer": {
+    "enabled": true,
+    "model": "deepseek/deepseek-chat"
+  },
+  "sidekick": {
+    "enabled": true,
+    "model": "deepseek/deepseek-chat"
+  },
+  "memory": {
+    "enabled": true,
+    "injection_budget_tokens": 4000,
+    "auto_promote": true,
+    "auto_search": {
+      "enabled": true,
+      "score_threshold": 0.6,
+      "min_prompt_chars": 10
+    }
+  },
+  "temporal_awareness": true
+}

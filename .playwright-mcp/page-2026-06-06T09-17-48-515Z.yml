@@ -1,0 +1,57 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e7]:
+      - button [ref=e8] [cursor=pointer]:
+        - img [ref=e9]
+      - generic [ref=e11]:
+        - heading "安贞里" [level=1] [ref=e12]
+        - paragraph [ref=e13]: 1 间房间
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "业主合同记录" [level=2] [ref=e18]:
+          - img [ref=e19]
+          - text: 业主合同记录
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: 房1 · ¥6000/月
+            - generic [ref=e26]:
+              - button "编辑" [ref=e27] [cursor=pointer]
+              - button "退租" [ref=e28] [cursor=pointer]
+              - button "删除" [ref=e29] [cursor=pointer]
+              - generic [ref=e30]: 执行中
+          - paragraph [ref=e31]: 2026-06-06 ~ 2027-06-05
+      - generic [ref=e33]:
+        - generic [ref=e34] [cursor=pointer]:
+          - generic [ref=e36]:
+            - generic [ref=e37]: A
+            - generic [ref=e38]:
+              - heading "A 室" [level=3] [ref=e39]
+              - text: 空置
+          - generic [ref=e41]: 主卧
+        - button [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+      - button "添加房间" [ref=e48] [cursor=pointer]:
+        - img [ref=e49]
+        - text: 添加房间
+  - navigation [ref=e50]:
+    - generic [ref=e51]:
+      - link "首页" [ref=e52] [cursor=pointer]:
+        - /url: /
+        - img [ref=e53]
+        - generic [ref=e56]: 首页
+      - link "房屋" [ref=e57] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e58]
+        - generic [ref=e62]: 房屋
+      - link "租客" [ref=e63] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e64]
+        - generic [ref=e69]: 租客
+      - link "账单" [ref=e70] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e71]
+        - generic [ref=e74]: 账单
+      - link "更多" [ref=e75] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e76]
+        - generic [ref=e80]: 更多

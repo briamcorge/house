@@ -1,0 +1,273 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useStore } from '../store/useStore'
+import { Property } from '../types'
+import PropertyCard from '../components/PropertyCard'
+import PropertyModal from '../components/PropertyModal'
+import LandlordContractModal from '../components/LandlordContractModal'
+import BillSummaryModal from '../components/BillSummaryModal'
+import { generateRentBills, add30Days } from '../utils/calculator'
+import { Edit2, Trash2, MoreVertical, Plus, Search, FileText } from 'lucide-react'
+
+export default function Properties() {
+  const navigate = useNavigate()
+  const { properties, rooms, bills, landlordContracts, addProperty, updateProperty, deleteProperty, addBill, addLandlordContract } = useStore()
+  const [showModal, setShowModal] = useState(false)
+  const [editingProperty, setEditingProperty] = useState<Property | undefined>()
+  const [propertyMenu, setPropertyMenu] = useState<string | null>(null)
+  const [landlordPropertyId, setLandlordPropertyId] = useState<string | null>(null)
+  const [summaryPropertyId, setSummaryPropertyId] = useState<string | null>(null)
+  const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string } | null>(null)
+  const [simpleEdit, setSimpleEdit] = useState<{ pid: string; rent: number; start: string; end: string; name?: string; phone?: string } | null>(null)
+
+  const getRoomCount = (propertyId: string) =>
+    rooms.filter(r => r.propertyId === propertyId).length
+
+  const handleSaveProperty = (data: Omit<Property, 'id' | 'createdAt'>) => {
+    if (editingProperty) {
+      updateProperty(editingProperty.id, data)
+    } else {
+      addProperty(data)
+    }
+    setEditingProperty(undefined)
+    setShowModal(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+        <div className="max-w-md mx-auto">
+          <h1 className="text-xl font-bold text-gray-900 mb-4">房源管理</h1>
+        </div>
+      </div>
+
+      <div className="px-4 pt-6">
+        <div className="max-w-md mx-auto">
+          <div className="space-y-4">
+            {properties.map((property) => (
+              <div key={property.id} className="relative group">
+                <PropertyCard
+                  property={property}
+                  roomCount={getRoomCount(property.id)}
+                  onClick={() => navigate(`/properties/${property.id}`)}
+                  billSummary={(() => {
+                    const propBills = bills.filter(b => b.propertyId === property.id)
+                    const total = propBills.reduce((s, b) => s + b.amount, 0)
+                    const paid = propBills.reduce((s, b) => s + (b.paidAmount ?? (b.status === 'paid' ? b.amount : 0)), 0)
+                    return total > 0 ? { paid, total } : undefined
+                  })()}
+                  onClickBill={() => setSummaryPropertyId(property.id)}
+                />
+                <div className="absolute top-3 right-3">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPropertyMenu(propertyMenu === property.id ? null : property.id)
+                    }}
+                    className="p-2 hover:bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-500" />
+                  </button>
+                  {propertyMenu === property.id && (
+                    <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProperty(property)
+                          setShowModal(true)
+                          setPropertyMenu(null)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        编辑地址
+                      </button>
+                      {bills.some(b => b.propertyId === property.id && b.direction === 'payable') ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lc = landlordContracts.filter(c => c.propertyId === property.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+                              setSimpleEdit({
+                                pid: property.id,
+                                rent: lc?.monthlyRent || 0,
+                                start: lc?.contractStart || '',
+                                end: lc?.contractEnd || '',
+                                name: lc?.landlordName || undefined,
+                                phone: lc?.landlordPhone || undefined,
+                              })
+                              setPropertyMenu(null)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            业主合同
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lc = landlordContracts.filter(c => c.propertyId === property.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+                              const pb = bills.filter(b => b.propertyId === property.id && b.direction === 'payable')
+                              setLandlordEdit({
+                                pid: property.id,
+                                rent: Math.round(pb.reduce((s, b) => s + b.amount, 0) / Math.max(1, pb.length) / 3),
+                                method: 'quarterly',
+                                start: lc?.contractStart || pb.sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate || '',
+                                end: lc?.contractEnd || pb.sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.dueDate || '',
+                                name: lc?.landlordName || undefined,
+                                phone: lc?.landlordPhone || undefined,
+                              })
+                              setPropertyMenu(null)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            业主续约
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setLandlordPropertyId(property.id); setLandlordEdit(null); setPropertyMenu(null) }}
+                          className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                        >
+                          <FileText className="w-4 h-4" />
+                          业主合同
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('确定要删除这个房源吗？')) {
+                            deleteProperty(property.id)
+                          }
+                          setPropertyMenu(null)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        删除
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {properties.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-500">暂无房源</p>
+                <p className="text-sm text-gray-400 mt-1">点击下方按钮添加房源</p>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEditingProperty(undefined)
+              setShowModal(true)
+            }}
+            className="w-full mt-6 bg-blue-900 text-white py-4 rounded-2xl font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-5 h-5" />
+            添加房源
+          </button>
+        </div>
+      </div>
+
+      <PropertyModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSave={handleSaveProperty}
+        editingProperty={editingProperty}
+      />
+      <LandlordContractModal
+        isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
+        onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
+        onConfirm={(draftBills, rent, name, phone, cs, ce) => {
+          draftBills.forEach((bill) => {
+            addBill({
+              propertyId: landlordPropertyId!,
+              amount: bill.amount,
+              type: 'rent',
+              status: 'pending',
+              direction: 'payable',
+              dueDate: bill.dueDate,
+              description: bill.description,
+            })
+          })
+          addLandlordContract({
+            propertyId: landlordPropertyId!,
+            landlordName: name,
+            landlordPhone: phone,
+            monthlyRent: rent || 0,
+            paymentMethod: 'quarterly',
+            contractStart: cs || draftBills[0]?.dueDate || '',
+            contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
+            status: 'active',
+          })
+          setLandlordPropertyId(null)
+        }}
+        onUpdate={(draftBills, rent, name, phone, cs, ce) => {
+          const pid = landlordEdit?.pid
+          if (!pid) return
+          const now = new Date().toISOString().slice(0, 7)
+          draftBills.forEach((bill) => {
+            addBill({
+              propertyId: pid,
+              amount: bill.amount,
+              type: 'rent',
+              status: 'pending',
+              direction: 'payable',
+              dueDate: bill.dueDate,
+              description: `[续约${now}] ${bill.description}`,
+            })
+          })
+          addLandlordContract({
+            propertyId: pid,
+            landlordName: name,
+            landlordPhone: phone,
+            monthlyRent: rent || 0,
+            paymentMethod: 'quarterly',
+            contractStart: cs || draftBills[0]?.dueDate || '',
+            contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
+            status: 'active',
+          })
+          setLandlordEdit(null)
+        }}
+        propertyAddress={properties.find(p => p.id === (landlordPropertyId || landlordEdit?.pid || simpleEdit?.pid))?.address || ''}
+        existingRent={landlordEdit?.rent || simpleEdit?.rent}
+        existingPaymentMethod={landlordEdit?.method}
+        existingStart={landlordEdit?.start || simpleEdit?.start}
+        existingEnd={landlordEdit?.end || simpleEdit?.end}
+        existingName={landlordEdit?.name || simpleEdit?.name}
+        existingPhone={landlordEdit?.phone || simpleEdit?.phone}
+        isSimpleEdit={simpleEdit !== null}
+        onSaveEdit={(rent, name, phone, start, end) => {
+          if (!simpleEdit?.pid) return
+          // 编辑只更新合同信息，不动账单
+          addLandlordContract({
+            propertyId: simpleEdit.pid,
+            landlordName: name,
+            landlordPhone: phone,
+            monthlyRent: rent,
+            paymentMethod: 'quarterly',
+            contractStart: start || '',
+            contractEnd: end || '',
+            status: 'active',
+          })
+          setSimpleEdit(null)
+        }}
+      />
+      <BillSummaryModal
+        isOpen={summaryPropertyId !== null}
+        onClose={() => setSummaryPropertyId(null)}
+        propertyId={summaryPropertyId || undefined}
+      />
+    </div>
+  )
+}

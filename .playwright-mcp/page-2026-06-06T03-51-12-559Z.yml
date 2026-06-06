@@ -1,0 +1,209 @@
+- generic [ref=e3]:
+  - generic [ref=e196]:
+    - generic [ref=e199]:
+      - button [ref=e200] [cursor=pointer]:
+        - img [ref=e201]
+      - generic [ref=e203]:
+        - heading "朝阳区建国路88号 - C 室" [level=1] [ref=e204]
+        - paragraph [ref=e205]: 35㎡ · ¥2000/月
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - heading "租客信息" [level=2] [ref=e210]:
+          - img [ref=e211]
+          - text: 租客信息
+        - generic [ref=e214]:
+          - img [ref=e215]
+          - paragraph [ref=e218]: 暂无租客
+          - button "添加租客" [ref=e219] [cursor=pointer]
+      - generic [ref=e220]:
+        - generic [ref=e221]:
+          - heading "租客账单" [level=2] [ref=e222]:
+            - img [ref=e223]
+            - text: 租客账单
+          - button "添加" [ref=e226] [cursor=pointer]:
+            - img [ref=e227]
+            - text: 添加
+        - paragraph [ref=e230]: 暂无账单
+    - generic [ref=e232]:
+      - generic [ref=e233]:
+        - generic [ref=e234]:
+          - heading "预览账单" [level=2] [ref=e308]
+          - button [ref=e236] [cursor=pointer]:
+            - img [ref=e237]
+        - generic [ref=e240]:
+          - generic [ref=e241]: "1"
+          - generic [ref=e242]: 合同信息
+          - generic [ref=e244]: "2"
+          - generic [ref=e245]: 确认账单
+      - generic [ref=e309]:
+        - generic [ref=e311]:
+          - generic [ref=e312]:
+            - paragraph [ref=e313]: 朝阳区建国路88号 - C室
+            - paragraph [ref=e314]: 2026-06-06 至 2027-06-06
+          - generic [ref=e315]:
+            - paragraph [ref=e316]: 月付
+            - paragraph [ref=e317]: 提前无
+        - generic [ref=e318]:
+          - heading "待生成账单（可修改）" [level=3] [ref=e319]
+          - generic [ref=e320]:
+            - generic [ref=e321]:
+              - generic [ref=e322]: 月租 2026-06-06 ~ 2026-07-06
+              - generic [ref=e323]: 房租
+            - generic [ref=e324]:
+              - generic [ref=e325]:
+                - generic [ref=e326]: 金额
+                - spinbutton [ref=e327]: "2000"
+              - generic [ref=e328]:
+                - generic [ref=e329]: 应收日
+                - textbox [ref=e330]: 2026-06-06
+          - generic [ref=e331]:
+            - generic [ref=e332]:
+              - generic [ref=e333]: 月租 2026-07-06 ~ 2026-08-05
+              - generic [ref=e334]: 房租
+            - generic [ref=e335]:
+              - generic [ref=e336]:
+                - generic [ref=e337]: 金额
+                - spinbutton [ref=e338]: "2000"
+              - generic [ref=e339]:
+                - generic [ref=e340]: 应收日
+                - textbox [ref=e341]: 2026-07-06
+          - generic [ref=e342]:
+            - generic [ref=e343]:
+              - generic [ref=e344]: 月租 2026-08-05 ~ 2026-09-04
+              - generic [ref=e345]: 房租
+            - generic [ref=e346]:
+              - generic [ref=e347]:
+                - generic [ref=e348]: 金额
+                - spinbutton [ref=e349]: "2000"
+              - generic [ref=e350]:
+                - generic [ref=e351]: 应收日
+                - textbox [ref=e352]: 2026-08-05
+          - generic [ref=e353]:
+            - generic [ref=e354]:
+              - generic [ref=e355]: 月租 2026-09-04 ~ 2026-10-04
+              - generic [ref=e356]: 房租
+            - generic [ref=e357]:
+              - generic [ref=e358]:
+                - generic [ref=e359]: 金额
+                - spinbutton [ref=e360]: "2000"
+              - generic [ref=e361]:
+                - generic [ref=e362]: 应收日
+                - textbox [ref=e363]: 2026-09-04
+          - generic [ref=e364]:
+            - generic [ref=e365]:
+              - generic [ref=e366]: 月租 2026-10-04 ~ 2026-11-03
+              - generic [ref=e367]: 房租
+            - generic [ref=e368]:
+              - generic [ref=e369]:
+                - generic [ref=e370]: 金额
+                - spinbutton [ref=e371]: "2000"
+              - generic [ref=e372]:
+                - generic [ref=e373]: 应收日
+                - textbox [ref=e374]: 2026-10-04
+          - generic [ref=e375]:
+            - generic [ref=e376]:
+              - generic [ref=e377]: 月租 2026-11-03 ~ 2026-12-03
+              - generic [ref=e378]: 房租
+            - generic [ref=e379]:
+              - generic [ref=e380]:
+                - generic [ref=e381]: 金额
+                - spinbutton [ref=e382]: "2000"
+              - generic [ref=e383]:
+                - generic [ref=e384]: 应收日
+                - textbox [ref=e385]: 2026-11-03
+          - generic [ref=e386]:
+            - generic [ref=e387]:
+              - generic [ref=e388]: 月租 2026-12-03 ~ 2027-01-02
+              - generic [ref=e389]: 房租
+            - generic [ref=e390]:
+              - generic [ref=e391]:
+                - generic [ref=e392]: 金额
+                - spinbutton [ref=e393]: "2000"
+              - generic [ref=e394]:
+                - generic [ref=e395]: 应收日
+                - textbox [ref=e396]: 2026-12-03
+          - generic [ref=e397]:
+            - generic [ref=e398]:
+              - generic [ref=e399]: 月租 2027-01-02 ~ 2027-02-01
+              - generic [ref=e400]: 房租
+            - generic [ref=e401]:
+              - generic [ref=e402]:
+                - generic [ref=e403]: 金额
+                - spinbutton [ref=e404]: "2000"
+              - generic [ref=e405]:
+                - generic [ref=e406]: 应收日
+                - textbox [ref=e407]: 2027-01-02
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - generic [ref=e410]: 月租 2027-02-01 ~ 2027-03-03
+              - generic [ref=e411]: 房租
+            - generic [ref=e412]:
+              - generic [ref=e413]:
+                - generic [ref=e414]: 金额
+                - spinbutton [ref=e415]: "2000"
+              - generic [ref=e416]:
+                - generic [ref=e417]: 应收日
+                - textbox [ref=e418]: 2027-02-01
+          - generic [ref=e419]:
+            - generic [ref=e420]:
+              - generic [ref=e421]: 月租 2027-03-03 ~ 2027-04-02
+              - generic [ref=e422]: 房租
+            - generic [ref=e423]:
+              - generic [ref=e424]:
+                - generic [ref=e425]: 金额
+                - spinbutton [ref=e426]: "2000"
+              - generic [ref=e427]:
+                - generic [ref=e428]: 应收日
+                - textbox [ref=e429]: 2027-03-03
+          - generic [ref=e430]:
+            - generic [ref=e431]:
+              - generic [ref=e432]: 月租 2027-04-02 ~ 2027-05-02
+              - generic [ref=e433]: 房租
+            - generic [ref=e434]:
+              - generic [ref=e435]:
+                - generic [ref=e436]: 金额
+                - spinbutton [ref=e437]: "2000"
+              - generic [ref=e438]:
+                - generic [ref=e439]: 应收日
+                - textbox [ref=e440]: 2027-04-02
+          - generic [ref=e441]:
+            - generic [ref=e442]:
+              - generic [ref=e443]: 月租 2027-05-02 ~ 2027-06-01
+              - generic [ref=e444]: 房租
+            - generic [ref=e445]:
+              - generic [ref=e446]:
+                - generic [ref=e447]: 金额
+                - spinbutton [ref=e448]: "2000"
+              - generic [ref=e449]:
+                - generic [ref=e450]: 应收日
+                - textbox [ref=e451]: 2027-05-02
+        - generic [ref=e452]:
+          - generic [ref=e453]: 合计
+          - generic [ref=e454]: ¥24000.00
+        - generic [ref=e455]:
+          - button "上一步" [ref=e456] [cursor=pointer]:
+            - img [ref=e457]
+            - text: 上一步
+          - button "确认签约" [ref=e459] [cursor=pointer]
+  - navigation [ref=e65]:
+    - generic [ref=e66]:
+      - link "首页" [ref=e67] [cursor=pointer]:
+        - /url: /
+        - img [ref=e68]
+        - generic [ref=e71]: 首页
+      - link "房屋" [ref=e72] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e73]
+        - generic [ref=e77]: 房屋
+      - link "租客" [ref=e78] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e79]
+        - generic [ref=e84]: 租客
+      - link "账单" [ref=e85] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e86]
+        - generic [ref=e89]: 账单
+      - link "更多" [ref=e90] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e91]
+        - generic [ref=e95]: 更多

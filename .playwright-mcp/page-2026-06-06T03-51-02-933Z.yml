@@ -1,0 +1,122 @@
+- generic [ref=e3]:
+  - generic [ref=e196]:
+    - generic [ref=e199]:
+      - button [ref=e200] [cursor=pointer]:
+        - img [ref=e201]
+      - generic [ref=e203]:
+        - heading "朝阳区建国路88号 - C 室" [level=1] [ref=e204]
+        - paragraph [ref=e205]: 35㎡ · ¥2000/月
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - heading "租客信息" [level=2] [ref=e210]:
+          - img [ref=e211]
+          - text: 租客信息
+        - generic [ref=e214]:
+          - img [ref=e215]
+          - paragraph [ref=e218]: 暂无租客
+          - button "添加租客" [active] [ref=e219] [cursor=pointer]
+      - generic [ref=e220]:
+        - generic [ref=e221]:
+          - heading "租客账单" [level=2] [ref=e222]:
+            - img [ref=e223]
+            - text: 租客账单
+          - button "添加" [ref=e226] [cursor=pointer]:
+            - img [ref=e227]
+            - text: 添加
+        - paragraph [ref=e230]: 暂无账单
+    - generic [ref=e232]:
+      - generic [ref=e233]:
+        - generic [ref=e234]:
+          - heading "添加租客" [level=2] [ref=e235]
+          - button [ref=e236] [cursor=pointer]:
+            - img [ref=e237]
+        - generic [ref=e240]:
+          - generic [ref=e241]: "1"
+          - generic [ref=e242]: 合同信息
+          - generic [ref=e244]: "2"
+          - generic [ref=e245]: 确认账单
+      - generic [ref=e246]:
+        - generic [ref=e247]:
+          - generic [ref=e248]:
+            - img [ref=e249]
+            - text: 租客姓名
+          - textbox "例如：张先生" [ref=e252]
+        - generic [ref=e253]:
+          - generic [ref=e254]:
+            - img [ref=e255]
+            - text: 联系电话（选填）
+          - textbox "例如：13800138000" [ref=e257]
+        - generic [ref=e258]:
+          - generic [ref=e259]:
+            - img [ref=e260]
+            - text: 房间
+          - combobox [disabled] [ref=e263]:
+            - option "请选择房间"
+            - option "朝阳区建国路88号 - C室 - ¥2000/月" [selected]
+            - option "海淀区中关村大街100号 - A室 - ¥3800/月"
+        - generic [ref=e264]:
+          - generic [ref=e265]:
+            - generic [ref=e266]:
+              - img [ref=e267]
+              - text: 合同开始
+            - textbox [ref=e269]: 2026-06-06
+          - generic [ref=e270]:
+            - generic [ref=e271]:
+              - img [ref=e272]
+              - text: 合同结束
+            - textbox [ref=e274]: 2027-06-06
+        - generic [ref=e275]:
+          - generic [ref=e276]:
+            - img [ref=e277]
+            - text: 付款方式
+          - generic [ref=e279]:
+            - button "月付" [ref=e280] [cursor=pointer]
+            - button "季付" [ref=e281] [cursor=pointer]
+            - button "半年付" [ref=e282] [cursor=pointer]
+            - button "年付" [ref=e283] [cursor=pointer]
+        - generic [ref=e284]:
+          - generic [ref=e285]: 提前付款天数
+          - generic [ref=e286]:
+            - spinbutton [ref=e287]: "0"
+            - generic [ref=e288]: 天
+            - button "无" [ref=e289] [cursor=pointer]
+            - button "7天" [ref=e290] [cursor=pointer]
+            - button "15天" [ref=e291] [cursor=pointer]
+            - button "30天" [ref=e292] [cursor=pointer]
+        - generic [ref=e293]:
+          - heading "其他费用（选填）" [level=4] [ref=e294]
+          - generic [ref=e295]:
+            - generic [ref=e296]:
+              - generic [ref=e297]: 费用名称
+              - textbox "卫管费" [ref=e298]
+            - generic [ref=e299]:
+              - generic [ref=e300]: 金额
+              - spinbutton [ref=e301]
+          - paragraph [ref=e302]: 合同期内只收取一次
+        - generic [ref=e303]:
+          - button "取消" [ref=e304] [cursor=pointer]
+          - button "下一步" [ref=e305] [cursor=pointer]:
+            - text: 下一步
+            - img [ref=e306]
+  - navigation [ref=e65]:
+    - generic [ref=e66]:
+      - link "首页" [ref=e67] [cursor=pointer]:
+        - /url: /
+        - img [ref=e68]
+        - generic [ref=e71]: 首页
+      - link "房屋" [ref=e72] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e73]
+        - generic [ref=e77]: 房屋
+      - link "租客" [ref=e78] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e79]
+        - generic [ref=e84]: 租客
+      - link "账单" [ref=e85] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e86]
+        - generic [ref=e89]: 账单
+      - link "更多" [ref=e90] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e91]
+        - generic [ref=e95]: 更多

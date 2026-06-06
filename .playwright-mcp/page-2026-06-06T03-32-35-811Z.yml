@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - generic [ref=e281]:
+    - generic [ref=e284]:
+      - button [ref=e285] [cursor=pointer]:
+        - img [ref=e286]
+      - generic [ref=e288]:
+        - heading "朝阳区建国路88号 - C 室" [level=1] [ref=e289]
+        - paragraph [ref=e290]: 35㎡ · ¥2000/月
+    - generic [ref=e292]:
+      - generic [ref=e293]:
+        - heading "租客信息" [level=2] [ref=e295]:
+          - img [ref=e296]
+          - text: 租客信息
+        - generic [ref=e299]:
+          - img [ref=e300]
+          - paragraph [ref=e303]: 暂无租客
+          - button "添加租客" [ref=e304] [cursor=pointer]
+      - generic [ref=e305]:
+        - generic [ref=e306]:
+          - heading "租客账单" [level=2] [ref=e307]:
+            - img [ref=e308]
+            - text: 租客账单
+          - button "添加" [ref=e311] [cursor=pointer]:
+            - img [ref=e312]
+            - text: 添加
+        - paragraph [ref=e315]: 暂无账单
+  - navigation [ref=e94]:
+    - generic [ref=e95]:
+      - link "首页" [ref=e96] [cursor=pointer]:
+        - /url: /
+        - img [ref=e97]
+        - generic [ref=e100]: 首页
+      - link "房屋" [ref=e101] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e102]
+        - generic [ref=e106]: 房屋
+      - link "租客" [ref=e107] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e108]
+        - generic [ref=e113]: 租客
+      - link "账单" [ref=e114] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e115]
+        - generic [ref=e118]: 账单
+      - link "更多" [ref=e119] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e120]
+        - generic [ref=e124]: 更多

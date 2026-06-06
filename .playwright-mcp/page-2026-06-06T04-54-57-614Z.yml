@@ -1,0 +1,67 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - heading "房屋管理" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 轻松管理您的物业
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e13]:
+          - generic [ref=e14]:
+            - paragraph [ref=e15]: 楼栋总数
+            - paragraph [ref=e16]: "1"
+          - img [ref=e18]
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - paragraph [ref=e25]: 已出租
+            - paragraph [ref=e26]: 0/1
+          - img [ref=e28]
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: 已收租金
+            - paragraph [ref=e37]: ¥0
+          - img [ref=e39]
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - paragraph [ref=e44]: 待处理账单
+            - paragraph [ref=e45]: "8"
+          - img [ref=e47]
+      - generic [ref=e49]:
+        - heading "我的楼栋" [level=2] [ref=e51]
+        - generic [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]:
+            - img [ref=e56]
+            - generic [ref=e60]: 1 间房
+          - heading "安贞里" [level=3] [ref=e61]
+          - generic [ref=e62]:
+            - img [ref=e63]
+            - generic [ref=e66]: 1 间房间
+          - paragraph [ref=e68]: 添加于 2026/6/6
+      - generic [ref=e69]:
+        - button "添加楼栋" [ref=e70] [cursor=pointer]:
+          - img [ref=e72]
+          - generic [ref=e73]: 添加楼栋
+        - button "添加账单" [ref=e74] [cursor=pointer]:
+          - img [ref=e76]
+          - generic [ref=e77]: 添加账单
+  - navigation [ref=e78]:
+    - generic [ref=e79]:
+      - link "首页" [ref=e80] [cursor=pointer]:
+        - /url: /
+        - img [ref=e81]
+        - generic [ref=e84]: 首页
+      - link "房屋" [ref=e85] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e86]
+        - generic [ref=e90]: 房屋
+      - link "租客" [ref=e91] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e92]
+        - generic [ref=e97]: 租客
+      - link "账单" [ref=e98] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e99]
+        - generic [ref=e102]: 账单
+      - link "更多" [ref=e103] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e104]
+        - generic [ref=e108]: 更多

@@ -1,0 +1,60 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - heading "房屋管理" [level=1] [ref=e9]
+        - paragraph [ref=e10]: 轻松管理您的物业
+      - generic [ref=e11]:
+        - img [ref=e12]
+        - textbox "搜索..." [ref=e15]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - paragraph [ref=e22]: 房源总数
+            - paragraph [ref=e23]: "3"
+          - img [ref=e25]
+        - generic [ref=e30] [cursor=pointer]:
+          - generic [ref=e31]:
+            - paragraph [ref=e32]: 已出租
+            - paragraph [ref=e33]: 1/1
+          - img [ref=e35]
+        - generic [ref=e41] [cursor=pointer]:
+          - generic [ref=e42]:
+            - paragraph [ref=e43]: 已收租金
+            - paragraph [ref=e44]: ¥0
+          - img [ref=e46]
+        - generic [ref=e49] [cursor=pointer]:
+          - generic [ref=e50]:
+            - paragraph [ref=e51]: 待处理账单
+            - paragraph [ref=e52]: "18"
+          - img [ref=e54]
+      - generic [ref=e56]:
+        - generic [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e60]: 6 笔租客账单未收
+        - generic [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+          - generic [ref=e64]: 12 笔房东账单未付
+  - navigation [ref=e65]:
+    - generic [ref=e66]:
+      - link "首页" [ref=e67] [cursor=pointer]:
+        - /url: /
+        - img [ref=e68]
+        - generic [ref=e71]: 首页
+      - link "房屋" [ref=e72] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e73]
+        - generic [ref=e77]: 房屋
+      - link "租客" [ref=e78] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e79]
+        - generic [ref=e84]: 租客
+      - link "账单" [ref=e85] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e86]
+        - generic [ref=e89]: 账单
+      - link "更多" [ref=e90] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e91]
+        - generic [ref=e95]: 更多

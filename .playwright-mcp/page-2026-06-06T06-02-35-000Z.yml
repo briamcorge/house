@@ -1,0 +1,88 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - heading "房屋管理" [level=1] [ref=e9]
+        - paragraph [ref=e10]: 轻松管理您的物业
+      - generic [ref=e11]:
+        - img [ref=e12]
+        - textbox "搜索..." [ref=e15]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - paragraph [ref=e22]: 房源总数
+            - paragraph [ref=e23]: "2"
+          - img [ref=e25]
+        - generic [ref=e30] [cursor=pointer]:
+          - generic [ref=e31]:
+            - paragraph [ref=e32]: 已出租
+            - paragraph [ref=e33]: 2/4
+          - img [ref=e35]
+        - generic [ref=e41] [cursor=pointer]:
+          - generic [ref=e42]:
+            - paragraph [ref=e43]: 已收租金
+            - paragraph [ref=e44]: ¥1800
+          - img [ref=e46]
+        - generic [ref=e49] [cursor=pointer]:
+          - generic [ref=e50]:
+            - paragraph [ref=e51]: 待处理账单
+            - paragraph [ref=e52]: "3"
+          - img [ref=e54]
+      - generic [ref=e56]:
+        - generic [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e60]: 2 笔租客账单未收
+        - generic [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+          - generic [ref=e64]: 1 笔房东账单未付
+      - generic [ref=e65]:
+        - heading "我的房源" [level=2] [ref=e67]
+        - generic [ref=e68]:
+          - generic [ref=e69] [cursor=pointer]:
+            - generic [ref=e70]:
+              - img [ref=e72]
+              - generic [ref=e76]: 3 间房
+            - heading "朝阳区建国路88号" [level=3] [ref=e77]
+            - generic [ref=e78]:
+              - img [ref=e79]
+              - generic [ref=e82]: 3 间房间
+            - paragraph [ref=e84]: 添加于 2026/6/6
+          - generic [ref=e85] [cursor=pointer]:
+            - generic [ref=e86]:
+              - img [ref=e88]
+              - generic [ref=e92]: 1 间房
+            - heading "海淀区中关村大街100号" [level=3] [ref=e93]
+            - generic [ref=e94]:
+              - img [ref=e95]
+              - generic [ref=e98]: 1 间房间
+            - paragraph [ref=e100]: 添加于 2026/6/6
+      - generic [ref=e101]:
+        - button "添加房源" [ref=e102] [cursor=pointer]:
+          - img [ref=e104]
+          - generic [ref=e105]: 添加房源
+        - button "添加账单" [ref=e106] [cursor=pointer]:
+          - img [ref=e108]
+          - generic [ref=e109]: 添加账单
+  - navigation [ref=e110]:
+    - generic [ref=e111]:
+      - link "首页" [ref=e112] [cursor=pointer]:
+        - /url: /
+        - img [ref=e113]
+        - generic [ref=e116]: 首页
+      - link "房屋" [ref=e117] [cursor=pointer]:
+        - /url: /properties
+        - img [ref=e118]
+        - generic [ref=e122]: 房屋
+      - link "租客" [ref=e123] [cursor=pointer]:
+        - /url: /tenants
+        - img [ref=e124]
+        - generic [ref=e129]: 租客
+      - link "账单" [ref=e130] [cursor=pointer]:
+        - /url: /bills
+        - img [ref=e131]
+        - generic [ref=e134]: 账单
+      - link "更多" [ref=e135] [cursor=pointer]:
+        - /url: /more
+        - img [ref=e136]
+        - generic [ref=e140]: 更多
