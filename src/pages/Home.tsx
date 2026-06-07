@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import PaymentModal from '../components/PaymentModal'
+import BillChart from '../components/BillChart'
 import { Building2, Users, DollarSign, AlertCircle, Calendar, Search } from 'lucide-react'
 
 export default function Home() {
@@ -82,6 +83,9 @@ export default function Home() {
               </div>
             ) : null
           })()}
+
+          {/* 月度收支趋势图表 */}
+          <BillChart bills={bills} />
 
           {/* 搜索结果 */}
           {searchQuery.trim() && (
