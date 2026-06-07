@@ -125,6 +125,36 @@ export default function Bills() {
       <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-4">账单管理</h1>
+
+          {/* 总体汇总：未收/已收/未付/已付 */}
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {(() => {
+              const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+              const receivableUnpaid = bills.filter(b => b.direction === 'receivable' && b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
+              const payablePaid = bills.filter(b => b.direction === 'payable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+              const payableUnpaid = bills.filter(b => b.direction === 'payable' && b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
+              return (
+                <>
+                  <div className="bg-green-50 rounded-xl p-2 text-center">
+                    <p className="text-xs text-green-600">已收</p>
+                    <p className="text-sm font-bold text-green-700">¥{receivablePaid.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-red-50 rounded-xl p-2 text-center">
+                    <p className="text-xs text-red-600">未收</p>
+                    <p className="text-sm font-bold text-red-700">¥{receivableUnpaid.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-2 text-center">
+                    <p className="text-xs text-blue-600">已付</p>
+                    <p className="text-sm font-bold text-blue-700">¥{payablePaid.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-xl p-2 text-center">
+                    <p className="text-xs text-orange-600">未付</p>
+                    <p className="text-sm font-bold text-orange-700">¥{payableUnpaid.toFixed(0)}</p>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
           
           {/* 方向筛选 */}
           <div className="flex gap-2 mb-3">
@@ -196,15 +226,31 @@ export default function Bills() {
 
               {/* 月份汇总 */}
               {(() => {
-                const monthTotal = currentMonthBills.reduce((s, b) => {
-                  const paid = b.paidAmount !== undefined ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
-                  return s + paid
-                }, 0)
-                const monthSum = currentMonthBills.reduce((s, b) => s + b.amount, 0)
+                const receivableBills = currentMonthBills.filter(b => b.direction === 'receivable')
+                const payableBills = currentMonthBills.filter(b => b.direction === 'payable')
+                const receivablePaid = receivableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                const receivableUnpaid = receivableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
+                const payablePaid = payableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                const payableUnpaid = payableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
                 return currentMonthBills.length > 0 ? (
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <span className="text-sm text-gray-500">{currentMonthBills.length} 笔</span>
-                    <span className="text-sm text-gray-500">已收/已付 ¥{monthTotal.toFixed(0)} / 总计 ¥{monthSum.toFixed(0)}</span>
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">{currentMonthBills.length} 笔</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-blue-50 rounded-lg p-2 text-xs">
+                        <span className="text-blue-600">已收：</span>
+                        <span className="font-medium text-blue-700">¥{receivablePaid.toFixed(0)}</span>
+                        <span className="text-blue-400 ml-2">未收：</span>
+                        <span className="font-medium text-blue-600">¥{receivableUnpaid.toFixed(0)}</span>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-2 text-xs">
+                        <span className="text-orange-600">已付：</span>
+                        <span className="font-medium text-orange-700">¥{payablePaid.toFixed(0)}</span>
+                        <span className="text-orange-400 ml-2">未付：</span>
+                        <span className="font-medium text-orange-600">¥{payableUnpaid.toFixed(0)}</span>
+                      </div>
+                    </div>
                   </div>
                 ) : null
               })()}
