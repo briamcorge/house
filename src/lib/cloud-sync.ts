@@ -127,6 +127,87 @@ export function setLastSyncTimestamp(ts: string): void {
   localStorage.setItem(SYNC_TS_KEY, ts)
 }
 
+// ─── 合并逻辑（本地优先 + 云端的补 + 回收站过滤） ────
+
+function mergeEntities(
+  local: unknown[],
+  cloud: unknown[],
+  deletedIds: Set<string>,
+): unknown[] {
+  const localIds = new Set(local.map((i) => (i as { id: string }).id))
+  const result = [...local]
+  for (const item of cloud) {
+    const id = (item as { id: string }).id
+    if (!localIds.has(id) && !deletedIds.has(id)) {
+      result.push(item)
+    }
+  }
+  return result
+}
+
+/** 合并本地与云端数据：本地优先，云端新增的补进来，已删除的不加回 */
+export function mergeLocalData(local: SyncData, cloud: SyncData): SyncData {
+  // 构建被删除的 ID 集合
+  const allTrash = [...(local.trash || []), ...(cloud.trash || [])] as Array<{
+    id: string
+    type: string
+    originalId: string
+    data: unknown
+    label: string
+    deletedAt: string
+  }>
+  const deletedMap = new Map<string, Set<string>>()
+  for (const item of allTrash) {
+    if (!deletedMap.has(item.type)) deletedMap.set(item.type, new Set())
+    deletedMap.get(item.type)!.add(item.originalId)
+  }
+
+  // 合并去重 trash
+  const trashMap = new Map<string, unknown>()
+  for (const item of allTrash) trashMap.set(item.id, item)
+
+  return {
+    properties: mergeEntities(local.properties, cloud.properties, deletedMap.get('property') ?? new Set()),
+    rooms: mergeEntities(local.rooms, cloud.rooms, deletedMap.get('room') ?? new Set()),
+    tenants: mergeEntities(local.tenants, cloud.tenants, deletedMap.get('tenant') ?? new Set()),
+    bills: mergeEntities(local.bills, cloud.bills, deletedMap.get('bill') ?? new Set()),
+    landlordContracts: mergeEntities(local.landlordContracts, cloud.landlordContracts, deletedMap.get('landlord_contract') ?? new Set()),
+    profitRecords: mergeEntities(local.profitRecords, cloud.profitRecords, deletedMap.get('profit_record') ?? new Set()),
+    trash: Array.from(trashMap.values()),
+    syncTimestamp: new Date().toISOString(),
+  }
+}
+
+/** 下载云端 → 合并 → 上传 → 返回合并结果 */
+export async function syncUpload(data: SyncData, token: string): Promise<SyncData> {
+  const cloud = await downloadData()
+  const merged = cloud ? mergeLocalData(data, cloud) : data
+  await uploadData(merged, token)
+  return merged
+}
+
+/** 启动时自动合并云端数据：下载 → 合并 → 回调写入 store */
+export async function initSync(onMerge: (merged: SyncData) => void): Promise<void> {
+  try {
+    const cloud = await downloadData()
+    if (!cloud) return
+
+    // 从 localStorage 读取本地数据（persist 存储格式：{ state, version }）
+    const raw = localStorage.getItem('property-manager-data')
+    let local: SyncData
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      local = (parsed.state || parsed) as SyncData
+    } else {
+      local = { properties: [], rooms: [], tenants: [], bills: [], landlordContracts: [], profitRecords: [], trash: [], syncTimestamp: '' }
+    }
+    const merged = mergeLocalData(local, cloud)
+    onMerge(merged)
+  } catch {
+    // 启动时静默失败，不影响正常使用
+  }
+}
+
 // ─── 防抖自动同步 ────────────────────────────────────
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 let lastUploaded: string | null = null
