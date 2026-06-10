@@ -1,6 +1,6 @@
 export const CLOUD_CONFIG = {
-  provider: 'gitcode' as const,
-  owner: 'c94138228',
+  provider: 'github' as const,
+  owner: 'briamcorge',
   repo: 'house',
   branch: 'master',
   filePath: '.house-sync/data.json',

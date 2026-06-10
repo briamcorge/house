@@ -335,7 +335,7 @@ export default function More() {
                         <div className="mt-2 space-y-2">
                           {!hasToken() ? (
                             <>
-                              <p className="text-xs text-gray-500">输入你的 GitCode 令牌开启云同步</p>
+                              <p className="text-xs text-gray-500">输入你的 GitHub Personal Access Token（需 repo 权限）开启云同步</p>
                               <div className="flex gap-2">
                                 <input
                                   type="password"
