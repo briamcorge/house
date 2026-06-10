@@ -62,7 +62,7 @@ function StorageWarning() {
 
 export default function App() {
   return (
-    <Router>
+    <Router basename="/house">
       <div className="min-h-screen">
         <StorageWarning />
         <Routes>
