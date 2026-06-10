@@ -229,7 +229,7 @@ export default function More() {
         const billList = parseSheet('账单')
 
         const state = { properties: props, rooms: roomList, tenants: tenantList, bills: billList }
-        localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 0 }))
+      localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
         window.location.reload()
       } catch (err) {
         alert('Excel 格式错误，请检查文件')
