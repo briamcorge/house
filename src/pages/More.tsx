@@ -1,6 +1,6 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, FileText } from 'lucide-react'
-import { useRef } from 'react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, FileText, BarChart3 } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
@@ -31,6 +31,20 @@ const menuItems: MenuItem[] = [
     path: '/contracts'
   },
   {
+    icon: BarChart3,
+    label: '统计报表',
+    description: '收支/入住率/房源收益',
+    color: 'blue',
+    path: '/statistics'
+  },
+  {
+    icon: Trash2,
+    label: '回收站',
+    description: '恢复已删除的数据',
+    color: 'gray',
+    path: '/trash'
+  },
+  {
     icon: Database,
     label: '数据备份',
     description: '备份您的数据',
@@ -38,16 +52,20 @@ const menuItems: MenuItem[] = [
   },
   {
     icon: Settings,
-    label: '设置',
-    description: '应用设置',
+    label: '关于',
+    description: '版本信息',
     color: 'gray'
   },
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, clearAllData } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, clearAllData } = useStore()
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
+  const [showBackup, setShowBackup] = useState(false)
+
+  const activeTenants = tenants.filter(t => t.status === 'active')
+  const pendingBills = bills.filter(b => b.status !== 'paid')
 
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new()
@@ -55,7 +73,8 @@ export default function More() {
     const sheets: [string, Record<string, unknown>[], Record<string, string>][] = [
       ['房源', properties as unknown as Record<string, unknown>[], { id: 'ID', address: '地址', description: '备注', createdAt: '创建时间' }],
       ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
-      ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', createdAt: '创建时间' }],
+      ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', createdAt: '创建时间' }],
+      ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', createdAt: '创建时间' }],
       ['账单', bills.map(b => ({ ...b, paidAmount: b.paidAmount ?? '', propertyId: b.propertyId ?? '', roomId: b.roomId ?? '', tenantId: b.tenantId ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', roomId: '房间ID', tenantId: '租客ID', amount: '金额', paidAmount: '已付金额', type: '类型', status: '状态', direction: '方向', dueDate: '到期日', paidDate: '实付日', description: '描述', createdAt: '创建时间' }],
     ]
 
@@ -89,6 +108,7 @@ export default function More() {
         const headerMap: Record<string, string> = {
           'ID': 'id', '地址': 'address', '备注': 'description', '创建时间': 'createdAt',
           '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status',
+          '合同编号': 'displayId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone',
           '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart',
           '合同结束': 'contractEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod',
           '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount',
@@ -128,7 +148,7 @@ export default function More() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-6">更多</h1>
           
@@ -148,63 +168,71 @@ export default function More() {
                 <p className="text-blue-200 text-xs">房屋</p>
               </div>
               <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">{tenants.length}</p>
-                <p className="text-blue-200 text-xs">租客</p>
+                <p className="text-2xl font-bold text-white">{activeTenants.length}</p>
+                <p className="text-blue-200 text-xs">在租租客</p>
               </div>
               <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">{bills.length}</p>
-                <p className="text-blue-200 text-xs">账单</p>
+                <p className="text-2xl font-bold text-white">{pendingBills.length}</p>
+                <p className="text-blue-200 text-xs">待处理账单</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <div className="max-w-md mx-auto space-y-3">
           {menuItems.map((item, index) => {
             const Icon = item.icon
-            
-            return (
-              <button
-                key={index}
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (item.path) navigate(item.path)
-                  else alert(`${item.label}功能开发中...`)
-                }}
-                className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer"
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
-                  <Icon className="w-6 h-6" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900">{item.label}</p>
-                  <p className="text-sm text-gray-500">{item.description}</p>
-                </div>
-                <div className="w-5 h-5 text-gray-300">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
+              const isBackup = item.label === '数据备份'
+              const isAbout = item.label === '关于'
+              
+              return (
+                <div key={index}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (item.path) navigate(item.path)
+                    else if (isBackup) setShowBackup(!showBackup)
+                    else if (isAbout) alert('房屋管理系统 v1.0.0\n用于二房东日常房源/租客/账单管理\n数据存储于当前浏览器中')
+                    else alert(`${item.label}功能开发中...`)
+                  }}
+                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup ? 'rounded-b-none border-b-0' : ''}`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-medium text-gray-900">{item.label}</p>
+                    <p className="text-sm text-gray-500">{item.description}</p>
+                  </div>
+                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup ? 'rotate-90' : ''}`}>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+                {isBackup && showBackup && (
+                  <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={handleExportExcel} className="py-3 px-4 bg-emerald-50 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors flex flex-col items-center gap-1">
+                        <FileSpreadsheet className="w-5 h-5" />
+                        <span className="text-xs">导出Excel</span>
+                      </button>
+                      <button type="button" onClick={() => excelInputRef.current?.click()} className="py-3 px-4 bg-orange-50 text-orange-700 rounded-xl font-medium hover:bg-orange-100 transition-colors flex flex-col items-center gap-1">
+                        <FileSpreadsheet className="w-5 h-5" />
+                        <span className="text-xs">导入Excel</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
 
-        {/* 数据导入导出 */}
-        <div className="max-w-md mx-auto mt-6 grid grid-cols-2 gap-3">
-          <button type="button" onClick={handleExportExcel} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-colors cursor-pointer">
-            <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
-            <span className="text-sm font-medium text-gray-700">导出Excel</span>
-          </button>
-          <button type="button" onClick={() => excelInputRef.current?.click()} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-md transition-colors cursor-pointer">
-            <FileSpreadsheet className="w-6 h-6 text-orange-600" />
-            <span className="text-sm font-medium text-gray-700">导入Excel</span>
-          </button>
-        </div>
         <input ref={excelInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
 
         <div className="max-w-md mx-auto mt-8">

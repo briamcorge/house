@@ -1,28 +1,97 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
-import PaymentModal from '../components/PaymentModal'
 import BillChart from '../components/BillChart'
-import { Building2, Users, DollarSign, AlertCircle, Calendar, Search } from 'lucide-react'
+import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X } from 'lucide-react'
+import { formatMoney } from '../lib/utils'
+
+type AlertType = 'overdue' | 'expiring'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, updateBill } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [paymentModal, setPaymentModal] = useState<{ direction: 'receivable' | 'payable' } | null>(null)
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<AlertType>>(new Set())
+
+  const dismissAlert = (type: AlertType) => {
+    setDismissedAlerts(prev => new Set(prev).add(type))
+  }
+
+  // 自动标记逾期账单
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    let updated = 0
+    for (const bill of bills) {
+      if (bill.status === 'pending' && bill.dueDate < today) {
+        updateBill(bill.id, { status: 'overdue' })
+        updated++
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const totalProperties = properties.length
   const totalRooms = rooms.length
-  const occupiedRooms = rooms.filter(r => r.status === 'occupied').length
-  const totalRentReceived = bills
-    .filter(b => b.direction === 'receivable' && b.status === 'paid')
-    .reduce((sum, b) => sum + b.amount, 0)
-  const pendingBills = bills.filter(b => b.status === 'pending' || b.status === 'overdue')
+  const occupiedRooms = tenants.filter(t => t.status === 'active').length
+
+  const unpaidReceivable = useMemo(() =>
+    bills.filter(b => {
+      if (b.direction !== 'receivable') return false
+      if (b.status !== 'pending' && b.status !== 'overdue') return false
+      const daysLeft = Math.ceil((new Date(b.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft <= 30
+    }),
+    [bills]
+  )
+  const unpaidPayable = useMemo(() =>
+    bills.filter(b => {
+      if (b.direction !== 'payable') return false
+      if (b.status !== 'pending' && b.status !== 'overdue') return false
+      const daysLeft = Math.ceil((new Date(b.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft <= 30
+    }),
+    [bills]
+  )
+  const unpaidReceivableTotal = unpaidReceivable.reduce((s, b) => s + b.amount, 0)
+  const unpaidPayableTotal = unpaidPayable.reduce((s, b) => s + b.amount, 0)
+
+  const expiringTenants = useMemo(() =>
+    tenants.filter(t => {
+      if (t.status !== 'active') return false
+      const daysLeft = Math.ceil((new Date(t.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft <= 30
+    }),
+    [tenants]
+  )
+
+  const expiringLandlords = useMemo(() =>
+    landlordContracts.filter(c => {
+      if (c.status !== 'active') return false
+      const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft <= 30
+    }),
+    [landlordContracts]
+  )
+
+  const overdueReceivable = useMemo(() =>
+    bills.filter(b => b.direction === 'receivable' && (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < new Date().toISOString().slice(0, 10)))),
+    [bills]
+  )
+  const overdueReceivableTotal = overdueReceivable.reduce((s, b) => s + b.amount, 0)
+
+  const expiringSoon = (expiringTenants.length + expiringLandlords.length) > 0
+
+  const recentTransactions = useMemo(() =>
+    bills.filter(b => b.status === 'paid')
+      .sort((a, b) => b.paidDate!.localeCompare(a.paidDate!))
+      .slice(0, 10),
+    [bills]
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-10 pb-16">
+      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-6 pb-12">
           <div className="max-w-md mx-auto">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -48,44 +117,131 @@ export default function Home() {
 
       <div className="px-4 -mt-10">
         <div className="max-w-md mx-auto">
+          {/* 告警横幅 */}
+          <div className="mb-3 space-y-2">
+            {!dismissedAlerts.has('overdue') && overdueReceivable.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-red-800">{overdueReceivable.length} 笔账单已逾期</p>
+                    <p className="text-xs text-red-600 mt-0.5">合计 ¥{formatMoney(overdueReceivableTotal)}，请尽快处理</p>
+                </div>
+                <button type="button" onClick={() => dismissAlert('overdue')} className="text-red-400 hover:text-red-600 shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {!dismissedAlerts.has('expiring') && expiringSoon && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                <Bell className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-yellow-800">
+                    {expiringTenants.length > 0 && `${expiringTenants.length} 位租客`}
+                    {expiringTenants.length > 0 && expiringLandlords.length > 0 && '、'}
+                    {expiringLandlords.length > 0 && `${expiringLandlords.length} 份业主合同`}
+                    {' '}30天内到期
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-0.5">请提前准备续约或退租</p>
+                </div>
+                <button type="button" onClick={() => dismissAlert('expiring')} className="text-yellow-400 hover:text-yellow-600 shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3 mb-6">
             <StatCard title="房源总数" value={totalProperties} icon={Building2} color="blue" onClick={() => navigate('/properties')} />
             <StatCard title="已出租" value={`${occupiedRooms}/${totalRooms}`} icon={Users} color="green" onClick={() => navigate('/properties')} />
-            <StatCard title="已收租金" value={`¥${totalRentReceived}`} icon={DollarSign} color="green" onClick={() => navigate('/bills')} />
-            <StatCard title="待处理账单" value={pendingBills.length} icon={AlertCircle} color={pendingBills.length > 0 ? 'orange' : 'blue'} onClick={() => navigate('/bills')} />
           </div>
-
-          {/* 提醒区域 */}
-          {(() => {
-            const unpaidReceivable = bills.filter(b => b.direction === 'receivable' && (b.status === 'pending' || b.status === 'overdue'))
-            const unpaidPayable = bills.filter(b => b.direction === 'payable' && (b.status === 'pending' || b.status === 'overdue'))
-            const expiringSoon = tenants.filter(t => {
-              if (t.status !== 'active') return false
-              const daysLeft = Math.ceil((new Date(t.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-              return daysLeft >= 0 && daysLeft <= 30
-            })
-            const alerts: { icon: React.ComponentType<{ className?: string }>; color: string; text: string; dir?: 'receivable' | 'payable' }[] = []
-            if (unpaidReceivable.length > 0) alerts.push({ icon: AlertCircle, color: 'text-red-600 bg-red-50', text: `${unpaidReceivable.length} 笔租客账单未收`, dir: 'receivable' })
-            if (unpaidPayable.length > 0) alerts.push({ icon: AlertCircle, color: 'text-orange-600 bg-orange-50', text: `${unpaidPayable.length} 笔房东账单未付`, dir: 'payable' })
-            if (expiringSoon.length > 0) alerts.push({ icon: Calendar, color: 'text-yellow-600 bg-yellow-50', text: `${expiringSoon.length} 份合同即将到期` })
-            return alerts.length > 0 ? (
-              <div className="mb-6 space-y-2">
-                {alerts.map((alert, i) => (
-                  <div
-                    key={i}
-                    onClick={() => alert.dir ? setPaymentModal({ direction: alert.dir }) : navigate('/tenants')}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${alert.color}`}
-                  >
-                    <alert.icon className="w-5 h-5" />
-                    <span>{alert.text}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null
-          })()}
 
           {/* 月度收支趋势图表 */}
           <BillChart bills={bills} />
+
+          {/* 待办事项汇总 */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div onClick={() => navigate('/bills', { state: { direction: 'receivable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-red-600">未收账单</span>
+                <span className="text-xs text-gray-400">{unpaidReceivable.length} 笔</span>
+              </div>
+              <p className="text-xl font-bold text-red-700">¥{formatMoney(unpaidReceivableTotal)}</p>
+            </div>
+            <div onClick={() => navigate('/bills', { state: { direction: 'payable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-orange-600">未付账单</span>
+                <span className="text-xs text-gray-400">{unpaidPayable.length} 笔</span>
+              </div>
+              <p className="text-xl font-bold text-orange-700">¥{formatMoney(unpaidPayableTotal)}</p>
+            </div>
+            <div onClick={() => navigate('/tenants', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-yellow-600">到期租客</span>
+                <span className="text-xs text-gray-400">30天内</span>
+              </div>
+              <p className="text-xl font-bold text-yellow-700">{expiringTenants.length} 人</p>
+            </div>
+            <div onClick={() => navigate('/contracts', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-yellow-600">到期业主</span>
+                <span className="text-xs text-gray-400">30天内</span>
+              </div>
+              <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length} 人</p>
+            </div>
+          </div>
+
+          {/* 近期收支流水 */}
+          <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">近期收支流水</h3>
+              <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+            </div>
+            {recentTransactions.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">暂无流水</p>
+            ) : (
+              <div className="space-y-2">
+                {recentTransactions.map(b => {
+                  const prop = b.propertyId ? properties.find(p => p.id === b.propertyId) : null
+                  const room = b.roomId ? rooms.find(r => r.id === b.roomId) : null
+                  const tenant = b.tenantId ? tenants.find(t => t.id === b.tenantId) : null
+                  const isRefund = b.amount < 0
+                  return (
+                    <div key={b.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          isRefund ? 'bg-orange-100' :
+                          b.direction === 'receivable' ? 'bg-green-100' : 'bg-blue-100'
+                        }`}>
+                          {isRefund
+                            ? <ArrowUpRight className="w-4 h-4 text-orange-600" />
+                            : b.direction === 'receivable'
+                              ? <ArrowDownRight className="w-4 h-4 text-green-600" />
+                              : <ArrowUpRight className="w-4 h-4 text-blue-600" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {isRefund ? (b.description || '退款') : (b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主'))}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate">
+                            {isRefund ? '退款' : (b.type === 'rent' ? '房租' : b.type === 'water' ? '水费' : b.type === 'electric' ? '电费' : b.type === 'gas' ? '燃气费' : '其他')}
+                            {tenant && tenant.displayId && ` #${tenant.displayId}`}
+                            {!isRefund && room && ` · ${room.label}室`}
+                            {!isRefund && b.description && ` · ${b.description}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        <p className={`text-sm font-bold ${isRefund ? 'text-orange-700' : b.direction === 'receivable' ? 'text-green-700' : 'text-blue-700'}`}>
+                          {isRefund ? '-' : b.direction === 'receivable' ? '+' : '-'}¥{Math.abs(b.amount).toFixed(0)}
+                        </p>
+                        <p className="text-xs text-gray-400">{b.paidDate}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* 搜索结果 */}
           {searchQuery.trim() && (
@@ -93,7 +249,19 @@ export default function Home() {
               {(() => {
                 const q = searchQuery.toLowerCase()
                 const matchedProps = properties.filter(p => p.address.toLowerCase().includes(q))
-                const matchedTenants = tenants.filter(t => t.name.toLowerCase().includes(q))
+                const matchedTenants = tenants.filter(t =>
+                  t.name.toLowerCase().includes(q) ||
+                  (t.phone && t.phone.includes(q)) ||
+                  (t.displayId && t.displayId.toLowerCase().includes(q))
+                )
+                // 搜索房间标签（如A/B/C）
+                const matchedRoomLabels = rooms.filter(r => r.label.toLowerCase() === q)
+                for (const mr of matchedRoomLabels) {
+                  const ts = tenants.filter(t => t.roomId === mr.id)
+                  for (const t of ts) {
+                    if (!matchedTenants.find(mt => mt.id === t.id)) matchedTenants.push(t)
+                  }
+                }
                 if (matchedProps.length === 0 && matchedTenants.length === 0) {
                   return <div className="text-center py-6 text-sm text-gray-400">未找到匹配结果</div>
                 }
@@ -123,12 +291,6 @@ export default function Home() {
 
         </div>
       </div>
-
-      <PaymentModal
-        isOpen={paymentModal !== null}
-        onClose={() => setPaymentModal(null)}
-        direction={paymentModal?.direction || 'receivable'}
-      />
     </div>
   )
 }

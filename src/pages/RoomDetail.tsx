@@ -5,13 +5,13 @@ import { Tenant } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
-import { ChevronLeft, User, Phone, Calendar, Plus, FileText } from 'lucide-react'
+import { ChevronLeft, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt } from 'lucide-react'
 import { add30Days, formatDate } from '../utils/calculator'
 
 export default function RoomDetail() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, updateTenant, addBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills } = useStore()
+  const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const room = rooms.find(r => r.id === roomId)
@@ -30,6 +30,13 @@ export default function RoomDetail() {
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
 
   const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', other: '其他' }
+  const typeIcons: Record<string, typeof FileText> = {
+    rent: FileText,
+    water: Droplets,
+    electric: Zap,
+    gas: Flame,
+    other: Receipt
+  }
   const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-100 text-green-700', overdue: 'bg-red-100 text-red-700' }
   const statusLabels: Record<string, string> = { pending: '未收', paid: '已收', overdue: '已逾期' }
 
@@ -43,7 +50,7 @@ export default function RoomDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <button type="button" onClick={() => navigate(`/properties/${propertyId}`)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -57,7 +64,7 @@ export default function RoomDetail() {
         </div>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <div className="max-w-md mx-auto space-y-6">
           {/* 合同列表 */}
           <div>
@@ -99,6 +106,7 @@ export default function RoomDetail() {
                         ) : (
                           <span onClick={() => { setInlineValue(t.name); setInlineEdit({ id: t.id, field: 'name', value: t.name }) }} className="font-medium text-sm cursor-pointer hover:text-blue-600">{t.name}</span>
                         )}
+                        <span className="text-xs text-gray-400">#{t.displayId}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {t.status === 'active' ? '在租' : '已退租'}
                         </span>
@@ -149,6 +157,9 @@ export default function RoomDetail() {
                     <div key={bill.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                            {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3.5 h-3.5" /> })()}
+                          </div>
                           <span className="font-medium text-gray-900">{typeLabels[bill.type]}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>{statusLabels[bill.status]}</span>
                         </div>
@@ -160,6 +171,22 @@ export default function RoomDetail() {
                           </span>
                           {bill.paidAmount !== undefined && bill.paidAmount < bill.amount && (
                             <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">部分</span>
+                          )}
+                          {bill.status !== 'paid' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`确认收款 ¥${bill.amount.toFixed(2)}？`)) {
+                                  updateBill(bill.id, {
+                                    status: 'paid',
+                                    paidDate: new Date().toISOString().slice(0, 10),
+                                  })
+                                }
+                              }}
+                              className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200"
+                            >
+                              收款
+                            </button>
                           )}
                         </div>
                       </div>

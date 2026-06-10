@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Building2, FileText, Users, MoreHorizontal } from 'lucide-react'
+import { Home, Building2, FileText, Users, BarChart3, MoreHorizontal } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function BottomNav() {
@@ -10,6 +10,7 @@ export default function BottomNav() {
     { path: '/properties', label: '房屋', icon: Building2 },
     { path: '/tenants', label: '租客', icon: Users },
     { path: '/bills', label: '账单', icon: FileText },
+    { path: '/statistics', label: '统计', icon: BarChart3 },
     { path: '/more', label: '更多', icon: MoreHorizontal }
   ]
 
@@ -17,7 +18,9 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-2 pb-8 z-50">
       <div className="flex justify-around items-center max-w-md mx-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path
+          const isActive = item.path === '/'
+            ? location.pathname === '/'
+            : location.pathname.startsWith(item.path)
           const Icon = item.icon
           return (
             <Link

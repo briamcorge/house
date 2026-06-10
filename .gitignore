@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Tooling artifacts
+.playwright-mcp/
+.omo/
+.opencode/
+filters.xml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

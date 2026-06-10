@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
 import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
@@ -7,9 +7,9 @@ import { useStore } from '../store/useStore'
 interface TenantModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (tenant: Omit<Tenant, 'id' | 'createdAt'>) => void
-  onContractConfirm?: (tenant: Omit<Tenant, 'id' | 'createdAt'>, bills: DraftBill[]) => void
-  onContractUpdate?: (tenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt'>, bills: DraftBill[]) => void
+  onSave: (tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>) => void
+  onContractConfirm?: (tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[]) => void
+  onContractUpdate?: (tenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[]) => void
   properties: Property[]
   rooms: Room[]
   editingTenant?: Tenant
@@ -27,7 +27,7 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
 
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
-  setTimeout(() => setter(''), 3000)
+  setTimeout(() => setter(''), 5000)
 }
 
 export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm, onContractUpdate, properties, rooms, editingTenant, selectedRoomId }: TenantModalProps) {
@@ -36,9 +36,17 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const [phone, setPhone] = useState('')
   const [roomId, setRoomId] = useState('')
   const [contractStart, setContractStart] = useState(formatDate(new Date()))
-  const [contractEnd, setContractEnd] = useState(() => {
-    return formatDate(add30Days(new Date(), 359))
-  })
+
+  // ESC键关闭
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
+  const [contractEnd, setContractEnd] = useState(() => formatDate(add30Days(new Date(), 359)))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')
   const [advanceDays, setAdvanceDays] = useState(0)
   const [monthlyRent, setMonthlyRent] = useState('')
@@ -49,6 +57,21 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
   const [billKey, setBillKey] = useState(0)
+  const { landlordContracts } = useStore()
+
+  // 获取已选房间的业主合同期（参考用）
+  const selectedRoomPropertyId = useMemo(() => {
+    if (!roomId) return null
+    const room = rooms.find(r => r.id === roomId)
+    return room?.propertyId || null
+  }, [roomId, rooms])
+
+  const currentLandlordContract = useMemo(() => {
+    if (!selectedRoomPropertyId) return null
+    return landlordContracts
+      .filter(c => c.propertyId === selectedRoomPropertyId && c.status === 'active')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null
+  }, [selectedRoomPropertyId, landlordContracts])
 
   const isEditing = !!editingTenant
 
@@ -158,17 +181,17 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       return
     }
 
-    // 校验租客合同日期不能超出业主合同
+    // 校验租客合同日期不能超出房屋代理合同
     if (!editingTenant && selectedRoom) {
       const allContracts = useStore.getState().landlordContracts
       const lc = allContracts.filter(c => c.propertyId === selectedRoom.propertyId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
       if (lc) {
         if (contractStart < lc.contractStart) {
-          showError(setError, `租客合同开始日不能早于业主合同（${lc.contractStart}）`)
+          showError(setError, `租赁合同开始日不能早于代理合同（${lc.contractStart}）`)
           return
         }
         if (contractEnd > lc.contractEnd) {
-          showError(setError, `租客合同结束日不能晚于业主合同（${lc.contractEnd}）`)
+          showError(setError, `租赁合同结束日不能晚于代理合同（${lc.contractEnd}）`)
           return
         }
       } else {
@@ -213,7 +236,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       showError(setError, '未生成账单，请返回检查合同信息')
       return
     }
-    const tenantData: Omit<Tenant, 'id' | 'createdAt'> = {
+    const tenantData: Omit<Tenant, 'id' | 'createdAt' | 'displayId'> = {
       name: name.trim(),
       phone: phone.trim() || undefined,
       roomId,
@@ -246,8 +269,8 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
@@ -266,6 +289,25 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               <span className="text-xs text-gray-400">确认账单</span>
             </div>
           </div>
+
+          {/* 业主合同期参考 */}
+          {step === 'info' && currentLandlordContract && (
+            <div className="px-4 pt-1 pb-0">
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-xs text-blue-700 flex items-center gap-1.5">
+                <Calendar className="w-3 h-3 inline" />
+                业主合同期：
+                <span className="font-medium">{currentLandlordContract.contractStart} ~ {currentLandlordContract.contractEnd}</span>
+                <span className="text-blue-400 ml-1">
+                  （{(() => {
+                    const s = new Date(currentLandlordContract.contractStart)
+                    const e = new Date(currentLandlordContract.contractEnd)
+                    const m = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth())
+                    return `${m}个月`
+                  })()}）
+                </span>
+              </div>
+            </div>
+          )}
 
         {/* Step 1: Info */}
         {step === 'info' && (

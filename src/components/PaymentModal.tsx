@@ -10,7 +10,7 @@ interface PaymentModalProps {
 }
 
 export default function PaymentModal({ isOpen, onClose, direction }: PaymentModalProps) {
-  const { bills, properties, rooms, tenants, updateBill } = useStore()
+  const { bills, properties, rooms, tenants, updateBill, addBill } = useStore()
   const [payments, setPayments] = useState<Record<string, { paidAmount: string; paidDate: string }>>({})
 
   const unpaidBills = useMemo(() =>
@@ -53,14 +53,32 @@ export default function PaymentModal({ isOpen, onClose, direction }: PaymentModa
   const handleConfirmAll = () => {
     let count = 0
     for (const bill of unpaidBills) {
-      const payment: { paidAmount?: string; paidDate?: string } | undefined = payments[bill.id]
+      const payment = payments[bill.id] as { paidAmount?: string; paidDate?: string } | undefined
       if (payment?.paidDate) {
-        const paidAmt = payment.paidAmount ? parseFloat(payment.paidAmount) : bill.amount
-        updateBill(bill.id, {
-          status: 'paid',
-          paidDate: payment.paidDate,
-          paidAmount: paidAmt < bill.amount ? paidAmt : undefined,
-        })
+        const inputAmt = payment.paidAmount ? parseFloat(payment.paidAmount) : bill.amount
+        const isPartial = inputAmt < bill.amount
+        if (isPartial) {
+          // 拆单：原账单金额减少，新生成一笔已付账单
+          const remaining = bill.amount - inputAmt
+          updateBill(bill.id, { amount: remaining, paidDate: undefined, paidAmount: undefined })
+          addBill({
+            propertyId: bill.propertyId,
+            roomId: bill.roomId,
+            tenantId: bill.tenantId,
+            amount: inputAmt,
+            type: bill.type,
+            status: 'paid',
+            direction: bill.direction,
+            dueDate: bill.dueDate,
+            paidDate: payment.paidDate,
+            description: bill.description,
+          })
+        } else {
+          updateBill(bill.id, {
+            status: 'paid',
+            paidDate: payment.paidDate,
+          })
+        }
         count++
       }
     }
@@ -97,13 +115,13 @@ export default function PaymentModal({ isOpen, onClose, direction }: PaymentModa
               const payment = payments[bill.id] as { paidAmount?: string; paidDate?: string } | undefined
               return (
                 <div key={bill.id} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
-                      <span className="text-xs text-gray-400">¥{bill.amount.toFixed(2)}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
+                        <span className="text-xs text-gray-400">¥{bill.amount.toFixed(2)}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">应收日：{bill.dueDate}</span>
                     </div>
-                    <span className="text-xs text-gray-400">应收日：{bill.dueDate}</span>
-                  </div>
                   {bill.direction === 'receivable' && bill.roomId && (
                     <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
                       <Home className="w-3 h-3" />

@@ -56,9 +56,17 @@ export function add30Days(date: Date, days: number): Date {
   const day = date.getDate()         // 1-indexed
 
   // 从年初开始算总天数（用30天月）
-  const total = month * 30 + (day - 1) + days
+  let total = month * 30 + (day - 1) + days
 
-  const newYear = year + Math.floor(total / 360)
+  // 处理负数：先减去足够的整年使 total ≥ 0
+  let newYear = year
+  if (total < 0) {
+    const yearsBack = Math.ceil(Math.abs(total) / 360)
+    newYear -= yearsBack
+    total += yearsBack * 360
+  }
+
+  newYear += Math.floor(total / 360)
   const rem = total % 360
   const newMonth = Math.floor(rem / 30)
   const newDay = (rem % 30) + 1

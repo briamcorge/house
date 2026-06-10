@@ -12,11 +12,15 @@ import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText } from 'lucide-reac
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, deleteTenantAndBills, editTenantContract, renewTenantContract } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, deleteTenantAndBills, editTenantContract, renewTenantContract, createTenantContract } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
-  const getTenantForRoom = (rid: string) => tenants.find(t => t.roomId === rid)
+  const getTenantForRoom = (rid: string) => {
+    const roomTenants = tenants.filter(t => t.roomId === rid)
+    // 优先返回在租的，如果没有在租的返回最新的
+    return roomTenants.find(t => t.status === 'active') || roomTenants[roomTenants.length - 1]
+  }
 
   const [showModal, setShowModal] = useState(false)
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
@@ -38,7 +42,7 @@ export default function RoomList() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <button
@@ -56,7 +60,7 @@ export default function RoomList() {
         </div>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           {/* 业主合同记录 */}
           <div className="mb-6">
@@ -135,11 +139,13 @@ export default function RoomList() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setRoomMenu(roomMenu === room.id ? null : room.id) }}
-                    className="p-1.5 hover:bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-1.5 hover:bg-white/80 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   >
                     <MoreVertical className="w-4 h-4 text-gray-400" />
                   </button>
                   {roomMenu === room.id && (
+                    <>
+                      <div className="fixed inset-0 z-[5]" onClick={() => setRoomMenu(null)} />
                     <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[150px] z-10">
                       <button
                         type="button"
@@ -160,6 +166,7 @@ export default function RoomList() {
                         租客合同
                       </button>
                     </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -208,6 +215,10 @@ export default function RoomList() {
         onSave={(data) => {
           addTenant(data)
           useStore.getState().updateRoom(tenantRoomId!, { status: 'occupied' })
+          setTenantRoomId(null)
+        }}
+        onContractConfirm={(tenantData, draftBills) => {
+          createTenantContract(tenantData, draftBills, tenantRoomId!)
           setTenantRoomId(null)
         }}
         onContractUpdate={(tenantId, data, draftBills) => {

@@ -17,7 +17,7 @@ const roomTypes = ['主卧', '次卧', '小卧', '隔阳', '隔明', '暗间', '
 
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
-  setTimeout(() => setter(''), 3000)
+  setTimeout(() => setter(''), 5000)
 }
 
 export default function RoomModal({ isOpen, onClose, onSave, propertyId, editingRoom, usedLabels }: RoomModalProps) {
@@ -44,6 +44,15 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
 
     if (!label) {
       showError(setError, '请选择房间编号')
+
+  // ESC键关闭
+  useEffect(() => {
+  const handleEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') onClose()
+  }
+  document.addEventListener('keydown', handleEsc)
+  return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
       return
     }
     if (!propertyId) {
@@ -67,8 +76,8 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[80vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">{editingRoom ? '编辑房间' : '添加房间'}</h2>

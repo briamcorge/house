@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Bill, Property, Tenant, Room, BillDirection } from '../types'
 import { X, Home, User, DollarSign, Calendar, FileText } from 'lucide-react'
-import { calculateRent30_360, formatDate, add30Days } from '../utils/calculator'
+import { formatDate, add30Days } from '../utils/calculator'
 
 interface BillModalProps {
   isOpen: boolean
@@ -17,7 +17,7 @@ interface BillModalProps {
 
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
-  setTimeout(() => setter(''), 3000)
+  setTimeout(() => setter(''), 5000)
 }
 
 export default function BillModal({ isOpen, onClose, onSave, properties, rooms, tenants, editingBill, defaultRoomId, defaultDirection }: BillModalProps) {
@@ -27,48 +27,20 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
   const [tenantId, setTenantId] = useState('')
   const [type, setType] = useState<Bill['type']>('rent')
   const [amount, setAmount] = useState('')
-  const [monthlyRent, setMonthlyRent] = useState('')
   const [dueDate, setDueDate] = useState(formatDate(new Date()))
   const [paidDate, setPaidDate] = useState<string | undefined>(undefined)
   const [paidAmount, setPaidAmount] = useState('')
   const [status, setStatus] = useState<Bill['status']>('pending')
-  const [startDate, setStartDate] = useState<string>(formatDate(new Date()))
-  const [endDate, setEndDate] = useState<string>(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() + 1)
-    return formatDate(d)
-  })
   const [error, setError] = useState('')
   const [repeatMode, setRepeatMode] = useState(false)
-  const [repeatInterval, setRepeatInterval] = useState(1) // 1=每月, 3=每季, etc.
+  const [repeatInterval, setRepeatInterval] = useState(1)
   const [repeatCount, setRepeatCount] = useState(3)
+  const [description, setDescription] = useState('')
 
   const relatedTenants = useMemo(() =>
     roomId ? tenants.filter(t => t.roomId === roomId) : [],
     [tenants, roomId]
   )
-
-  const calculatedAmount = useMemo(() => {
-    if (type === 'rent' && startDate && endDate) {
-      const monthlyRentNum = parseFloat(monthlyRent)
-      if (!monthlyRentNum || monthlyRentNum <= 0) return undefined
-      if (direction === 'receivable') {
-        return calculateRent30_360(
-          monthlyRentNum,
-          new Date(startDate),
-          new Date(endDate)
-        )
-      }
-      if (direction === 'payable') {
-        return calculateRent30_360(
-          monthlyRentNum,
-          new Date(startDate),
-          new Date(endDate)
-        )
-      }
-    }
-    return undefined
-  }, [type, direction, monthlyRent, startDate, endDate])
 
   useEffect(() => {
     if (editingBill) {
@@ -82,43 +54,43 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       setPaidDate(editingBill.paidDate)
       setPaidAmount(editingBill.paidAmount?.toString() || '')
       setStatus(editingBill.status)
-
-      if (editingBill.type === 'rent') {
-        setStartDate(editingBill.dueDate)
-        const d = new Date(editingBill.dueDate)
-        d.setMonth(d.getMonth() + 1)
-        setEndDate(formatDate(d))
-      }
+      setDescription(editingBill.description || '')
     } else {
       setDirection(defaultDirection || 'receivable')
       setPropertyId('')
       setRoomId(defaultRoomId || '')
-      setTenantId('')
+      // 默认选中本房间的租客
+      if (defaultRoomId) {
+        const roomTenant = tenants.filter(t => t.roomId === defaultRoomId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+        setTenantId(roomTenant?.id || '')
+      } else {
+        setTenantId('')
+      }
       setType('rent')
       setAmount('')
       setDueDate(formatDate(new Date()))
       setPaidDate(undefined)
       setPaidAmount('')
       setStatus('pending')
-      setStartDate(formatDate(new Date()))
-      const endD = new Date()
-      endD.setMonth(endD.getMonth() + 1)
-      setEndDate(formatDate(endD))
+      setDescription('')
     }
     setError('')
   }, [isOpen, editingBill, defaultRoomId, defaultDirection])
-
-  useEffect(() => {
-    if (calculatedAmount !== undefined && type === 'rent') {
-      setAmount(calculatedAmount.toFixed(2))
-    }
-  }, [calculatedAmount, type])
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (direction === 'payable' && !propertyId) {
       showError(setError, '请选择房源')
+
+  // ESC键关闭
+  useEffect(() => {
+  const handleEsc = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') onClose()
+  }
+  document.addEventListener('keydown', handleEsc)
+  return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
       return
     }
 
@@ -128,7 +100,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
     }
 
     const amountNum = parseFloat(amount)
-    if (isNaN(amountNum) || amountNum <= 0) {
+    if (isNaN(amountNum)) {
       showError(setError, '请输入有效的金额')
       return
     }
@@ -154,6 +126,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       dueDate,
       paidDate: status === 'paid' ? (paidDate || dueDate) : undefined,
       paidAmount: paidAmount ? parseFloat(paidAmount) : undefined,
+      description: description || undefined,
     }
 
     if (repeatMode && !editingBill) {
@@ -188,8 +161,8 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-900">{editingBill ? '编辑账单' : '添加账单'}</h2>
@@ -215,25 +188,39 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="p-4 space-y-4">
+        <form onSubmit={handleSave} className="p-4 space-y-3">
           {error && (
-            <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
+            <div className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-sm">{error}</div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <FileText className="w-4 h-4 inline mr-1" />
-              账单类型
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as Bill['type'])}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {Object.entries(typeLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">账单类型</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as Bill['type'])}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <DollarSign className="w-3.5 h-3.5 inline mr-1" />
+                金额
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="金额"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
           </div>
 
           {direction === 'payable' ? (
@@ -255,10 +242,10 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
               </select>
             </div>
           ) : (
-            <>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Home className="w-4 h-4 inline mr-1" />
+                  <Home className="w-3.5 h-3.5 inline mr-1" />
                   房间
                 </label>
                 <select
@@ -267,7 +254,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                     setRoomId(e.target.value)
                     setTenantId('')
                   }}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">请选择房间</option>
@@ -285,89 +272,46 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
               {relatedTenants.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <User className="w-4 h-4 inline mr-1" />
-                    租客（可选）
+                    <User className="w-3.5 h-3.5 inline mr-1" />
+                    租客
                   </label>
                   <select
                     value={tenantId}
                     onChange={(e) => setTenantId(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">不指定租客</option>
+                    <option value="">请选择租客</option>
                     {relatedTenants.map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {type === 'rent' && (
-            <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-              <h4 className="text-sm font-medium text-blue-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                30/360 房租自动计算
-              </h4>
-              <div>
-                <label className="block text-xs text-blue-700 mb-1">月租金</label>
-                <input
-                  type="number"
-                  value={monthlyRent}
-                  onChange={(e) => setMonthlyRent(e.target.value)}
-                  placeholder="输入月租金"
-                  min="1"
-                  className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-blue-700 mb-1">开始日期</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-blue-700 mb-1">结束日期</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-              {calculatedAmount !== undefined && (
-                <div className="text-center pt-2 border-t border-blue-100">
-                  <p className="text-xs text-blue-600">自动计算金额</p>
-                  <p className="text-xl font-bold text-blue-900">¥{calculatedAmount.toFixed(2)}</p>
-                </div>
-              )}
+            <div className="bg-blue-50 rounded-xl p-3">
+              <p className="text-xs text-blue-600">房租金额直接在「金额」栏填写即可</p>
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              金额（元）
+              <FileText className="w-3.5 h-3.5 inline mr-1" />
+              备注
             </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="例如：1800.00"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="例如：减免部分房租、押金抵扣等"
+              rows={3}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
           {!editingBill && (
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -378,8 +322,8 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                 <span className="text-sm font-medium text-gray-700">按周期生成多笔</span>
               </label>
               {repeatMode && (
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <div>
+                <div className="flex gap-3">
+                  <div className="flex-1">
                     <label className="block text-xs text-gray-500 mb-1">每</label>
                     <select
                       value={repeatInterval}
@@ -392,7 +336,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                       <option value={12}>12 个月</option>
                     </select>
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <label className="block text-xs text-gray-500 mb-1">共</label>
                     <input
                       type="number"
@@ -408,24 +352,24 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              {direction === 'payable' ? '应付日期' : '应收日期'}
-            </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
-            <div className="flex gap-2">
-              {(['pending', 'paid', 'overdue'] as const).map((s) => (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Calendar className="w-3.5 h-3.5 inline mr-1" />
+                {direction === 'payable' ? '应付日期' : '应收日期'}
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
+              <div className="flex gap-1">
+                {(['pending', 'paid', 'overdue'] as const).map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -448,6 +392,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                 </button>
               ))}
             </div>
+          </div>
           </div>
 
           {status === 'paid' && (

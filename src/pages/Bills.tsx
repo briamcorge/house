@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, ChevronRight, Droplets, Zap, Flame, Receipt, FileText } from 'lucide-react'
 
 function getMonthKey(dateStr: string): string {
   return dateStr.slice(0, 7) // "2026-06"
@@ -15,12 +16,41 @@ function getMonthLabel(key: string): string {
 
 export default function Bills() {
   const { bills, properties, rooms, tenants, addBill, updateBill, deleteBill } = useStore()
-  const [direction, setDirection] = useState<BillDirection | 'all'>('all')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>('all')
+  const location = useLocation()
+  const state = location.state as { direction?: BillDirection | 'all'; status?: Bill['status'] | 'all' } | null
+  const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>(state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState('')
+  const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
+  const [payAmount, setPayAmount] = useState('')
+  const [payDate, setPayDate] = useState('')
+
+  // 自动标记逾期账单（每分钟检测一次）
+  useEffect(() => {
+    const checkOverdue = () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const { bills: currentBills, updateBill: updateCurrentBill } = useStore.getState()
+      for (const bill of currentBills) {
+        if (bill.status === 'pending' && bill.dueDate < today) {
+          updateCurrentBill(bill.id, { status: 'overdue' })
+        }
+      }
+    }
+    checkOverdue()
+    const interval = setInterval(checkOverdue, 60000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (payConfirmBill) {
+      setPayAmount(payConfirmBill.amount.toString())
+      setPayDate(new Date().toISOString().slice(0, 10))
+    }
+  }, [payConfirmBill])
 
   const getPropertyAddress = (pid?: string) => {
     if (!pid) return ''
@@ -47,6 +77,13 @@ export default function Bills() {
     gas: '燃气费',
     other: '其他'
   }
+  const typeIcons: Record<string, typeof Home> = {
+    rent: FileText,
+    water: Droplets,
+    electric: Zap,
+    gas: Flame,
+    other: Receipt
+  }
 
   const statusClasses: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',
@@ -61,8 +98,8 @@ export default function Bills() {
   }
 
   const directionLabels: Record<string, string> = {
-    receivable: '应收（租客）',
-    payable: '应付（房东）',
+    receivable: '租客',
+    payable: '业主',
   }
 
   const directionClasses: Record<string, string> = {
@@ -74,28 +111,36 @@ export default function Bills() {
   const allMonthKeys = useMemo(() => {
     const keys = new Set<string>()
     for (const b of bills) keys.add(getMonthKey(b.dueDate))
-    const sorted = Array.from(keys).sort((a, b) => b.localeCompare(a))
+    const sorted = Array.from(keys).sort((a, b) => a.localeCompare(b))
     if (!currentMonth && sorted.length > 0) {
-      // Initialize to latest month
-      setTimeout(() => setCurrentMonth(sorted[0]), 0)
+      // 默认跳到最早有未处理账单的月份
+      const unpaidMonth = sorted.find(mk =>
+        bills.some(b => getMonthKey(b.dueDate) === mk && b.status !== 'paid')
+      )
+      setTimeout(() => setCurrentMonth(unpaidMonth || sorted[0]), 0)
     }
     return sorted
   }, [bills, currentMonth])
 
   // Bills for the currently selected month
   const currentMonthBills = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
     return bills.filter(b => {
       const mk = getMonthKey(b.dueDate)
       if (mk !== currentMonth) return false
       const matchesDirection = direction === 'all' || b.direction === direction
-      const matchesStatus = filterStatus === 'all' || b.status === filterStatus
+      const matchesStatus = filterStatus === 'all' 
+        ? true
+        : filterStatus === 'overdue'
+          ? (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < today))
+          : b.status === filterStatus
       return matchesDirection && matchesStatus
     })
   }, [bills, currentMonth, direction, filterStatus])
 
   const monthIndex = allMonthKeys.indexOf(currentMonth)
-  const hasPrev = monthIndex < allMonthKeys.length - 1
-  const hasNext = monthIndex > 0
+  const canGoEarlier = monthIndex > 0
+  const canGoLater = monthIndex < allMonthKeys.length - 1
 
   const handleSaveBill = (data: Omit<Bill, 'id' | 'createdAt'>) => {
     if (editingBill) {
@@ -122,11 +167,11 @@ export default function Bills() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-4">账单管理</h1>
 
-          {/* 总体汇总：未收/已收/未付/已付 */}
+          {/* 总体汇总：已收/未收/应付/已付 */}
           <div className="grid grid-cols-4 gap-2 mb-4">
             {(() => {
               const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
@@ -143,13 +188,13 @@ export default function Bills() {
                     <p className="text-xs text-red-600">未收</p>
                     <p className="text-sm font-bold text-red-700">¥{receivableUnpaid.toFixed(0)}</p>
                   </div>
-                  <div className="bg-blue-50 rounded-xl p-2 text-center">
-                    <p className="text-xs text-blue-600">已付</p>
-                    <p className="text-sm font-bold text-blue-700">¥{payablePaid.toFixed(0)}</p>
-                  </div>
                   <div className="bg-orange-50 rounded-xl p-2 text-center">
                     <p className="text-xs text-orange-600">未付</p>
                     <p className="text-sm font-bold text-orange-700">¥{payableUnpaid.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-2 text-center">
+                    <p className="text-xs text-blue-600">已付</p>
+                    <p className="text-sm font-bold text-blue-700">¥{payablePaid.toFixed(0)}</p>
                   </div>
                 </>
               )
@@ -160,8 +205,8 @@ export default function Bills() {
           <div className="flex gap-2 mb-3">
             {([
               { key: 'all', label: '全部' },
-              { key: 'receivable', label: '应收' },
-              { key: 'payable', label: '应付' },
+              { key: 'receivable', label: '租客' },
+              { key: 'payable', label: '业主' },
             ] as const).map((f) => (
               <button
                 key={f.key}
@@ -181,9 +226,17 @@ export default function Bills() {
           <div className="flex gap-2">
             {([
               { key: 'all', label: '全部' },
-              { key: 'pending', label: direction === 'payable' ? '未付' : '未收' },
-              { key: 'paid', label: direction === 'payable' ? '已付' : '已收' },
-              { key: 'overdue', label: '已逾期' }
+              ...(direction === 'all'
+                ? [
+                    { key: 'pending' as const, label: '待处理' },
+                    { key: 'paid' as const, label: '已完成' },
+                    { key: 'overdue' as const, label: '已逾期' },
+                  ]
+                : [
+                    { key: 'pending' as const, label: direction === 'payable' ? '未付' : '未收' },
+                    { key: 'paid' as const, label: direction === 'payable' ? '已付' : '已收' },
+                    { key: 'overdue' as const, label: '已逾期' },
+                  ]),
             ] as const).map((f) => (
               <button
                 key={f.key}
@@ -201,7 +254,7 @@ export default function Bills() {
         </div>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           {currentMonth ? (
             <div className="mb-6">
@@ -209,16 +262,16 @@ export default function Bills() {
               <div className="flex items-center justify-between mb-4 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                 <button
                   type="button"
-                  onClick={() => hasPrev && setCurrentMonth(allMonthKeys[monthIndex + 1])}
-                  className={`p-2 rounded-lg ${hasPrev ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
+                  onClick={() => canGoEarlier && setCurrentMonth(allMonthKeys[monthIndex - 1])}
+                  className={`p-2 rounded-lg ${canGoEarlier ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <h2 className="text-base font-bold text-gray-800">{getMonthLabel(currentMonth)}</h2>
                 <button
                   type="button"
-                  onClick={() => hasNext && setCurrentMonth(allMonthKeys[monthIndex - 1])}
-                  className={`p-2 rounded-lg ${hasNext ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
+                  onClick={() => canGoLater && setCurrentMonth(allMonthKeys[monthIndex + 1])}
+                  className={`p-2 rounded-lg ${canGoLater ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -245,10 +298,10 @@ export default function Bills() {
                         <span className="font-medium text-blue-600">¥{receivableUnpaid.toFixed(0)}</span>
                       </div>
                       <div className="bg-orange-50 rounded-lg p-2 text-xs">
-                        <span className="text-orange-600">已付：</span>
-                        <span className="font-medium text-orange-700">¥{payablePaid.toFixed(0)}</span>
-                        <span className="text-orange-400 ml-2">未付：</span>
-                        <span className="font-medium text-orange-600">¥{payableUnpaid.toFixed(0)}</span>
+                        <span className="text-orange-600">未付：</span>
+                        <span className="font-medium text-orange-700">¥{payableUnpaid.toFixed(0)}</span>
+                        <span className="text-orange-400 ml-2">已付：</span>
+                        <span className="font-medium text-orange-600">¥{payablePaid.toFixed(0)}</span>
                       </div>
                     </div>
                   </div>
@@ -266,32 +319,42 @@ export default function Bills() {
                     <p className="text-sm text-gray-400 mt-1">试试切换月份或调整筛选条件</p>
                   </div>
                 ) : (
-                  currentMonthBills.map((bill) => {
+                    currentMonthBills.map((bill) => {
                     const tenantName = getTenantName(bill.tenantId)
                     return (
-                        <div key={bill.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
-                                  {getStatusLabel(bill.status, bill.direction)}
-                                </span>
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
-                                  {directionLabels[bill.direction]}
-                                </span>
+                      <div key={bill.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className={`w-6 h-6 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                                {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3.5 h-3.5" /> })()}
                               </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-2xl font-bold text-blue-900">
-                                  {bill.paidAmount !== undefined && bill.paidAmount < bill.amount
-                                    ? `¥${bill.paidAmount.toFixed(2)}/¥${bill.amount.toFixed(2)}`
-                                    : `¥${bill.amount.toFixed(2)}`}
-                                </p>
-                                {bill.paidAmount !== undefined && bill.paidAmount < bill.amount && (
-                                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">部分</span>
-                                )}
-                              </div>
+                              <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
+                                {getStatusLabel(bill.status, bill.direction)}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
+                                {directionLabels[bill.direction]}
+                              </span>
                             </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-2xl font-bold text-blue-900">¥{bill.amount.toFixed(2)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {bill.status !== 'paid' && (
+                              <button
+                                type="button"
+                                onClick={() => setPayConfirmBill(bill)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                                  bill.direction === 'receivable'
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                }`}
+                              >
+                                {bill.direction === 'receivable' ? '收款' : '付款'}
+                              </button>
+                            )}
                             <div className="relative">
                               <button
                                 type="button"
@@ -304,6 +367,8 @@ export default function Bills() {
                                 <MoreVertical className="w-5 h-5 text-gray-500" />
                               </button>
                               {billMenu === bill.id && (
+                                <>
+                                  <div className="fixed inset-0 z-[5]" onClick={() => setBillMenu(null)} />
                                 <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
                                   <button
                                     type="button"
@@ -322,36 +387,38 @@ export default function Bills() {
                                     删除
                                   </button>
                                 </div>
+                                </>
                               )}
                             </div>
                           </div>
-                          
-                          <div className="space-y-2">
-                            {bill.direction === 'payable' && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Home className="w-4 h-4 text-gray-400" />
-                                <span>{getPropertyAddress(bill.propertyId)}</span>
-                              </div>
-                            )}
-                            {bill.direction === 'receivable' && bill.roomId && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Home className="w-4 h-4 text-gray-400" />
-                                <span>{getRoomInfo(bill.roomId)}</span>
-                              </div>
-                            )}
-                            {tenantName && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <span>{tenantName}</span>
-                              </div>
-                            )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {bill.direction === 'payable' && (
                             <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Calendar className="w-4 h-4 text-gray-400" />
-                              <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
-                              {bill.paidDate && bill.status === 'paid' && (
-                                <span className="text-green-600 ml-2">实付：{bill.paidDate}</span>
-                              )}
+                              <Home className="w-4 h-4 text-gray-400" />
+                              <span>{getPropertyAddress(bill.propertyId)}</span>
                             </div>
+                          )}
+                          {bill.direction === 'receivable' && bill.roomId && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Home className="w-4 h-4 text-gray-400" />
+                              <span>{getRoomInfo(bill.roomId)}</span>
+                            </div>
+                          )}
+                          {tenantName && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <User className="w-4 h-4 text-gray-400" />
+                              <span>{tenantName}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
+                            {bill.paidDate && bill.status === 'paid' && (
+                              <span className="text-green-600 ml-2">实付：{bill.paidDate}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
@@ -392,6 +459,112 @@ export default function Bills() {
         tenants={tenants}
         editingBill={editingBill}
       />
+
+      {/* 收款/付款确认弹窗 */}
+      {payConfirmBill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+          <div className="bg-white rounded-t-3xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">{(payConfirmBill.direction === 'receivable') ? '收款确认' : '付款确认'}</h2>
+              <p className="text-xs text-gray-400 mt-1">可修改本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额和日期</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">类型</span>
+                  <span className="text-sm font-medium">{typeLabels[payConfirmBill.type]}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">总金额</span>
+                  <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">{payConfirmBill.direction === 'receivable' ? '应收日' : '应付日'}</span>
+                  <span className="text-sm font-medium">{payConfirmBill.dueDate}</span>
+                </div>
+                {payConfirmBill.roomId && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">房间</span>
+                    <span className="text-sm font-medium">{getRoomInfo(payConfirmBill.roomId)}</span>
+                  </div>
+                )}
+                {payConfirmBill.propertyId && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">房源</span>
+                    <span className="text-sm font-medium">{getPropertyAddress(payConfirmBill.propertyId)}</span>
+                  </div>
+                )}
+                {getTenantName(payConfirmBill.tenantId) && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">租客</span>
+                    <span className="text-sm font-medium">{getTenantName(payConfirmBill.tenantId)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}</label>
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    step="0.01"
+                    min="0"
+                    max={payConfirmBill.amount}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                  <input
+                    type="date"
+                    value={payDate}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
+                留空本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额则视为全额{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setPayConfirmBill(null)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200">取消</button>
+                <button type="button" onClick={() => {
+                  const paidAmt = payAmount ? parseFloat(payAmount) : undefined
+                  const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
+                  if (isPartial) {
+                    // 拆单：原账单金额减少，新生成一笔已付账单
+                    const remaining = payConfirmBill.amount - paidAmt
+                    updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
+                    addBill({
+                      propertyId: payConfirmBill.propertyId,
+                      roomId: payConfirmBill.roomId,
+                      tenantId: payConfirmBill.tenantId,
+                      amount: paidAmt,
+                      type: payConfirmBill.type,
+                      status: 'paid',
+                      direction: payConfirmBill.direction,
+                      dueDate: payConfirmBill.dueDate,
+                      paidDate: payDate || new Date().toISOString().slice(0, 10),
+                    })
+                  } else {
+                    updateBill(payConfirmBill.id, {
+                      status: 'paid',
+                      paidDate: payDate || new Date().toISOString().slice(0, 10),
+                    })
+                  }
+                  setPayConfirmBill(null)
+                }} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700">
+                  确认{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

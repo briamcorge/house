@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { Bill } from '../types'
 import { X, DollarSign, Calendar, Home, User } from 'lucide-react'
@@ -12,6 +12,14 @@ interface BillSummaryModalProps {
 
 export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }: BillSummaryModalProps) {
   const { bills, properties, rooms, tenants, landlordContracts } = useStore()
+  // ESC键关闭
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
 
   const filteredBills = useMemo(() => {
     return bills.filter(b => {
@@ -64,8 +72,8 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-lg font-semibold text-gray-900">账单详情</h2>

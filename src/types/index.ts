@@ -20,6 +20,7 @@ export type PaymentMethod = 'monthly' | 'quarterly' | 'semi-annual' | 'annual'
 
 export interface Tenant {
   id: string
+  displayId: string
   name: string
   phone?: string
   roomId: string
@@ -55,6 +56,7 @@ export interface Bill {
 
 export interface LandlordContract {
   id: string
+  displayId: string
   propertyId: string
   landlordName?: string
   landlordPhone?: string
@@ -64,4 +66,31 @@ export interface LandlordContract {
   contractEnd: string
   status: 'active' | 'ended'
   createdAt: string
+}
+
+export interface ProfitRecord {
+  id: string
+  propertyId: string
+  cycleStart: string      // 业主周期开始
+  cycleEnd: string        // 业主周期结束
+  tenantIncome: number    // 该周期租客分摊收入
+  landlordExpense: number // 该周期付业主金额
+  profitAmount: number    // 利润 = tenantIncome - landlordExpense
+  status: 'available' | 'withdrawn'
+  withdrawnAt?: string
+  isManual?: boolean
+  remark?: string
+  createdAt: string
+}
+
+export type TrashType = 'property' | 'room' | 'tenant' | 'landlord_contract' | 'bill'
+
+export interface TrashItem {
+  id: string
+  type: TrashType
+  originalId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any
+  label: string
+  deletedAt: string
 }

@@ -8,7 +8,7 @@ interface LandlordContractModalProps {
   onClose: () => void
   onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string) => void
   onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string) => void
-  onSaveEdit?: (monthlyRent: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string) => void
+  onSaveEdit?: (landlordName?: string, landlordPhone?: string) => void
   propertyAddress: string
   existingRent?: number
   existingPaymentMethod?: PaymentMethod
@@ -17,6 +17,7 @@ interface LandlordContractModalProps {
   existingName?: string
   existingPhone?: string
   isSimpleEdit?: boolean
+  isRenewal?: boolean
 }
 
 type Step = 'info' | 'preview'
@@ -30,18 +31,26 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
 
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
-  setTimeout(() => setter(''), 3000)
+  setTimeout(() => setter(''), 5000)
 }
 
-export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, isSimpleEdit }: LandlordContractModalProps) {
+export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [landlordName, setLandlordName] = useState('')
   const [landlordPhone, setLandlordPhone] = useState('')
   const [contractStart, setContractStart] = useState(formatDate(new Date()))
-  const [contractEnd, setContractEnd] = useState(() => {
-    return formatDate(add30Days(new Date(), 359))
-  })
+
+  // ESC键关闭
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
+  const [contractEnd, setContractEnd] = useState(() => formatDate(add30Days(new Date(), 359)))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')
   const [error, setError] = useState('')
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
@@ -53,8 +62,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       setMonthlyRent(existingRent?.toString() || '')
       setLandlordName(existingName || '')
       setLandlordPhone(existingPhone || '')
-      // 续约：合同开始 = 原合同结束日+1天，合同结束 = 开始+359天（一年）
-      if (existingEnd) {
+      if (isRenewal && existingEnd) {
         const newStart = formatDate(add30Days(new Date(existingEnd), 1))
         setContractStart(newStart)
         setContractEnd(formatDate(add30Days(new Date(newStart), 359)))
@@ -131,23 +139,23 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            {isSimpleEdit ? '编辑合同' : existingRent !== undefined ? '业主续约' : '业主合同'}
+            {isSimpleEdit ? '编辑合同' : existingRent !== undefined ? '代理续约' : '房屋代理合同'}
           </h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
           <div className="flex items-center gap-2 mt-3">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'info' ? 'bg-blue-900 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${isSimpleEdit ? 'bg-blue-900 text-white' : step === 'info' ? 'bg-blue-900 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
             <span className="text-xs text-gray-400">合同信息</span>
-            <div className="w-8 h-px bg-gray-300" />
+            {!isSimpleEdit && (<><div className="w-8 h-px bg-gray-300" />
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'preview' ? 'bg-blue-900 text-white' : 'bg-gray-200 text-gray-400'}`}>2</span>
-            <span className="text-xs text-gray-400">确认账单</span>
+            <span className="text-xs text-gray-400">确认账单</span></>)}
           </div>
         </div>
 
@@ -159,7 +167,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
 
             <div className="bg-blue-50 rounded-xl p-3">
               <p className="text-sm text-blue-700 font-medium">{propertyAddress}</p>
-              <p className="text-xs text-blue-500 mt-1">{isSimpleEdit ? '编辑合同' : existingRent !== undefined ? '业主续约（应付）' : '业主合同（应付）'}</p>
+              <p className="text-xs text-blue-500 mt-1">{isSimpleEdit ? '编辑业主信息' : existingRent !== undefined ? '代理续约（应付）' : '房屋代理合同（应付）'}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -195,6 +203,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
               </div>
             </div>
 
+            {!isSimpleEdit && (<>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <DollarSign className="w-4 h-4 inline mr-1" />
@@ -255,7 +264,8 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                 ))}
               </select>
             </div>
-
+            </>)}
+            
             <div className="flex gap-3 pt-4">
               <button
                 type="button"
@@ -267,7 +277,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
               {isSimpleEdit ? (
                 <button
                   type="button"
-                  onClick={() => { onSaveEdit?.(parseFloat(monthlyRent) || 0, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd); onClose() }}
+                  onClick={() => { onSaveEdit?.(landlordName.trim() || undefined, landlordPhone.trim() || undefined); onClose() }}
                   className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
                 >
                   保存

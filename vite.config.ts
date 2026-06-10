@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
-import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/house/',
+  server: {
+    host: '0.0.0.0',
+  },
   build: {
     sourcemap: 'hidden',
   },
@@ -17,15 +20,6 @@ export default defineConfig({
         ],
       },
     }),
-    traeBadgePlugin({
-      variant: 'dark',
-      position: 'bottom-right',
-      prodOnly: true,
-      clickable: true,
-      clickUrl: 'https://www.trae.ai/solo?showJoin=1',
-      autoTheme: true,
-      autoThemeTarget: '#root'
-    }), 
     tsconfigPaths(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -37,10 +31,10 @@ export default defineConfig({
         theme_color: '#1e3a5f',
         background_color: '#f3f4f6',
         display: 'standalone',
-        scope: '/',
-        start_url: '/',
+        scope: '/house/',
+        start_url: '/house/',
         icons: [
-          { src: '/favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: '/house/favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
         ],
       },
       workbox: {

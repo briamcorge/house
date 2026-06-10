@@ -55,7 +55,7 @@ export default function Tenants() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-10 pb-6">
+      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-4">租客管理</h1>
           <div className="flex gap-2">
@@ -70,7 +70,7 @@ export default function Tenants() {
         </div>
       </div>
 
-      <div className="px-4 pt-6">
+      <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           <div className="space-y-4">
             {filteredTenants.map((tenant) => {
@@ -102,7 +102,9 @@ export default function Tenants() {
                         <MoreVertical className="w-5 h-5 text-gray-500" />
                       </button>
                       {tenantMenu === tenant.id && (
-                        <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
+                        <>
+                          <div className="fixed inset-0 z-[5]" onClick={() => setTenantMenu(null)} />
+                          <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
                           <button
                             type="button"
                             onClick={() => handleEditTenant(tenant)}
@@ -120,6 +122,7 @@ export default function Tenants() {
                             删除
                           </button>
                         </div>
+                        </>
                       )}
                     </div>
                   </div>
