@@ -3,7 +3,7 @@ import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarCha
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData } from '../lib/cloud-sync'
+import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, syncUpload, mergeLocalData } from '../lib/cloud-sync'
 import { APP_VERSION } from '../version'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -95,7 +95,42 @@ export default function More() {
     const token = getToken()
     if (!token) return
     setSyncStatus('syncing')
-    setSyncMsg('正在上传...')
+    setSyncMsg('正在同步（下载云端 → 合并 → 上传）...')
+    try {
+      const state = useStore.getState()
+      const merged = await syncUpload({
+        properties: state.properties,
+        rooms: state.rooms,
+        tenants: state.tenants,
+        bills: state.bills,
+        landlordContracts: state.landlordContracts,
+        profitRecords: state.profitRecords,
+        trash: state.trash,
+        syncTimestamp: new Date().toISOString(),
+      }, token)
+      useStore.setState({
+        properties: merged.properties as any,
+        rooms: merged.rooms as any,
+        tenants: merged.tenants as any,
+        bills: merged.bills as any,
+        landlordContracts: merged.landlordContracts as any,
+        profitRecords: merged.profitRecords as any,
+      })
+      setSyncStatus('idle')
+      setSyncMsg('同步成功')
+      setLastSync(getLastSyncTimestamp())
+    } catch (err) {
+      setSyncStatus('error')
+      setSyncMsg('同步失败: ' + (err instanceof Error ? err.message : '网络错误'))
+    }
+  }
+
+  const handleForceUpload = async () => {
+    const token = getToken()
+    if (!token) return
+    if (!confirm('⚠️ 警告：将以本机数据为准，直接覆盖云端。\n\n云端独有的数据会丢失，确定吗？')) return
+    setSyncStatus('syncing')
+    setSyncMsg('正在强制覆盖云端...')
     try {
       const state = useStore.getState()
       await uploadData({
@@ -109,7 +144,7 @@ export default function More() {
         syncTimestamp: new Date().toISOString(),
       }, token)
       setSyncStatus('idle')
-      setSyncMsg('上传成功')
+      setSyncMsg('强制覆盖成功')
       setLastSync(getLastSyncTimestamp())
     } catch (err) {
       setSyncStatus('error')
@@ -119,40 +154,41 @@ export default function More() {
 
   const handleDownload = async () => {
     setSyncStatus('syncing')
-    setSyncMsg('正在下载...')
+    setSyncMsg('正在下载并合并...')
     try {
-      const data = await downloadData()
-      if (!data) {
+      const cloud = await downloadData()
+      if (!cloud) {
         setSyncStatus('idle')
         setSyncMsg('云端暂无数据')
         return
       }
+      const state = useStore.getState()
+      const local: any = {
+        properties: state.properties,
+        rooms: state.rooms,
+        tenants: state.tenants,
+        bills: state.bills,
+        landlordContracts: state.landlordContracts,
+        profitRecords: state.profitRecords,
+        trash: state.trash,
+        syncTimestamp: new Date().toISOString(),
+      }
+      const merged = mergeLocalData(local, cloud)
 
-      // Show preview and confirm
       const preview = [
-        data.properties ? `${data.properties.length} 个房源` : '',
-        data.rooms ? `${data.rooms.length} 个房间` : '',
-        data.tenants ? `${data.tenants.length} 个租客` : '',
-        data.bills ? `${data.bills.length} 个账单` : '',
+        merged.properties ? `${merged.properties.length} 个房源` : '',
+        merged.rooms ? `${merged.rooms.length} 个房间` : '',
+        merged.tenants ? `${merged.tenants.length} 个租客` : '',
+        merged.bills ? `${merged.bills.length} 个账单` : '',
       ].filter(Boolean).join('\n')
 
-      if (!confirm(`从云端下载数据将替换本机所有数据。\n\n云端数据包含:\n${preview}\n\n本机当前有 ${properties.length} 个房源, ${tenants.length} 个租客\n\n确定要下载并覆盖吗？`)) {
+      if (!confirm(`从云端下载合并数据（被删过的不会加回）。\n\n合并后将有:\n${preview}\n\n本机当前有 ${properties.length} 个房源, ${tenants.length} 个租客\n\n确定要合并吗？`)) {
         setSyncStatus('idle')
         setSyncMsg('已取消')
         return
       }
 
-      // Save to localStorage and reload
-      const state = {
-        properties: data.properties || [],
-        rooms: data.rooms || [],
-        tenants: data.tenants || [],
-        bills: data.bills || [],
-        landlordContracts: data.landlordContracts || [],
-        profitRecords: data.profitRecords || [],
-        trash: data.trash || [],
-      }
-      localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 0 }))
+      localStorage.setItem('property-manager-data', JSON.stringify({ state: merged, version: 1 }))
       setSyncStatus('idle')
       window.location.reload()
     } catch (err) {
@@ -369,7 +405,7 @@ export default function More() {
                                   className="py-2.5 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
                                 >
                                   <Upload className="w-4 h-4" />
-                                  <span>立即上传</span>
+                                  <span>同步上传</span>
                                 </button>
                                 <button
                                   type="button"
@@ -378,9 +414,18 @@ export default function More() {
                                   className="py-2.5 px-3 bg-purple-50 text-purple-700 rounded-xl font-medium hover:bg-purple-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
                                 >
                                   <Download className="w-4 h-4" />
-                                  <span>从云下载</span>
+                                  <span>合并下载</span>
                                 </button>
                               </div>
+                              <button
+                                type="button"
+                                onClick={handleForceUpload}
+                                disabled={syncStatus === 'syncing'}
+                                className="w-full py-2.5 px-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+                              >
+                                <Upload className="w-4 h-4" />
+                                <span>强制覆盖云端</span>
+                              </button>
                               <button type="button" onClick={handleClearToken} className="text-xs text-gray-400 hover:text-red-500 transition-colors">清除密钥</button>
                             </>
                           )}

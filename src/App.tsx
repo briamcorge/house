@@ -12,6 +12,8 @@ import Trash from "./pages/Trash";
 import Statistics from "./pages/Statistics";
 import BottomNav from "./components/BottomNav";
 import { AlertTriangle, X } from "lucide-react";
+import { initSync, hasToken } from "./lib/cloud-sync";
+import { useStore } from "./store/useStore";
 
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024 // 5MB conservative estimate
@@ -61,6 +63,14 @@ function StorageWarning() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (hasToken()) {
+      initSync((merged) => {
+        useStore.setState(merged as any)
+      })
+    }
+  }, [])
+
   return (
     <Router basename="/house">
       <div className="min-h-screen">
