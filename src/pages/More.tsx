@@ -1,8 +1,9 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, FileText, BarChart3 } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
+import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData } from '../lib/cloud-sync'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -66,6 +67,98 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
+
+  // Cloud sync state
+  const [showSync, setShowSync] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle')
+  const [syncMsg, setSyncMsg] = useState('')
+  const [lastSync, setLastSync] = useState(getLastSyncTimestamp())
+
+  const handleSaveToken = () => {
+    if (!tokenInput.trim()) return
+    setToken(tokenInput.trim())
+    setTokenInput('')
+    setSyncMsg('同步密钥已保存，开始自动同步')
+    setSyncStatus('idle')
+  }
+
+  const handleClearToken = () => {
+    if (confirm('清除同步密钥后，云同步将停止。确定吗？')) {
+      setToken('')
+      setSyncMsg('已清除同步密钥')
+    }
+  }
+
+  const handleUpload = async () => {
+    const token = getToken()
+    if (!token) return
+    setSyncStatus('syncing')
+    setSyncMsg('正在上传...')
+    try {
+      const state = useStore.getState()
+      await uploadData({
+        properties: state.properties,
+        rooms: state.rooms,
+        tenants: state.tenants,
+        bills: state.bills,
+        landlordContracts: state.landlordContracts,
+        profitRecords: state.profitRecords,
+        trash: state.trash,
+        syncTimestamp: new Date().toISOString(),
+      }, token)
+      setSyncStatus('idle')
+      setSyncMsg('上传成功')
+      setLastSync(getLastSyncTimestamp())
+    } catch (err) {
+      setSyncStatus('error')
+      setSyncMsg('上传失败: ' + (err instanceof Error ? err.message : '网络错误'))
+    }
+  }
+
+  const handleDownload = async () => {
+    setSyncStatus('syncing')
+    setSyncMsg('正在下载...')
+    try {
+      const data = await downloadData()
+      if (!data) {
+        setSyncStatus('idle')
+        setSyncMsg('云端暂无数据')
+        return
+      }
+
+      // Show preview and confirm
+      const preview = [
+        data.properties ? `${data.properties.length} 个房源` : '',
+        data.rooms ? `${data.rooms.length} 个房间` : '',
+        data.tenants ? `${data.tenants.length} 个租客` : '',
+        data.bills ? `${data.bills.length} 个账单` : '',
+      ].filter(Boolean).join('\n')
+
+      if (!confirm(`从云端下载数据将替换本机所有数据。\n\n云端数据包含:\n${preview}\n\n本机当前有 ${properties.length} 个房源, ${tenants.length} 个租客\n\n确定要下载并覆盖吗？`)) {
+        setSyncStatus('idle')
+        setSyncMsg('已取消')
+        return
+      }
+
+      // Save to localStorage and reload
+      const state = {
+        properties: data.properties || [],
+        rooms: data.rooms || [],
+        tenants: data.tenants || [],
+        bills: data.bills || [],
+        landlordContracts: data.landlordContracts || [],
+        profitRecords: data.profitRecords || [],
+        trash: data.trash || [],
+      }
+      localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 0 }))
+      setSyncStatus('idle')
+      window.location.reload()
+    } catch (err) {
+      setSyncStatus('error')
+      setSyncMsg('下载失败: ' + (err instanceof Error ? err.message : '网络错误'))
+    }
+  }
 
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new()
@@ -216,7 +309,7 @@ export default function More() {
                 </button>
                 {isBackup && showBackup && (
                   <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 mb-3">
                       <button type="button" onClick={handleExportExcel} className="py-3 px-4 bg-emerald-50 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors flex flex-col items-center gap-1">
                         <FileSpreadsheet className="w-5 h-5" />
                         <span className="text-xs">导出Excel</span>
@@ -225,6 +318,73 @@ export default function More() {
                         <FileSpreadsheet className="w-5 h-5" />
                         <span className="text-xs">导入Excel</span>
                       </button>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-3 mt-1">
+                      <button type="button" onClick={() => setShowSync(!showSync)} className="w-full flex items-center justify-between py-2">
+                        <div className="flex items-center gap-2">
+                          <Cloud className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-900">云同步</span>
+                        </div>
+                        {hasToken() && (
+                          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">已开启</span>
+                        )}
+                      </button>
+
+                      {showSync && (
+                        <div className="mt-2 space-y-2">
+                          {!hasToken() ? (
+                            <>
+                              <p className="text-xs text-gray-500">输入你的 GitCode 令牌开启云同步</p>
+                              <div className="flex gap-2">
+                                <input
+                                  type="password"
+                                  value={tokenInput}
+                                  onChange={(e) => setTokenInput(e.target.value)}
+                                  placeholder="输入令牌"
+                                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleSaveToken}
+                                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                >保存</button>
+                              </div>
+                              <p className="text-xs text-gray-400">令牌只在本地保存，不会上传</p>
+                            </>
+                          ) : (
+                            <>
+                              {syncMsg && (
+                                <p className={`text-xs ${syncStatus === 'error' ? 'text-red-500' : 'text-gray-600'}`}>{syncMsg}</p>
+                              )}
+                              {lastSync && (
+                                <p className="text-xs text-gray-400">上次同步: {lastSync.slice(0, 16).replace('T', ' ')}</p>
+                              )}
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={handleUpload}
+                                  disabled={syncStatus === 'syncing'}
+                                  className="py-2.5 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+                                >
+                                  <Upload className="w-4 h-4" />
+                                  <span>立即上传</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleDownload}
+                                  disabled={syncStatus === 'syncing'}
+                                  className="py-2.5 px-3 bg-purple-50 text-purple-700 rounded-xl font-medium hover:bg-purple-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  <span>从云下载</span>
+                                </button>
+                              </div>
+                              <button type="button" onClick={handleClearToken} className="text-xs text-gray-400 hover:text-red-500 transition-colors">清除密钥</button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

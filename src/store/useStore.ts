@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord } from '../types'
 import { DraftBill } from '../utils/calculator'
+import { triggerSync } from '../lib/cloud-sync'
 
 interface AppStore {
   properties: Property[]
@@ -111,9 +112,31 @@ function buildSeedState() {
   }
 }
 
+function stateToSyncData(state: AppStore) {
+  return {
+    properties: state.properties,
+    rooms: state.rooms,
+    tenants: state.tenants,
+    bills: state.bills,
+    landlordContracts: state.landlordContracts,
+    profitRecords: state.profitRecords,
+    trash: state.trash,
+    syncTimestamp: new Date().toISOString(),
+  }
+}
+
+// Sync outer: wraps set() to auto-upload after every mutation
+let hydrated = false
 export const useStore = create<AppStore>()(
   persist(
-    (set) => ({
+    (rawSet, get) => {
+      const set: typeof rawSet = ((fn) => {
+        (rawSet as typeof rawSet)(fn)
+        if (hydrated) {
+          triggerSync(stateToSyncData(get()))
+        }
+      }) as typeof rawSet
+      return {
       ...buildSeedState(),
 
       addProperty: (property) =>
@@ -435,17 +458,18 @@ export const useStore = create<AppStore>()(
 
       emptyTrash: () =>
         set({ trash: [] }),
-    }),
-    {
-      name: 'property-manager-data',
-      version: 1,
-      migrate: (persistedState: unknown, version: number) => {
-        if (version === 0) {
-          // Version 1: Updated seed dates + added landlord contracts
-          return buildSeedState()
-        }
-        return persistedState as typeof buildSeedState
-      },
     }
-  )
+  },
+  {
+    name: 'property-manager-data',
+    version: 1,
+    onRehydrateStorage: () => () => { hydrated = true },
+    migrate: (persistedState: unknown, version: number) => {
+      if (version === 0) {
+        // Version 1: Updated seed dates + added landlord contracts
+        return buildSeedState()
+      }
+      return persistedState as typeof buildSeedState
+    },
+  })
 )
