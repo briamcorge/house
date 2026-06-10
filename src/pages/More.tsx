@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData } from '../lib/cloud-sync'
+import { APP_VERSION } from '../version'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -289,7 +290,7 @@ export default function More() {
                     e.stopPropagation()
                     if (item.path) navigate(item.path)
                     else if (isBackup) setShowBackup(!showBackup)
-                    else if (isAbout) alert('房屋管理系统 v1.0.0\n用于二房东日常房源/租客/账单管理\n数据存储于当前浏览器中')
+                    else if (isAbout) alert(`房屋管理系统 v${APP_VERSION}\n用于二房东日常房源/租客/账单管理\n数据存储于当前浏览器中`)
                     else alert(`${item.label}功能开发中...`)
                   }}
                   className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup ? 'rounded-b-none border-b-0' : ''}`}
@@ -413,7 +414,7 @@ export default function More() {
         </div>
 
         <div className="max-w-md mx-auto mt-8 text-center">
-          <p className="text-sm text-gray-400">房屋管理 v1.0.0</p>
+          <p className="text-sm text-gray-400">房屋管理 v{APP_VERSION}</p>
         </div>
       </div>
     </div>
