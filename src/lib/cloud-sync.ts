@@ -149,3 +149,16 @@ export function triggerSync(data: SyncData): void {
     }
   }, 3000)
 }
+
+// ─── 启动时从构建时环境变量自动加载令牌 ──────────────
+// 如果 VITE_SYNC_TOKEN 在构建时设置（如 GitHub Actions Secret），
+// 且 localStorage 中还没有令牌，则自动保存。
+// 这样用户无需手动输入，部署后开箱即用。
+try {
+  const envToken = typeof import.meta.env !== 'undefined' && (import.meta.env as Record<string, unknown>).VITE_SYNC_TOKEN
+  if (typeof envToken === 'string' && envToken && !localStorage.getItem(TOKEN_KEY)) {
+    localStorage.setItem(TOKEN_KEY, envToken)
+  }
+} catch {
+  // 非 Vite 环境（如测试）忽略
+}
