@@ -311,7 +311,7 @@ export default function More() {
                 <p className="text-blue-200 text-sm">轻松管理您的房产</p>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="bg-white/10 rounded-xl p-3 text-center">
                 <p className="text-2xl font-bold text-white">{properties.length}</p>
                 <p className="text-blue-200 text-xs">房屋</p>
@@ -324,10 +324,10 @@ export default function More() {
                 <p className="text-2xl font-bold text-white">{pendingBills.length}</p>
                 <p className="text-blue-200 text-xs">待处理账单</p>
               </div>
-              <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-white break-all">¥{depositBalance.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">押金余额</p>
-              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+              <span className="text-blue-200 text-sm">押金余额</span>
+              <span className="text-xl font-bold text-white">¥{depositBalance.toFixed(0)}</span>
             </div>
           </div>
         </div>

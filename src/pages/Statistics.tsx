@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, TrendingUp, TrendingDown, Home, Building2, BarChart3, Wallet, DollarSign } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Home, Building2, BarChart3, Wallet, DollarSign } from 'lucide-react'
 
 export default function Statistics() {
   const navigate = useNavigate()
@@ -10,6 +10,25 @@ export default function Statistics() {
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear)
+
+  // 月度房源净收益：月份列表
+  const [monthlyPropId, setMonthlyPropId] = useState<string | null>(null) // null = 全部房源
+  const allPropMonthKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const b of bills) {
+      if (b.paidDate) keys.add(b.paidDate.slice(0, 7))
+      if (b.dueDate) keys.add(b.dueDate.slice(0, 7))
+    }
+    return Array.from(keys).sort((a, b) => a.localeCompare(b))
+  }, [bills])
+  const [propMonthIdx, setPropMonthIdx] = useState(0)
+  const currentPropMonth = allPropMonthKeys[propMonthIdx] || ''
+
+  useEffect(() => {
+    if (allPropMonthKeys.length > 0 && propMonthIdx === 0) {
+      setPropMonthIdx(allPropMonthKeys.length - 1) // latest month
+    }
+  }, [allPropMonthKeys])
 
   // 提取所有出现过的年份（按 paidDate 或 dueDate）
   const availableYears = useMemo(() => {
@@ -342,6 +361,108 @@ export default function Statistics() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* 月度房源净收益 */}
+          <div>
+            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              月度房源净收益
+            </h2>
+
+            {/* 房源选择 */}
+            <div className="flex gap-2 overflow-x-auto mb-3 pb-1">
+              <button
+                type="button"
+                onClick={() => setMonthlyPropId(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${monthlyPropId === null ? 'bg-blue-900 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+              >
+                全部房源
+              </button>
+              {properties.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setMonthlyPropId(p.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${monthlyPropId === p.id ? 'bg-blue-900 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                >
+                  {p.address.length > 6 ? p.address.slice(0, 6) + '..' : p.address}
+                </button>
+              ))}
+            </div>
+
+            {/* 月份导航 */}
+            {allPropMonthKeys.length > 0 && (
+              <div className="flex items-center justify-between mb-3 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+                <button
+                  type="button"
+                  onClick={() => propMonthIdx > 0 && setPropMonthIdx(propMonthIdx - 1)}
+                  className={`p-2 rounded-lg ${propMonthIdx > 0 ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <h3 className="text-base font-bold text-gray-800">
+                  {currentPropMonth ? `${currentPropMonth.slice(0, 4)}年${parseInt(currentPropMonth.slice(5, 7))}月` : ''}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => propMonthIdx < allPropMonthKeys.length - 1 && setPropMonthIdx(propMonthIdx + 1)}
+                  className={`p-2 rounded-lg ${propMonthIdx < allPropMonthKeys.length - 1 ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {/* 月度收益计算 */}
+            {(() => {
+              if (!currentPropMonth) return <p className="text-sm text-gray-400 text-center py-4">暂无数据</p>
+
+              const monthBills = bills.filter(b => {
+                if (b.status !== 'paid' || !b.paidDate) return false
+                if (!b.paidDate.startsWith(currentPropMonth)) return false
+                if (monthlyPropId !== null) {
+                  // Check if bill belongs to this property
+                  if (b.propertyId === monthlyPropId) return true
+                  // Also check via room property
+                  if (b.roomId) {
+                    const room = rooms.find(r => r.id === b.roomId)
+                    if (room && room.propertyId === monthlyPropId) return true
+                  }
+                  return false
+                }
+                return true
+              })
+
+              const income = monthBills
+                .filter(b => b.direction === 'receivable')
+                .filter(b => b.description !== '押金')
+                .reduce((s, b) => s + b.amount, 0)
+              const expense = monthBills
+                .filter(b => b.direction === 'payable')
+                .reduce((s, b) => s + Math.abs(b.amount), 0)
+              const refund = monthBills
+                .filter(b => b.amount < 0)
+                .reduce((s, b) => s + Math.abs(b.amount), 0)
+              const net = income - expense - refund
+
+              return (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white">
+                    <p className="text-green-100 text-xs mb-1">收入</p>
+                    <p className="text-lg font-bold">¥{income.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white">
+                    <p className="text-blue-100 text-xs mb-1">支出</p>
+                    <p className="text-lg font-bold">¥{expense.toFixed(0)}</p>
+                  </div>
+                  <div className={`bg-gradient-to-br ${net >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-red-500 to-red-600'} rounded-2xl p-4 text-white`}>
+                    <p className="text-white text-opacity-80 text-xs mb-1">净收益</p>
+                    <p className="text-lg font-bold">{net >= 0 ? '+' : ''}¥{net.toFixed(0)}</p>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* 利润提取汇总 */}
