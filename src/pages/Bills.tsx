@@ -132,6 +132,17 @@ export default function Bills() {
   // Bills for the currently selected month
   const currentMonthBills = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
+    if (contractFilter) {
+      // 合同查看模式：不过滤月份，显示全部
+      return relevantBills.filter(b => {
+        const matchesStatus = filterStatus === 'all' 
+          ? true
+          : filterStatus === 'overdue'
+            ? (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < today))
+            : b.status === filterStatus
+        return matchesStatus
+      })
+    }
     return relevantBills.filter(b => {
       const mk = getMonthKey(b.dueDate)
       if (mk !== currentMonth) return false
@@ -143,7 +154,7 @@ export default function Bills() {
           : b.status === filterStatus
       return matchesDirection && matchesStatus
     })
-  }, [relevantBills, currentMonth, direction, filterStatus])
+  }, [relevantBills, currentMonth, direction, filterStatus, contractFilter])
 
   const monthIndex = allMonthKeys.indexOf(currentMonth)
   const canGoEarlier = monthIndex > 0
@@ -277,9 +288,10 @@ export default function Bills() {
 
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
-          {currentMonth ? (
+          {currentMonth || contractFilter ? (
             <div className="mb-6">
-              {/* 月份导航 */}
+              {/* 月份导航（合同模式隐藏） */}
+              {!contractFilter && (<>
               <div className="flex items-center justify-between mb-4 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                 <button
                   type="button"
@@ -297,6 +309,30 @@ export default function Bills() {
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
+              </>)}
+              
+              {/* 合同模式下显示全部汇总 */}
+              {contractFilter && currentMonthBills.length > 0 && (() => {
+                const totalPaid = currentMonthBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                const totalUnpaid = currentMonthBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
+                return (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">{currentMonthBills.length} 笔</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-orange-50 rounded-lg p-2 text-xs">
+                        <span className="text-orange-600">未付：</span>
+                        <span className="font-medium text-orange-700">¥{totalUnpaid.toFixed(0)}</span>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-2 text-xs">
+                        <span className="text-blue-600">已付：</span>
+                        <span className="font-medium text-blue-700">¥{totalPaid.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* 月份汇总 */}
               {(() => {
