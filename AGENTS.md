@@ -71,6 +71,13 @@ ProfitRecord / TrashItem
 - 换电脑需导出 Excel 再导入
 - 种子数据在 buildSeedState()
 
+## 部署流程（硬性要求）
+
+每次构建前必须执行：
+1. 先读 `src/version.ts`，确认版本号是否需要加
+2. 如需加版本号 → **先改 version.ts，再 `npm run build`**
+3. 版本号永远不能往回走 (1.0.8 → 1.0.9 → 1.0.10...)
+
 ## 业务规则
 
 ### 账单显示
