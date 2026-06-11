@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
@@ -17,9 +17,12 @@ function getMonthLabel(key: string): string {
 export default function Bills() {
   const { bills, properties, rooms, tenants, addBill, updateBill, deleteBill } = useStore()
   const location = useLocation()
-  const state = location.state as { direction?: BillDirection | 'all'; status?: Bill['status'] | 'all' } | null
+  const navigate = useNavigate()
+  const state = location.state as { direction?: BillDirection | 'all'; status?: Bill['status'] | 'all'; propertyId?: string; contractLabel?: string; filterStatus?: string } | null
+  const contractFilter = state?.propertyId || null
+  const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>(state?.status || 'pending')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
@@ -108,24 +111,28 @@ export default function Bills() {
   }
 
   // Filter and group bills
+  const relevantBills = contractFilter
+    ? bills.filter(b => b.propertyId === contractFilter && b.direction === 'payable')
+    : bills
+
   const allMonthKeys = useMemo(() => {
     const keys = new Set<string>()
-    for (const b of bills) keys.add(getMonthKey(b.dueDate))
+    for (const b of relevantBills) keys.add(getMonthKey(b.dueDate))
     const sorted = Array.from(keys).sort((a, b) => a.localeCompare(b))
     if (!currentMonth && sorted.length > 0) {
       // 默认跳到最早有未处理账单的月份
       const unpaidMonth = sorted.find(mk =>
-        bills.some(b => getMonthKey(b.dueDate) === mk && b.status !== 'paid')
+        relevantBills.some(b => getMonthKey(b.dueDate) === mk && b.status !== 'paid')
       )
       setTimeout(() => setCurrentMonth(unpaidMonth || sorted[0]), 0)
     }
     return sorted
-  }, [bills, currentMonth])
+  }, [relevantBills, currentMonth])
 
   // Bills for the currently selected month
   const currentMonthBills = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
-    return bills.filter(b => {
+    return relevantBills.filter(b => {
       const mk = getMonthKey(b.dueDate)
       if (mk !== currentMonth) return false
       const matchesDirection = direction === 'all' || b.direction === direction
@@ -136,7 +143,7 @@ export default function Bills() {
           : b.status === filterStatus
       return matchesDirection && matchesStatus
     })
-  }, [bills, currentMonth, direction, filterStatus])
+  }, [relevantBills, currentMonth, direction, filterStatus])
 
   const monthIndex = allMonthKeys.indexOf(currentMonth)
   const canGoEarlier = monthIndex > 0
@@ -169,9 +176,22 @@ export default function Bills() {
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
         <div className="max-w-md mx-auto">
-          <h1 className="text-xl font-bold text-gray-900 mb-3">账单管理</h1>
+          {contractFilter ? (
+            <div className="flex items-center gap-3 mb-3">
+              <button onClick={() => navigate('/contracts')} className="p-1 hover:bg-gray-100 rounded-lg">
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">业主账单</h1>
+                <p className="text-xs text-gray-500">{contractLabel}</p>
+              </div>
+            </div>
+          ) : (
+            <h1 className="text-xl font-bold text-gray-900 mb-3">账单管理</h1>
+          )}
 
-          {/* 总体汇总：已收/未收/应付/已付 */}
+          {/* 总体汇总 + 方向筛选（合同查看模式下隐藏） */}
+          <div className={contractFilter ? 'hidden' : ''}>
           <div className="grid grid-cols-4 gap-2 mb-3">
             {(() => {
               const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
@@ -220,6 +240,7 @@ export default function Bills() {
                 {f.label}
               </button>
             ))}
+          </div>
           </div>
 
           {/* 状态筛选 */}
@@ -428,6 +449,7 @@ export default function Bills() {
                             ✓ {bill.direction === 'receivable' ? '已收' : '已付'}
                           </div>
                         )}
+
                       </div>
                     )
                   })

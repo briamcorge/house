@@ -141,7 +141,7 @@ export default function Contracts() {
                   const unpaid = total - paid
                   const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                   return (
-                    <div key={c.id} onClick={() => navigate(`/properties/${c.propertyId}`)} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer hover:shadow-md transition-shadow">
+                    <div key={c.id} onClick={() => navigate('/bills', { state: { propertyId: c.propertyId, direction: 'payable', filterStatus: 'all', contractLabel: `${prop?.address || ''} #${c.displayId}` } })} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">{c.landlordName || '业主'}</span>
                         <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-mono ml-1">#{c.displayId}</span>

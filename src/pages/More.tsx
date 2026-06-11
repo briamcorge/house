@@ -82,8 +82,12 @@ export default function More() {
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
+  const [profitBillId, setProfitBillId] = useState('')
   const [profitCycleStart, setProfitCycleStart] = useState('')
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
+  const landlordPayableBills = profitPropertyId
+    ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
+    : []
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
@@ -490,7 +494,12 @@ export default function More() {
                   <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px space-y-3">
                     <select
                       value={profitPropertyId}
-                      onChange={(e) => setProfitPropertyId(e.target.value)}
+                      onChange={(e) => {
+                        setProfitPropertyId(e.target.value)
+                        setProfitBillId('')
+                        setProfitCycleStart('')
+                        setProfitCycleEnd('')
+                      }}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                     >
                       <option value="">选择房源</option>
@@ -505,22 +514,39 @@ export default function More() {
                       placeholder="利润金额（元）"
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                     />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="date"
-                        value={profitCycleStart}
-                        onChange={(e) => setProfitCycleStart(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                        placeholder="周期开始"
-                      />
-                      <input
-                        type="date"
-                        value={profitCycleEnd}
-                        onChange={(e) => setProfitCycleEnd(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                        placeholder="周期结束"
-                      />
-                    </div>
+                    <select
+                      value={profitBillId}
+                      onChange={(e) => {
+                        const billId = e.target.value
+                        setProfitBillId(billId)
+                        if (billId) {
+                          const bill = bills.find(b => b.id === billId)
+                          if (bill?.description) {
+                            const m = bill.description.match(/第\d+期 .+? (\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
+                            if (m) {
+                              setProfitCycleStart(m[1])
+                              setProfitCycleEnd(m[2])
+                            }
+                          }
+                        } else {
+                          setProfitCycleStart('')
+                          setProfitCycleEnd('')
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                    >
+                      <option value="">选择业主账单期数</option>
+                      {landlordPayableBills.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.description} — ¥{b.amount}
+                        </option>
+                      ))}
+                    </select>
+                    {profitCycleStart && profitCycleEnd && (
+                      <div className="text-xs text-gray-500 text-center bg-gray-50 py-1.5 rounded-lg">
+                        周期：{profitCycleStart} ~ {profitCycleEnd}
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -528,6 +554,7 @@ export default function More() {
                           setShowProfitForm(false)
                           setProfitPropertyId('')
                           setProfitAmount('')
+                          setProfitBillId('')
                           setProfitCycleStart('')
                           setProfitCycleEnd('')
                         }}
@@ -556,6 +583,7 @@ export default function More() {
                           setShowProfitForm(false)
                           setProfitPropertyId('')
                           setProfitAmount('')
+                          setProfitBillId('')
                           setProfitCycleStart('')
                           setProfitCycleEnd('')
                           alert('利润提取记录已添加')
