@@ -26,7 +26,10 @@ export default function Statistics() {
 
   useEffect(() => {
     if (allPropMonthKeys.length > 0 && propMonthIdx === 0) {
-      setPropMonthIdx(allPropMonthKeys.length - 1) // latest month
+      // 默认跳转到本月
+      const todayStr = new Date().toISOString().slice(0, 7)
+      const idx = allPropMonthKeys.indexOf(todayStr)
+      setPropMonthIdx(idx >= 0 ? idx : allPropMonthKeys.length - 1)
     }
   }, [allPropMonthKeys])
 
@@ -371,24 +374,17 @@ export default function Statistics() {
             </h2>
 
             {/* 房源选择 */}
-            <div className="flex gap-2 overflow-x-auto mb-3 pb-1">
-              <button
-                type="button"
-                onClick={() => setMonthlyPropId(null)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${monthlyPropId === null ? 'bg-blue-900 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+            <div className="mb-3">
+              <select
+                value={monthlyPropId ?? ''}
+                onChange={(e) => setMonthlyPropId(e.target.value || null)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm appearance-none"
               >
-                全部房源
-              </button>
-              {properties.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setMonthlyPropId(p.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${monthlyPropId === p.id ? 'bg-blue-900 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
-                >
-                  {p.address.length > 6 ? p.address.slice(0, 6) + '..' : p.address}
-                </button>
-              ))}
+                <option value="">全部房源</option>
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>{p.address}</option>
+                ))}
+              </select>
             </div>
 
             {/* 月份导航 */}

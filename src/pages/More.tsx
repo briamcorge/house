@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -38,6 +38,13 @@ const menuItems: MenuItem[] = [
     description: '收支/入住率/房源收益',
     color: 'blue',
     path: '/statistics'
+  },
+  {
+    icon: Users,
+    label: '租客管理',
+    description: '查看所有租客信息',
+    color: 'orange',
+    path: '/tenants'
   },
   {
     icon: Trash2,
