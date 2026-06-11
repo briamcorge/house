@@ -44,18 +44,29 @@ export default function RoomList() {
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => navigate('/properties')}
-              className="p-1 hover:bg-gray-100 rounded-lg"
+              className="p-1 hover:bg-gray-100 rounded-lg shrink-0"
             >
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{property.address}</h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">{property.address}</h1>
               <p className="text-sm text-gray-500">{propertyRooms.length} 间房间</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingRoomId(null);
+                setShowModal(true)
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              添加房间
+            </button>
           </div>
         </div>
       </div>
@@ -182,19 +193,6 @@ export default function RoomList() {
             )}
           </div>
 
-          {propertyRooms.length < 5 && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingRoomId(null)
-                setShowModal(true)
-              }}
-              className="w-full mt-6 bg-blue-900 text-white py-4 rounded-2xl font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              添加房间
-            </button>
-          )}
         </div>
       </div>
 

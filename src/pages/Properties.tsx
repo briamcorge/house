@@ -37,7 +37,20 @@ export default function Properties() {
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
-          <h1 className="text-xl font-bold text-gray-900 mb-4">房源管理</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-gray-900">房源管理</h1>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingProperty(undefined)
+                setShowModal(true)
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              添加房源
+            </button>
+          </div>
         </div>
       </div>
 
@@ -186,22 +199,11 @@ export default function Properties() {
                   <Search className="w-10 h-10 text-gray-400" />
                 </div>
                 <p className="text-gray-500">暂无房源</p>
-                <p className="text-sm text-gray-400 mt-1">点击下方按钮添加房源</p>
+                <p className="text-sm text-gray-400 mt-1">点击右上角添加房源</p>
               </div>
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingProperty(undefined)
-              setShowModal(true)
-            }}
-            className="w-full mt-6 bg-blue-900 text-white py-4 rounded-2xl font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Plus className="w-5 h-5" />
-            添加房源
-          </button>
         </div>
       </div>
 

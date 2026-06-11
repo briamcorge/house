@@ -85,7 +85,7 @@ export default function Home() {
   const recentTransactions = useMemo(() =>
     bills.filter(b => b.status === 'paid')
       .sort((a, b) => b.paidDate!.localeCompare(a.paidDate!))
-      .slice(0, 10),
+      .slice(0, 6),
     [bills]
   )
 
@@ -155,9 +155,6 @@ export default function Home() {
             <StatCard title="已出租" value={`${occupiedRooms}/${totalRooms}`} icon={Users} color="green" onClick={() => navigate('/properties')} />
           </div>
 
-          {/* 月度收支趋势图表 */}
-          <BillChart bills={bills} />
-
           {/* 待办事项汇总 */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div onClick={() => navigate('/bills', { state: { direction: 'receivable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
@@ -189,6 +186,9 @@ export default function Home() {
               <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length} 人</p>
             </div>
           </div>
+
+          {/* 月度收支趋势图表 */}
+          <BillChart bills={bills} />
 
           {/* 近期收支流水 */}
           <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
