@@ -137,7 +137,13 @@ export const useStore = create<AppStore>()(
         }
       }) as typeof rawSet
       return {
-      ...buildSeedState(),
+      properties: [],
+      rooms: [],
+      tenants: [],
+      bills: [],
+      landlordContracts: [],
+      profitRecords: [],
+      trash: [],
 
       addProperty: (property) =>
         set((state) => ({

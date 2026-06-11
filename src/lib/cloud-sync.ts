@@ -186,22 +186,73 @@ export async function syncUpload(data: SyncData, token: string): Promise<SyncDat
   return merged
 }
 
+// ─── 合并逻辑（云端优先 + 本地补丁 + 回收站过滤） ────
+
+function mergeCloudFirst(local: unknown[], cloud: unknown[], deletedIds: Set<string>): unknown[] {
+  const cloudIds = new Set(cloud.map((i) => (i as { id: string }).id))
+  const result = [...cloud]
+  for (const item of local) {
+    const id = (item as { id: string }).id
+    if (!cloudIds.has(id) && !deletedIds.has(id)) {
+      result.push(item)
+    }
+  }
+  return result
+}
+
+/** 合并本地与云端数据：云端优先（下载用），本地新增的补进来，已删除的不加回 */
+export function mergeCloudData(local: SyncData, cloud: SyncData): SyncData {
+  // 构建被删除的 ID 集合
+  const allTrash = [...(local.trash || []), ...(cloud.trash || [])] as Array<{
+    id: string
+    type: string
+    originalId: string
+    data: unknown
+    label: string
+    deletedAt: string
+  }>
+  const deletedMap = new Map<string, Set<string>>()
+  for (const item of allTrash) {
+    if (!deletedMap.has(item.type)) deletedMap.set(item.type, new Set())
+    deletedMap.get(item.type)!.add(item.originalId)
+  }
+
+  // 合并去重 trash
+  const trashMap = new Map<string, unknown>()
+  for (const item of allTrash) trashMap.set(item.id, item)
+
+  return {
+    properties: mergeCloudFirst(local.properties, cloud.properties, deletedMap.get('property') ?? new Set()),
+    rooms: mergeCloudFirst(local.rooms, cloud.rooms, deletedMap.get('room') ?? new Set()),
+    tenants: mergeCloudFirst(local.tenants, cloud.tenants, deletedMap.get('tenant') ?? new Set()),
+    bills: mergeCloudFirst(local.bills, cloud.bills, deletedMap.get('bill') ?? new Set()),
+    landlordContracts: mergeCloudFirst(local.landlordContracts, cloud.landlordContracts, deletedMap.get('landlord_contract') ?? new Set()),
+    profitRecords: mergeCloudFirst(local.profitRecords, cloud.profitRecords, deletedMap.get('profit_record') ?? new Set()),
+    trash: Array.from(trashMap.values()),
+    syncTimestamp: new Date().toISOString(),
+  }
+}
+
 /** 启动时自动合并云端数据：下载 → 合并 → 回调写入 store */
 export async function initSync(onMerge: (merged: SyncData) => void): Promise<void> {
   try {
     const cloud = await downloadData()
-    if (!cloud) return
+    if (!cloud || !cloud.properties?.length) return
 
-    // 从 localStorage 读取本地数据（persist 存储格式：{ state, version }）
-    const raw = localStorage.getItem('property-manager-data')
-    let local: SyncData
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      local = (parsed.state || parsed) as SyncData
-    } else {
-      local = { properties: [], rooms: [], tenants: [], bills: [], landlordContracts: [], profitRecords: [], trash: [], syncTimestamp: '' }
+    // 从 useStore 读取本地数据（动态 import 避免循环依赖）
+    const { useStore } = await import('../store/useStore')
+    const state = useStore.getState()
+    const local: SyncData = {
+      properties: state.properties,
+      rooms: state.rooms,
+      tenants: state.tenants,
+      bills: state.bills,
+      landlordContracts: state.landlordContracts,
+      profitRecords: state.profitRecords,
+      trash: state.trash,
+      syncTimestamp: '',
     }
-    const merged = mergeLocalData(local, cloud)
+    const merged = mergeCloudData(local, cloud)
     onMerge(merged)
   } catch {
     // 启动时静默失败，不影响正常使用

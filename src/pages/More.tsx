@@ -3,7 +3,7 @@ import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarCha
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, syncUpload, mergeLocalData } from '../lib/cloud-sync'
+import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, syncUpload, mergeCloudData } from '../lib/cloud-sync'
 import { APP_VERSION } from '../version'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -173,7 +173,7 @@ export default function More() {
         trash: state.trash,
         syncTimestamp: new Date().toISOString(),
       }
-      const merged = mergeLocalData(local, cloud)
+      const merged = mergeCloudData(local, cloud)
 
       const preview = [
         merged.properties ? `${merged.properties.length} 个房源` : '',
@@ -395,7 +395,7 @@ export default function More() {
                                 <p className={`text-xs ${syncStatus === 'error' ? 'text-red-500' : 'text-gray-600'}`}>{syncMsg}</p>
                               )}
                               {lastSync && (
-                                <p className="text-xs text-gray-400">上次同步: {lastSync.slice(0, 16).replace('T', ' ')}</p>
+                                <p className="text-xs text-gray-400">上次同步: {new Date(lastSync).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}</p>
                               )}
                               <div className="grid grid-cols-2 gap-2">
                                 <button
