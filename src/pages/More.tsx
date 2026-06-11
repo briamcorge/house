@@ -3,7 +3,7 @@ import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarCha
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, syncUpload, mergeCloudData } from '../lib/cloud-sync'
+import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, downloadDataFresh, syncUpload, mergeCloudData, clearCloudData } from '../lib/cloud-sync'
 import { APP_VERSION } from '../version'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -152,11 +152,29 @@ export default function More() {
     }
   }
 
+  const handleClearCloud = async () => {
+    const token = getToken()
+    if (!token) return
+    if (!confirm('⚠️ 警告：将彻底清空云端所有数据（包括回收站），且不可恢复！\n\n本机数据不受影响。确定吗？')) return
+    setSyncStatus('syncing')
+    setSyncMsg('正在清空云端...')
+    try {
+      await clearCloudData(token)
+      setSyncStatus('idle')
+      setSyncMsg('云端已清空')
+      setLastSync(getLastSyncTimestamp())
+    } catch (err) {
+      setSyncStatus('error')
+      setSyncMsg('清空失败: ' + (err instanceof Error ? err.message : '网络错误'))
+    }
+  }
+
   const handleDownload = async () => {
     setSyncStatus('syncing')
     setSyncMsg('正在下载并合并...')
     try {
-      const cloud = await downloadData()
+      const token = getToken()
+      const cloud = token ? await downloadDataFresh(token) : await downloadData()
       if (!cloud) {
         setSyncStatus('idle')
         setSyncMsg('云端暂无数据')
@@ -425,6 +443,14 @@ export default function More() {
                               >
                                 <Upload className="w-4 h-4" />
                                 <span>强制覆盖云端</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleClearCloud}
+                                disabled={syncStatus === 'syncing'}
+                                className="w-full py-2 px-3 bg-red-100 text-red-700 rounded-xl font-medium hover:bg-red-200 transition-colors flex items-center justify-center gap-1.5 text-xs disabled:opacity-50"
+                              >
+                                🗑️ 清空云端（彻底删除所有数据）
                               </button>
                               <button type="button" onClick={handleClearToken} className="text-xs text-gray-400 hover:text-red-500 transition-colors">清除密钥</button>
                             </>

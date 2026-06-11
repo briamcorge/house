@@ -36,13 +36,29 @@ export interface SyncData {
   syncTimestamp: string
 }
 
-/** 从 GitHub raw 下载（无需令牌） */
+/** 从 GitHub raw 下载（无令牌，有 CDN 缓存问题） */
 export async function downloadData(): Promise<SyncData | null> {
   const url = `${RAW_BASE}/${CLOUD_CONFIG.owner}/${CLOUD_CONFIG.repo}/${CLOUD_CONFIG.branch}/${CLOUD_CONFIG.filePath}`
-  const res = await fetch(url, { cache: 'no-cache' })
+  const res = await fetch(url, { cache: 'no-store' })
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`下载失败: ${res.status}`)
   return res.json()
+}
+
+/** 从 GitHub Contents API 下载（有令牌，数据实时，无 CDN 缓存问题） */
+export async function downloadDataFresh(token: string): Promise<SyncData | null> {
+  const url = `${API_BASE}/repos/${CLOUD_CONFIG.owner}/${CLOUD_CONFIG.repo}/contents/${CLOUD_CONFIG.filePath}`
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`下载失败: ${res.status}`)
+  const data = await res.json()
+  const decoded = base64Decode(data.content)
+  return JSON.parse(decoded)
 }
 
 /** 查询云端数据是否存在 */
@@ -57,6 +73,21 @@ export async function checkCloudData(): Promise<{ exists: boolean; updatedAt: st
   const commits = await res.json()
   if (!commits.length) return { exists: false, updatedAt: null }
   return { exists: true, updatedAt: commits[0].commit?.committer?.date || null }
+}
+
+/** 清空云端数据：上传一个完全空的状态（连 trash 都清掉） */
+export async function clearCloudData(token: string): Promise<void> {
+  const empty: SyncData = {
+    properties: [],
+    rooms: [],
+    tenants: [],
+    bills: [],
+    landlordContracts: [],
+    profitRecords: [],
+    trash: [],
+    syncTimestamp: new Date().toISOString(),
+  }
+  await uploadData(empty, token)
 }
 
 /** 上传到 GitHub（Contents API） */
@@ -180,7 +211,7 @@ export function mergeLocalData(local: SyncData, cloud: SyncData): SyncData {
 
 /** 下载云端 → 合并 → 上传 → 返回合并结果 */
 export async function syncUpload(data: SyncData, token: string): Promise<SyncData> {
-  const cloud = await downloadData()
+  const cloud = await downloadDataFresh(token)
   const merged = cloud ? mergeLocalData(data, cloud) : data
   await uploadData(merged, token)
   return merged
@@ -236,7 +267,8 @@ export function mergeCloudData(local: SyncData, cloud: SyncData): SyncData {
 /** 启动时自动合并云端数据：下载 → 合并 → 回调写入 store */
 export async function initSync(onMerge: (merged: SyncData) => void): Promise<void> {
   try {
-    const cloud = await downloadData()
+    const token = getToken()
+    const cloud = token ? await downloadDataFresh(token) : await downloadData()
     if (!cloud || !cloud.properties?.length) return
 
     // 从 useStore 读取本地数据（动态 import 避免循环依赖）
