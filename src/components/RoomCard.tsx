@@ -34,7 +34,7 @@ export default function RoomCard({ room, tenant, billSummary, onClick, onClickBi
             )}>
               {room.status === 'occupied' ? '在租' : '空置'}
             </span>
-            <span className="ml-auto text-[10px] text-gray-400">{room.roomType}</span>
+            <span className="ml-auto text-[10px] text-gray-400 pr-6">{room.roomType}</span>
           </div>
           {tenant ? (
             <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">

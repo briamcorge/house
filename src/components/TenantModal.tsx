@@ -75,6 +75,13 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   const isEditing = !!editingTenant
 
+  // 选择房间后，合同结束期默认取业主合同结束期
+  useEffect(() => {
+    if (!isEditing && roomId && currentLandlordContract) {
+      setContractEnd(currentLandlordContract.contractEnd)
+    }
+  }, [roomId, currentLandlordContract, isEditing])
+
   useEffect(() => {
     if (editingTenant) {
       setName(editingTenant.name)
