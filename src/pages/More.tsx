@@ -92,8 +92,8 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
-  const depositBalance = bills.filter(b => b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
-  const depositBills = bills.filter(b => b.description?.includes('押金'))
+  const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+  const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
   // Cloud sync state
   const [showSync, setShowSync] = useState(false)
