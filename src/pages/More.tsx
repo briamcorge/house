@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users, DollarSign } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users, DollarSign, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -78,6 +78,7 @@ export default function More() {
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
+  const [showDepositList, setShowDepositList] = useState(false)
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
@@ -92,6 +93,7 @@ export default function More() {
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
   const depositBalance = bills.filter(b => b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
+  const depositBills = bills.filter(b => b.description?.includes('押金'))
 
   // Cloud sync state
   const [showSync, setShowSync] = useState(false)
@@ -348,10 +350,10 @@ export default function More() {
                 <p className="text-blue-200 text-xs">待处理账单</p>
               </button>
             </div>
-            <div className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between">
+            <button type="button" onClick={() => setShowDepositList(true)} className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between w-full hover:bg-white/5 rounded-lg px-1 transition-colors">
               <span className="text-blue-200 text-sm">押金余额</span>
               <span className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -623,6 +625,43 @@ export default function More() {
           <p className="text-sm text-gray-400">房屋管理 v{APP_VERSION}</p>
         </div>
       </div>
+
+      {/* 押金明细弹窗 */}
+      {showDepositList && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">押金明细</h3>
+              <button type="button" onClick={() => setShowDepositList(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              <div className="flex items-center justify-between bg-blue-50 rounded-xl p-3 mb-3">
+                <span className="text-sm font-medium text-blue-700">合计</span>
+                <span className="text-lg font-bold text-blue-700">¥{depositBalance.toFixed(0)}</span>
+              </div>
+              {depositBills.map((b) => {
+                const room = rooms.find(r => r.id === b.roomId)
+                const prop = properties.find(p => p.id === b.propertyId)
+                const tenant = tenants.find(t => t.id === b.tenantId)
+                return (
+                  <div key={b.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} - {room?.label || ''}</p>
+                      <p className="text-xs text-gray-500">{tenant?.name || ''}</p>
+                    </div>
+                    <span className="text-sm font-bold text-gray-900 ml-2">¥{b.amount.toFixed(0)}</span>
+                  </div>
+                )
+              })}
+              {depositBills.length === 0 && (
+                <p className="text-center text-gray-400 py-8">暂无押金记录</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
