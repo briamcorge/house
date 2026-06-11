@@ -10,13 +10,13 @@ interface BillCardProps {
 export default function BillCard({ bill, propertyAddress }: BillCardProps) {
   const statusColors = {
     pending: 'bg-orange-100 text-orange-700',
-    paid: 'bg-green-100 text-green-700',
+    paid: 'bg-green-200 text-green-700',
     overdue: 'bg-red-100 text-red-700'
   }
 
   const statusLabels = {
     pending: '待支付',
-    paid: '已支付',
+    paid: '✓ 已支付',
     overdue: '已逾期'
   }
 

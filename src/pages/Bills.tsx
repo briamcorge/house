@@ -87,12 +87,12 @@ export default function Bills() {
 
   const statusClasses: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',
-    paid: 'bg-green-100 text-green-700',
+    paid: 'bg-green-200 text-green-700',
     overdue: 'bg-red-100 text-red-700'
   }
 
   const getStatusLabel = (status: Bill['status'], dir: BillDirection) => {
-    if (status === 'paid') return dir === 'receivable' ? '已收' : '已付'
+    if (status === 'paid') return dir === 'receivable' ? '✓ 已收' : '✓ 已付'
     if (status === 'pending') return dir === 'receivable' ? '未收' : '未付'
     return '已逾期'
   }
@@ -478,6 +478,12 @@ export default function Bills() {
                   <span className="text-sm text-gray-500">总金额</span>
                   <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
                 </div>
+                {payConfirmBill.description && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">期间</span>
+                    <span className="text-sm font-medium">{payConfirmBill.description}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">{payConfirmBill.direction === 'receivable' ? '应收日' : '应付日'}</span>
                   <span className="text-sm font-medium">{payConfirmBill.dueDate}</span>

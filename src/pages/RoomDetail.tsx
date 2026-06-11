@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { Tenant } from '../types'
+import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
@@ -19,7 +19,14 @@ export default function RoomDetail() {
 
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
   const selectedTenant = roomTenants.find(t => t.id === selectedTenantId) || roomTenants[0] || null
-  const roomBills = bills.filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === selectedTenant?.id)
+  const roomBills = bills
+    .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === selectedTenant?.id)
+    .sort((a, b) => {
+      const order = { pending: 0, overdue: 1, paid: 2 }
+      const cmp = (order[a.status] ?? 99) - (order[b.status] ?? 99)
+      if (cmp !== 0) return cmp
+      return a.dueDate.localeCompare(b.dueDate)
+    })
   const [checkoutTenant, setCheckoutTenant] = useState<Tenant | null>(null)
   const [isRenewal, setIsRenewal] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string; value: string } | null>(null)
@@ -29,6 +36,17 @@ export default function RoomDetail() {
   const [showBillModal, setShowBillModal] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
 
+  const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
+  const [payAmount, setPayAmount] = useState('')
+  const [payDate, setPayDate] = useState('')
+
+  useEffect(() => {
+    if (payConfirmBill) {
+      setPayAmount(payConfirmBill.amount.toString())
+      setPayDate(new Date().toISOString().slice(0, 10))
+    }
+  }, [payConfirmBill])
+
   const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', other: '其他' }
   const typeIcons: Record<string, typeof FileText> = {
     rent: FileText,
@@ -37,8 +55,8 @@ export default function RoomDetail() {
     gas: Flame,
     other: Receipt
   }
-  const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-100 text-green-700', overdue: 'bg-red-100 text-red-700' }
-  const statusLabels: Record<string, string> = { pending: '未收', paid: '已收', overdue: '已逾期' }
+  const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-200 text-green-700', overdue: 'bg-red-100 text-red-700' }
+  const statusLabels: Record<string, string> = { pending: '未收', paid: '✓ 已收', overdue: '已逾期' }
 
   if (!room) {
     return (
@@ -175,14 +193,7 @@ export default function RoomDetail() {
                           {bill.status !== 'paid' && (
                             <button
                               type="button"
-                              onClick={() => {
-                                if (confirm(`确认收款 ¥${bill.amount.toFixed(2)}？`)) {
-                                  updateBill(bill.id, {
-                                    status: 'paid',
-                                    paidDate: new Date().toISOString().slice(0, 10),
-                                  })
-                                }
-                              }}
+                              onClick={() => setPayConfirmBill(bill)}
                               className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200"
                             >
                               收款
@@ -263,6 +274,111 @@ export default function RoomDetail() {
           setCheckoutTenant(null)
         }}
       />
+
+      {/* 收款确认弹窗 */}
+      {payConfirmBill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+          <div className="bg-white rounded-t-3xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">收款确认</h2>
+              <p className="text-xs text-gray-400 mt-1">可修改本次收款金额和日期</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">类型</span>
+                  <span className="text-sm font-medium">{typeLabels[payConfirmBill.type]}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">总金额</span>
+                  <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
+                </div>
+                {payConfirmBill.description && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">期间</span>
+                    <span className="text-sm font-medium">{payConfirmBill.description}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">应收日</span>
+                  <span className="text-sm font-medium">{payConfirmBill.dueDate}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">本次收款</label>
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    step="0.01"
+                    min="0"
+                    max={payConfirmBill.amount}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                  <input
+                    type="date"
+                    value={payDate}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
+                留空本次收款金额则视为全额收款
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPayConfirmBill(null)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const paidAmt = payAmount ? parseFloat(payAmount) : undefined
+                    const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
+                    if (isPartial) {
+                      const remaining = payConfirmBill.amount - paidAmt
+                      updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
+                      addBill({
+                        propertyId: payConfirmBill.propertyId,
+                        roomId: payConfirmBill.roomId,
+                        tenantId: payConfirmBill.tenantId,
+                        amount: paidAmt,
+                        type: payConfirmBill.type,
+                        status: 'paid' as const,
+                        direction: payConfirmBill.direction,
+                        dueDate: payConfirmBill.dueDate,
+                        paidDate: payDate || new Date().toISOString().slice(0, 10),
+                        description: payConfirmBill.description,
+                      })
+                    } else {
+                      updateBill(payConfirmBill.id, {
+                        status: 'paid' as const,
+                        paidDate: payDate || new Date().toISOString().slice(0, 10),
+                      })
+                    }
+                    setPayConfirmBill(null)
+                  }}
+                  className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
+                >
+                  确认收款
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
