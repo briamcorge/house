@@ -68,6 +68,7 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
+  const depositBalance = bills.filter(b => b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
 
   // Cloud sync state
   const [showSync, setShowSync] = useState(false)
@@ -310,7 +311,7 @@ export default function More() {
                 <p className="text-blue-200 text-sm">轻松管理您的房产</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div className="bg-white/10 rounded-xl p-3 text-center">
                 <p className="text-2xl font-bold text-white">{properties.length}</p>
                 <p className="text-blue-200 text-xs">房屋</p>
@@ -322,6 +323,10 @@ export default function More() {
               <div className="bg-white/10 rounded-xl p-3 text-center">
                 <p className="text-2xl font-bold text-white">{pendingBills.length}</p>
                 <p className="text-blue-200 text-xs">待处理账单</p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-white">¥{depositBalance.toFixed(0)}</p>
+                <p className="text-blue-200 text-xs">押金余额</p>
               </div>
             </div>
           </div>
