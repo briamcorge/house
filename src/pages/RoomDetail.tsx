@@ -172,7 +172,7 @@ export default function RoomDetail() {
                   </div>
                 ) : (
                   roomBills.map((bill) => (
-                    <div key={bill.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div key={bill.id} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className={`w-6 h-6 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
@@ -206,6 +206,11 @@ export default function RoomDetail() {
                         <span>应收日：{bill.dueDate}</span>
                         {bill.paidDate && <span className="ml-2">实收：{bill.paidDate}</span>}
                       </div>
+                      {bill.status === 'paid' && (
+                        <div className="absolute top-2 right-2 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
+                          ✓ 已收
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

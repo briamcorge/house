@@ -423,6 +423,11 @@ export default function Bills() {
                             )}
                           </div>
                         </div>
+                        {bill.status === 'paid' && (
+                          <div className="absolute top-2 right-12 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
+                            ✓ {bill.direction === 'receivable' ? '已收' : '已付'}
+                          </div>
+                        )}
                       </div>
                     )
                   })
