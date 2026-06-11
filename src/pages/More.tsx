@@ -325,7 +325,7 @@ export default function More() {
                 <p className="text-blue-200 text-xs">待处理账单</p>
               </div>
               <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">¥{depositBalance.toFixed(0)}</p>
+                <p className="text-lg font-bold text-white break-all">¥{depositBalance.toFixed(0)}</p>
                 <p className="text-blue-200 text-xs">押金余额</p>
               </div>
             </div>
