@@ -91,6 +91,7 @@ export default function RoomDetail() {
                 <FileText className="w-5 h-5 inline mr-1" />
                 合同记录
               </h2>
+              {!roomTenants.some(t => t.status === 'active') && (
               <button
                 type="button"
                 onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
@@ -98,6 +99,7 @@ export default function RoomDetail() {
               >
                 <Plus className="w-4 h-4" />新签合同
               </button>
+              )}
             </div>
 
             {roomTenants.length === 0 ? (
