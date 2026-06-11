@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users, DollarSign } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -47,6 +47,12 @@ const menuItems: MenuItem[] = [
     path: '/tenants'
   },
   {
+    icon: DollarSign,
+    label: '利润提取',
+    description: '记录和查看利润提取',
+    color: 'purple'
+  },
+  {
     icon: Trash2,
     label: '回收站',
     description: '恢复已删除的数据',
@@ -68,10 +74,16 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, clearAllData } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord } = useStore()
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
+  // 利润提取
+  const [showProfitForm, setShowProfitForm] = useState(false)
+  const [profitPropertyId, setProfitPropertyId] = useState('')
+  const [profitAmount, setProfitAmount] = useState('')
+  const [profitCycleStart, setProfitCycleStart] = useState('')
+  const [profitCycleEnd, setProfitCycleEnd] = useState('')
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
@@ -308,33 +320,33 @@ export default function More() {
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-6">更多</h1>
           
-          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-5">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                <UserPlus className="w-7 h-7 text-white" />
+          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <UserPlus className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-white">您的管理概览</h2>
-                <p className="text-blue-200 text-sm">轻松管理您的房产</p>
+                <h2 className="text-base font-semibold text-white">您的管理概览</h2>
+                <p className="text-blue-200 text-xs">轻松管理您的房产</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">{properties.length}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => navigate('/properties')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
+                <p className="text-lg font-bold text-white">{properties.length}</p>
                 <p className="text-blue-200 text-xs">房屋</p>
-              </div>
-              <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">{activeTenants.length}</p>
+              </button>
+              <button type="button" onClick={() => navigate('/tenants')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
+                <p className="text-lg font-bold text-white">{activeTenants.length}</p>
                 <p className="text-blue-200 text-xs">在租租客</p>
-              </div>
-              <div className="bg-white/10 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-white">{pendingBills.length}</p>
+              </button>
+              <button type="button" onClick={() => navigate('/bills')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
+                <p className="text-lg font-bold text-white">{pendingBills.length}</p>
                 <p className="text-blue-200 text-xs">待处理账单</p>
-              </div>
+              </button>
             </div>
-            <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+            <div className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between">
               <span className="text-blue-200 text-sm">押金余额</span>
-              <span className="text-xl font-bold text-white">¥{depositBalance.toFixed(0)}</span>
+              <span className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -346,6 +358,7 @@ export default function More() {
             const Icon = item.icon
               const isBackup = item.label === '数据备份'
               const isAbout = item.label === '关于'
+              const isProfit = item.label === '利润提取'
               
               return (
                 <div key={index}>
@@ -356,10 +369,11 @@ export default function More() {
                     e.stopPropagation()
                     if (item.path) navigate(item.path)
                     else if (isBackup) setShowBackup(!showBackup)
+                    else if (isProfit) setShowProfitForm(!showProfitForm)
                     else if (isAbout) alert(`房屋管理系统 v${APP_VERSION}\n用于二房东日常房源/租客/账单管理\n数据存储于当前浏览器中`)
                     else alert(`${item.label}功能开发中...`)
                   }}
-                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup ? 'rounded-b-none border-b-0' : ''}`}
+                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm ? 'rounded-b-none border-b-0' : ''}`}
                 >
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
                     <Icon className="w-6 h-6" />
@@ -368,7 +382,7 @@ export default function More() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-500">{item.description}</p>
                   </div>
-                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup ? 'rotate-90' : ''}`}>
+                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm ? 'rotate-90' : ''}`}>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -469,6 +483,87 @@ export default function More() {
                           )}
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+                {isProfit && showProfitForm && (
+                  <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px space-y-3">
+                    <select
+                      value={profitPropertyId}
+                      onChange={(e) => setProfitPropertyId(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                    >
+                      <option value="">选择房源</option>
+                      {properties.map((p) => (
+                        <option key={p.id} value={p.id}>{p.address}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={profitAmount}
+                      onChange={(e) => setProfitAmount(e.target.value)}
+                      placeholder="利润金额（元）"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={profitCycleStart}
+                        onChange={(e) => setProfitCycleStart(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                        placeholder="周期开始"
+                      />
+                      <input
+                        type="date"
+                        value={profitCycleEnd}
+                        onChange={(e) => setProfitCycleEnd(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                        placeholder="周期结束"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfitForm(false)
+                          setProfitPropertyId('')
+                          setProfitAmount('')
+                          setProfitCycleStart('')
+                          setProfitCycleEnd('')
+                        }}
+                        className="py-2.5 px-3 bg-gray-100 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-200 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const amount = parseFloat(profitAmount)
+                          if (!profitPropertyId || isNaN(amount) || amount <= 0) {
+                            alert('请选择房源并输入有效金额')
+                            return
+                          }
+                          addProfitRecord({
+                            propertyId: profitPropertyId,
+                            tenantIncome: amount,
+                            landlordExpense: 0,
+                            profitAmount: amount,
+                            cycleStart: profitCycleStart || '',
+                            cycleEnd: profitCycleEnd || '',
+                            isManual: true,
+                            status: 'available',
+                          })
+                          setShowProfitForm(false)
+                          setProfitPropertyId('')
+                          setProfitAmount('')
+                          setProfitCycleStart('')
+                          setProfitCycleEnd('')
+                          alert('利润提取记录已添加')
+                        }}
+                        className="py-2.5 px-3 bg-purple-600 text-white rounded-xl font-medium text-sm hover:bg-purple-700 transition-colors"
+                      >
+                        提交
+                      </button>
                     </div>
                   </div>
                 )}
