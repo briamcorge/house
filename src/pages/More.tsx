@@ -628,8 +628,8 @@ export default function More() {
 
       {/* 押金明细弹窗 */}
       {showDepositList && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">押金明细</h3>
               <button type="button" onClick={() => setShowDepositList(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -643,15 +643,15 @@ export default function More() {
               </div>
               {depositBills.map((b) => {
                 const room = rooms.find(r => r.id === b.roomId)
-                const prop = properties.find(p => p.id === b.propertyId)
+                const prop = room ? properties.find(p => p.id === room.propertyId) : null
                 const tenant = tenants.find(t => t.id === b.tenantId)
                 return (
                   <div key={b.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} - {room?.label || ''}</p>
-                      <p className="text-xs text-gray-500">{tenant?.name || ''}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} {room ? `- ${room.label}` : ''}</p>
+                      <p className="text-xs text-gray-500">{tenant?.name || ''}{b.amount < 0 ? '（退押金）' : ''}</p>
                     </div>
-                    <span className="text-sm font-bold text-gray-900 ml-2">¥{b.amount.toFixed(0)}</span>
+                    <span className={`text-sm font-bold ml-2 ${b.amount < 0 ? 'text-red-600' : 'text-gray-900'}`}>{b.amount < 0 ? '-' : ''}¥{Math.abs(b.amount).toFixed(0)}</span>
                   </div>
                 )
               })}
