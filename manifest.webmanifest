@@ -1,0 +1,1 @@
+{"name":"房屋管理","short_name":"房屋管理","description":"二房东房屋管理软件","start_url":"/house/","display":"standalone","background_color":"#f3f4f6","theme_color":"#1e3a5f","lang":"en","scope":"/house/","icons":[{"src":"/house/favicon.svg","sizes":"512x512","type":"image/svg+xml"}]}
