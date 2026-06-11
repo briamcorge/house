@@ -207,8 +207,10 @@ export default function RoomDetail() {
                         {bill.paidDate && <span className="ml-2">实收：{bill.paidDate}</span>}
                       </div>
                       {bill.status === 'paid' && (
-                        <div className="absolute top-2 right-2 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
-                          ✓ 已收
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
+                          <span className="rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/70 px-4 py-2 rounded-md text-lg font-black opacity-75">
+                            ✓ 已收
+                          </span>
                         </div>
                       )}
                     </div>

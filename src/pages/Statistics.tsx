@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Home, Building2, BarChart3, Wallet, DollarSign } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Building2, BarChart3, Wallet, DollarSign } from 'lucide-react'
 
 export default function Statistics() {
   const navigate = useNavigate()
@@ -70,17 +70,6 @@ export default function Statistics() {
   // 净收入
   const netIncome = yearlyReceivablePaid - yearlyPayablePaid - yearlyRefund
 
-  // 入住率统计
-  const occupancyStats = useMemo(() => {
-    const totalRooms = rooms.length
-    const activeTenants = tenants.filter(t => t.status === 'active').length
-    return {
-      totalRooms,
-      occupiedRooms: activeTenants,
-      occupancyRate: totalRooms > 0 ? Math.round((activeTenants / totalRooms) * 100) : 0,
-    }
-  }, [rooms, tenants])
-
   // 按房源统计
   const propertyStats = useMemo(() => {
     return properties.map(p => {
@@ -116,28 +105,6 @@ export default function Statistics() {
       }
     }).sort((a, b) => b.net - a.net)
   }, [properties, rooms, tenants, bills, selectedYear])
-
-  // 月度趋势数据
-  const monthlyData = useMemo(() => {
-    const months: { month: string; income: number; expense: number; refund: number }[] = []
-    for (let m = 1; m <= 12; m++) {
-      const monthKey = `${selectedYear}-${String(m).padStart(2, '0')}`
-      const income = bills
-        .filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(monthKey))
-        .filter(b => b.description !== '押金')
-        .reduce((s, b) => s + b.amount, 0)
-      const expense = bills
-        .filter(b => b.direction === 'payable' && b.status === 'paid' && b.paidDate?.startsWith(monthKey))
-        .reduce((s, b) => s + b.amount, 0)
-      const refund = bills
-        .filter(b => b.amount < 0 && b.status === 'paid' && b.paidDate?.startsWith(monthKey))
-        .reduce((s, b) => s + Math.abs(b.amount), 0)
-      months.push({ month: `${m}月`, income, expense, refund })
-    }
-    return months
-  }, [bills, selectedYear])
-
-  const maxMonthlyValue = Math.max(1, ...monthlyData.flatMap(m => [m.income, m.expense]))
 
   // 去年数据（用于对比）
   const prevYear = selectedYear - 1
@@ -257,66 +224,6 @@ export default function Statistics() {
               </div>
             </div>
           ) : null}
-
-          {/* 月度趋势 */}
-          <div>
-            <h2 className="text-base font-bold text-gray-800 mb-2">月度趋势</h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-end gap-1 h-48">
-                {monthlyData.map(m => (
-                  <div key={m.month} className="flex-1 flex flex-col items-center gap-0.5">
-                    {m.income > 0 && (
-                      <span className="text-[8px] text-green-600 font-medium">{m.income >= 1000 ? `${(m.income / 1000).toFixed(1)}k` : m.income.toFixed(0)}</span>
-                    )}
-                    <div className="w-full flex flex-col items-stretch justify-end h-32 gap-0.5">
-                      <div
-                        className="bg-green-400 rounded-t"
-                        style={{ height: `${(m.income / maxMonthlyValue) * 100}%`, minHeight: m.income > 0 ? '2px' : '0' }}
-                        title={`收入 ¥${m.income.toFixed(0)}`}
-                      />
-                      <div
-                        className="bg-blue-400 rounded-t"
-                        style={{ height: `${(m.expense / maxMonthlyValue) * 100}%`, minHeight: m.expense > 0 ? '2px' : '0' }}
-                        title={`支出 ¥${m.expense.toFixed(0)}`}
-                      />
-                    </div>
-                    <span className="text-[10px] text-gray-400">{m.month}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-green-400 rounded" />
-                  <span>收入</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-blue-400 rounded" />
-                  <span>支出</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 入住率 */}
-          <div>
-            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <Home className="w-5 h-5" />
-              入住率
-            </h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-500">当前入住</span>
-                <span className="text-2xl font-bold text-gray-900">{occupancyStats.occupancyRate}%</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
-                  style={{ width: `${occupancyStats.occupancyRate}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">{occupancyStats.occupiedRooms} / {occupancyStats.totalRooms} 间</p>
-            </div>
-          </div>
 
           {/* 各房源收益对比 */}
           <div>
