@@ -91,7 +91,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-6 pb-12">
+      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-4 pb-8">
           <div className="max-w-md mx-auto">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -115,10 +115,10 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="px-4 -mt-10">
+      <div className="px-4 -mt-7">
         <div className="max-w-md mx-auto">
           {/* 告警横幅 */}
-          <div className="mb-3 space-y-2">
+          <div className="mb-2 space-y-2">
             {!dismissedAlerts.has('overdue') && overdueReceivable.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -150,13 +150,13 @@ export default function Home() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <StatCard title="房源总数" value={totalProperties} icon={Building2} color="blue" onClick={() => navigate('/properties')} />
             <StatCard title="已出租" value={`${occupiedRooms}/${totalRooms}`} icon={Users} color="green" onClick={() => navigate('/properties')} />
           </div>
 
           {/* 待办事项汇总 */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <div onClick={() => navigate('/bills', { state: { direction: 'receivable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-red-600">未收账单</span>
@@ -191,7 +191,7 @@ export default function Home() {
           <BillChart bills={bills} />
 
           {/* 近期收支流水 */}
-          <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">近期收支流水</h3>
               <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
@@ -245,7 +245,7 @@ export default function Home() {
 
           {/* 搜索结果 */}
           {searchQuery.trim() && (
-            <div className="mb-6 space-y-2">
+            <div className="mb-4 space-y-2">
               {(() => {
                 const q = searchQuery.toLowerCase()
                 const matchedProps = properties.filter(p => p.address.toLowerCase().includes(q))

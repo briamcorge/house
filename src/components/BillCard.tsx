@@ -10,7 +10,7 @@ interface BillCardProps {
 export default function BillCard({ bill, propertyAddress }: BillCardProps) {
   const statusColors = {
     pending: 'bg-orange-100 text-orange-700',
-    paid: 'bg-green-200 text-green-700',
+    paid: 'bg-green-600 text-white',
     overdue: 'bg-red-100 text-red-700'
   }
 

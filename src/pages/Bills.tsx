@@ -86,8 +86,8 @@ export default function Bills() {
   }
 
   const statusClasses: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    paid: 'bg-green-200 text-green-700',
+    pending: 'bg-orange-100 text-orange-700',
+    paid: 'bg-green-600 text-white',
     overdue: 'bg-red-100 text-red-700'
   }
 
@@ -167,12 +167,12 @@ export default function Bills() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
+      <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
         <div className="max-w-md mx-auto">
-          <h1 className="text-xl font-bold text-gray-900 mb-4">账单管理</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-3">账单管理</h1>
 
           {/* 总体汇总：已收/未收/应付/已付 */}
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-4 gap-2 mb-3">
             {(() => {
               const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
               const receivableUnpaid = bills.filter(b => b.direction === 'receivable' && b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
@@ -322,12 +322,12 @@ export default function Bills() {
                     currentMonthBills.map((bill) => {
                     const tenantName = getTenantName(bill.tenantId)
                     return (
-                      <div key={bill.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={bill.id} className="relative bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+                        <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <div className={`w-6 h-6 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
-                                {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3.5 h-3.5" /> })()}
+                              <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                                {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                               </div>
                               <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
@@ -338,7 +338,7 @@ export default function Bills() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-2xl font-bold text-blue-900">¥{bill.amount.toFixed(2)}</p>
+                              <p className="text-xl font-bold text-blue-900">¥{bill.amount.toFixed(2)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -346,7 +346,7 @@ export default function Bills() {
                               <button
                                 type="button"
                                 onClick={() => setPayConfirmBill(bill)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                                   bill.direction === 'receivable'
                                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                     : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
@@ -362,7 +362,7 @@ export default function Bills() {
                                   e.stopPropagation()
                                   setBillMenu(billMenu === bill.id ? null : bill.id)
                                 }}
-                                className="p-2 hover:bg-gray-100 rounded-full"
+                                className="p-1.5 hover:bg-gray-100 rounded-full"
                               >
                                 <MoreVertical className="w-5 h-5 text-gray-500" />
                               </button>
@@ -393,26 +393,29 @@ export default function Bills() {
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
+                          {bill.description && (
+                            <div className="text-xs text-gray-500 leading-tight">{bill.description}</div>
+                          )}
                           {bill.direction === 'payable' && (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
                               <Home className="w-4 h-4 text-gray-400" />
                               <span>{getPropertyAddress(bill.propertyId)}</span>
                             </div>
                           )}
                           {bill.direction === 'receivable' && bill.roomId && (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
                               <Home className="w-4 h-4 text-gray-400" />
                               <span>{getRoomInfo(bill.roomId)}</span>
                             </div>
                           )}
                           {tenantName && (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
                               <User className="w-4 h-4 text-gray-400" />
                               <span>{tenantName}</span>
                             </div>
                           )}
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
                             {bill.paidDate && bill.status === 'paid' && (

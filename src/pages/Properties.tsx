@@ -35,7 +35,7 @@ export default function Properties() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
+      <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-900">房源管理</h1>
@@ -56,7 +56,7 @@ export default function Properties() {
 
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
-          <div className="space-y-4">
+          <div className="space-y-3">
             {properties.map((property) => (
               <div key={property.id} className="relative group">
                 <PropertyCard

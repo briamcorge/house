@@ -42,7 +42,7 @@ export default function RoomList() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
+      <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-3">
             <button
@@ -74,8 +74,8 @@ export default function RoomList() {
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           {/* 业主合同记录 */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-base font-bold text-gray-800">
                 <FileText className="w-4 h-4 inline mr-1" />
                 业主合同记录
@@ -128,7 +128,7 @@ export default function RoomList() {
             })()}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {propertyRooms.map((room) => (
               <div key={room.id} className="relative group">
                 <RoomCard

@@ -154,9 +154,9 @@ export default function Statistics() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
+      <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
         <div className="max-w-md mx-auto">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <button type="button" onClick={() => navigate('/more')} className="p-1 hover:bg-gray-100 rounded-lg">
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
@@ -177,10 +177,10 @@ export default function Statistics() {
       </div>
 
       <div className="px-4 pt-3">
-        <div className="max-w-md mx-auto space-y-6">
+        <div className="max-w-md mx-auto space-y-4">
           {/* 年度概览 */}
           <div>
-            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Wallet className="w-5 h-5" />
               {selectedYear}年 财务概览
             </h2>
@@ -219,7 +219,7 @@ export default function Statistics() {
           {/* 年度对比 */}
           {prevYearIncome > 0 || prevYearExpense > 0 ? (
             <div>
-              <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
                 与{prevYear}年对比
               </h2>
@@ -260,7 +260,7 @@ export default function Statistics() {
 
           {/* 月度趋势 */}
           <div>
-            <h2 className="text-base font-bold text-gray-800 mb-3">月度趋势</h2>
+            <h2 className="text-base font-bold text-gray-800 mb-2">月度趋势</h2>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <div className="flex items-end gap-1 h-48">
                 {monthlyData.map(m => (
@@ -299,7 +299,7 @@ export default function Statistics() {
 
           {/* 入住率 */}
           <div>
-            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Home className="w-5 h-5" />
               入住率
             </h2>
@@ -320,7 +320,7 @@ export default function Statistics() {
 
           {/* 各房源收益对比 */}
           <div>
-            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Building2 className="w-5 h-5" />
               房源收益对比
             </h2>
@@ -368,13 +368,13 @@ export default function Statistics() {
 
           {/* 月度房源净收益 */}
           <div>
-            <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Building2 className="w-5 h-5" />
               月度房源净收益
             </h2>
 
             {/* 房源选择 */}
-            <div className="mb-3">
+            <div className="mb-2">
               <select
                 value={monthlyPropId ?? ''}
                 onChange={(e) => setMonthlyPropId(e.target.value || null)}
@@ -389,7 +389,7 @@ export default function Statistics() {
 
             {/* 月份导航 */}
             {allPropMonthKeys.length > 0 && (
-              <div className="flex items-center justify-between mb-3 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+              <div className="flex items-center justify-between mb-2 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                 <button
                   type="button"
                   onClick={() => propMonthIdx > 0 && setPropMonthIdx(propMonthIdx - 1)}
@@ -464,7 +464,7 @@ export default function Statistics() {
           {/* 利润提取汇总 */}
           {profitRecords.length > 0 && (
             <div>
-              <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
                 利润提取记录
               </h2>
@@ -474,7 +474,7 @@ export default function Statistics() {
                   const available = profitRecords.filter(r => r.status === 'available').reduce((s, r) => s + r.profitAmount, 0)
                   return (
                     <>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="grid grid-cols-2 gap-3 mb-2">
                         <div className="bg-blue-50 rounded-xl p-3">
                           <p className="text-xs text-blue-600">已提取利润</p>
                           <p className="text-lg font-bold text-blue-700">¥{withdrawn.toFixed(0)}</p>

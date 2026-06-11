@@ -55,7 +55,7 @@ export default function RoomDetail() {
     gas: Flame,
     other: Receipt
   }
-  const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-200 text-green-700', overdue: 'bg-red-100 text-red-700' }
+  const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-500 text-white', overdue: 'bg-red-100 text-red-700' }
   const statusLabels: Record<string, string> = { pending: '未收', paid: '✓ 已收', overdue: '已逾期' }
 
   if (!room) {
