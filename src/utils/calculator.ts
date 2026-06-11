@@ -1,31 +1,71 @@
 import { PaymentMethod } from '../types'
 
+// ============================================================
+// 30/360 日期类型（纯30天月，不受真实日历限制）
+// ============================================================
+interface Date360 {
+  y: number  // 年份
+  m: number  // 月份 0-11
+  d: number  // 日期 1-30（31号映射到30号）
+}
+
+/** 将 Date 转换为 30/360 日期（31号→30号） */
+function toDate360(date: Date): Date360 {
+  return {
+    y: date.getFullYear(),
+    m: date.getMonth(),
+    d: Math.min(date.getDate(), 30),
+  }
+}
+
+/** 从字符串"YYYY-MM-DD"解析 30/360 日期 */
+function parseDate360(s: string): Date360 {
+  const [y, m, d] = s.split('-').map(Number)
+  return { y, m: m - 1, d: Math.min(d, 30) }
+}
+
+/** 格式化 30/360 日期为 YYYY-MM-DD */
+function formatDate360(d: Date360): string {
+  return `${d.y}-${String(d.m + 1).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`
+}
+
+/** 30/360 日期加法：每月=30天，一年=360天 */
+function add30Days360(date: Date360, days: number): Date360 {
+  let total = date.m * 30 + (date.d - 1) + days
+  let newYear = date.y
+  if (total < 0) {
+    const yearsBack = Math.ceil(Math.abs(total) / 360)
+    newYear -= yearsBack
+    total += yearsBack * 360
+  }
+  newYear += Math.floor(total / 360)
+  const rem = total % 360
+  return {
+    y: newYear,
+    m: Math.floor(rem / 30),
+    d: (rem % 30) + 1,
+  }
+}
+
+/** 30/360 日期差（exclusive）：dateA 到 dateB 有多少天 */
+function diffDays360(dateA: Date360, dateB: Date360): number {
+  const years = dateB.y - dateA.y
+  const months = dateB.m - dateA.m
+  const days = dateB.d - dateA.d
+  return Math.max(0, years * 360 + months * 30 + days)
+}
+
+/** 将 30/360 日期转换为真实 Date（供比较用，2月30日→3月2日等） */
+function toRealDate(d: Date360): Date {
+  return new Date(d.y, d.m, d.d)
+}
+
+// ============================================================
+// 对外接口（兼容旧签名）
+// ============================================================
+
 export function calculateDays30_360(startDate: Date, endDate: Date): number {
-  const startYear = startDate.getFullYear()
-  const startMonth = startDate.getMonth()
-  let startDay = startDate.getDate()
-  
-  const endYear = endDate.getFullYear()
-  const endMonth = endDate.getMonth()
-  let endDay = endDate.getDate()
-  
-  if (startDay === 31) {
-    startDay = 30
-  }
-  
-  if (endDay === 31) {
-    if (startDay >= 30) {
-      endDay = 30
-    }
-  }
-  
-  const years = endYear - startYear
-  const months = endMonth - startMonth
-  const days = endDay - startDay
-  
-  const totalDays = years * 360 + months * 30 + days
-  
-  return Math.max(0, totalDays)
+  return diffDays360(toDate360(startDate), toDate360(endDate))
 }
 
 export function calculateRent30_360(
@@ -51,27 +91,8 @@ export function formatCurrency(amount: number): string {
  * 不论真实日历（大月小月2月），始终按30天/月计算。
  */
 export function add30Days(date: Date, days: number): Date {
-  const year = date.getFullYear()
-  const month = date.getMonth()      // 0-indexed
-  const day = date.getDate()         // 1-indexed
-
-  // 从年初开始算总天数（用30天月）
-  let total = month * 30 + (day - 1) + days
-
-  // 处理负数：先减去足够的整年使 total ≥ 0
-  let newYear = year
-  if (total < 0) {
-    const yearsBack = Math.ceil(Math.abs(total) / 360)
-    newYear -= yearsBack
-    total += yearsBack * 360
-  }
-
-  newYear += Math.floor(total / 360)
-  const rem = total % 360
-  const newMonth = Math.floor(rem / 30)
-  const newDay = (rem % 30) + 1
-
-  return new Date(newYear, newMonth, newDay)
+  const d360 = add30Days360(toDate360(date), days)
+  return toRealDate(d360)
 }
 
 export interface DraftBill {
@@ -86,11 +107,7 @@ export interface DraftBill {
 /**
  * 按30/360规则生成房租分期账单。
  * 每个月固定30天，一年=360天。
- * 期数按月份差计算，每期连续（结束+1天=下一期开始）。
- * 例：2026-06-09 ~ 2027-06-08，季付：
- *   第1期: 2026-06-09 ~ 2026-09-08, 应付 2026-06-09, ¥18000
- *   第2期: 2026-09-09 ~ 2026-12-08, 应付 2026-09-09, ¥18000
- *   ...
+ * 每期连续（结束日+1天=下一期开始日）。
  */
 export function generateRentBills(
   monthlyRent: number,
@@ -100,11 +117,8 @@ export function generateRentBills(
   advanceDays: number
 ): DraftBill[] {
   const bills: DraftBill[] = []
-  const start = new Date(contractStart)
-  const end = new Date(contractEnd)
-
-  // 按月份差计算总月数（30/360规则：一个月=30天）
-  const totalMonths = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+  const start = parseDate360(contractStart)
+  const end = parseDate360(contractEnd)
 
   // 每期月数
   let periodMonths: number
@@ -128,31 +142,36 @@ export function generateRentBills(
       break
   }
 
-  const nPeriods = Math.max(1, Math.ceil(totalMonths / periodMonths))
+  // 按30/360总天数计算期数
   const periodDays = periodMonths * 30
+  const totalDays = 1 + diffDays360(start, end)  // inclusive
+  const nPeriods = Math.max(1, Math.ceil(totalDays / periodDays))
 
-  let cursor = new Date(start)
+  let cursor = { ...start }
 
   for (let i = 0; i < nPeriods; i++) {
-    const periodStart = i === 0 ? new Date(start) : add30Days(cursor, 1)
-    let periodEnd = add30Days(periodStart, periodDays - 1)
-    // 最后一期结束日不能超过合同到期日
-    if (periodEnd > end) periodEnd = new Date(end)
-    // 按实际天数算金额（含头含尾），确保最后一期也精确
-    const actualDays = 1 + calculateDays30_360(periodStart, periodEnd)
+    const periodStart: Date360 = i === 0 ? { ...start } : add30Days360(cursor, 1)
+    let periodEnd: Date360 = add30Days360(periodStart, periodDays - 1)
+    // 最后一期不超出合同到期日
+    if (periodEnd.y > end.y || (periodEnd.y === end.y && periodEnd.m > end.m) ||
+        (periodEnd.y === end.y && periodEnd.m === end.m && periodEnd.d > end.d)) {
+      periodEnd = { ...end }
+    }
+    // 用30/360天数算金额
+    const actualDays = 1 + diffDays360(periodStart, periodEnd)
     const amount = Math.round(monthlyRent / 30 * actualDays * 100) / 100
-    // 提前付款从第二期开始，第一期正常收
+    // 提前付款
     const dueDate = i === 0
-      ? formatDate(periodStart)
-      : formatDate(add30Days(periodStart, -advanceDays))
+      ? formatDate360(periodStart)
+      : formatDate360(add30Days360(periodStart, -advanceDays))
 
     bills.push({
       type: 'rent',
       amount,
       dueDate,
-      periodStart: formatDate(periodStart),
-      periodEnd: formatDate(periodEnd),
-      description: `第${i+1}期 ${periodLabel}租 ${formatDate(periodStart)} ~ ${formatDate(periodEnd)}`,
+      periodStart: formatDate360(periodStart),
+      periodEnd: formatDate360(periodEnd),
+      description: `第${i+1}期 ${periodLabel}租 ${formatDate360(periodStart)} ~ ${formatDate360(periodEnd)}`,
     })
 
     cursor = periodEnd
