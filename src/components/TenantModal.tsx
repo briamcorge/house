@@ -101,7 +101,14 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       setRoomId(selectedRoomId || '')
       const d = new Date()
       setContractStart(formatDate(d))
-      setContractEnd(formatDate(add30Days(new Date(), 359)))
+      // 有选中房间时，合同结束期默认取业主合同结束期
+      if (selectedRoomId) {
+        const room = rooms.find(r => r.id === selectedRoomId)
+        const lc = room ? landlordContracts.find(c => c.propertyId === room.propertyId && c.status === 'active') : null
+        setContractEnd(lc ? lc.contractEnd : formatDate(add30Days(d, 359)))
+      } else {
+        setContractEnd(formatDate(add30Days(d, 359)))
+      }
       setPaymentMethod('monthly')
       setAdvanceDays(0)
       setMonthlyRent('')
