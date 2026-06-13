@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, DollarSign, BarChart3 } from 'lucide-react'
+import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, BarChart3 } from 'lucide-react'
 
 type Filter = 'all' | 'active' | 'ended' | 'expiring'
 

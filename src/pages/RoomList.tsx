@@ -12,7 +12,7 @@ import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText } from 'lucide-reac
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, deleteTenantAndBills, editTenantContract, renewTenantContract, createTenantContract } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, editTenantContract, createTenantContract } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)

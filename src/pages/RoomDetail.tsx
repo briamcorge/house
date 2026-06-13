@@ -5,7 +5,7 @@ import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
-import { ChevronLeft, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt } from 'lucide-react'
+import { ChevronLeft, Plus, FileText, Droplets, Zap, Flame, Receipt } from 'lucide-react'
 import { add30Days, formatDate } from '../utils/calculator'
 
 export default function RoomDetail() {

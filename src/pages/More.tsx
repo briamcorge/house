@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, Download } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, Download } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -68,13 +68,12 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, clearAllData, addProfitRecord } = useStore()
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
@@ -112,6 +111,11 @@ export default function More() {
       if (key && (key.startsWith('sb-') || key === 'property-manager-data')) keysToRemove.push(key)
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
+    // 清除云同步标记，确保下次登录重新拉取云端数据
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith('cloud_init_loaded_')) sessionStorage.removeItem(k)
+    }
     // 跳转到 App 根路径（处理子路径部署，如 /house/）
     window.location.href = import.meta.env.BASE_URL
   }
@@ -149,7 +153,7 @@ export default function More() {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = new Uint8Array(ev.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array' })
@@ -184,14 +188,15 @@ export default function More() {
         const billList = parseSheet('账单')
 
         const state = { properties: props, rooms: roomList, tenants: tenantList, bills: billList }
-      localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
+        localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
 
-        // 导入后同步到 Supabase（如果已登录）
+        // 导入后同步到 Supabase（如果已登录）— 必须等保存完成再刷新
         const sb = getSupabase()
         if (sb) {
-          sb.auth.getUser().then(({ data: { user } }) => {
+          try {
+            const { data: { user } } = await sb.auth.getUser()
             if (user) {
-              saveCloudData({
+              await saveCloudData({
                 properties: props as any[],
                 rooms: roomList as any[],
                 tenants: tenantList as any[],
@@ -201,7 +206,7 @@ export default function More() {
                 trash: [],
               })
             }
-          }).catch(() => {})
+          } catch { /* 网络错误忽略 */ }
         }
 
         window.location.reload()

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { getSupabase, isSupabaseConfigured } from './supabase'
 
 type AuthEvent = 'INITIAL_SESSION' | 'SIGNED_IN' | 'SIGNED_OUT' | 'PASSWORD_RECOVERY' | 'TOKEN_REFRESHED' | 'USER_UPDATED'
@@ -16,7 +16,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any | null>(null)
   const [ready, setReady] = useState(false)
   const [lastEvent, setLastEvent] = useState<AuthEvent | null>(null)
-  const mounted = useRef(false)
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {

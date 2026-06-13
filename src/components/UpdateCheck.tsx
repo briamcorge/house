@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { APP_VERSION } from '../version'
 import { checkForUpdate, UpdateInfo } from '../lib/version-check'
-import { Cloud, Download, X, Loader2 } from 'lucide-react'
+import { Cloud, Download, X } from 'lucide-react'
 
 export default function UpdateCheck() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null)

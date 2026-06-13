@@ -1,5 +1,4 @@
 import { Property } from '../types'
-import { formatMoney } from '../lib/utils'
 import { Building2, User } from 'lucide-react'
 
 interface PropertyCardProps {

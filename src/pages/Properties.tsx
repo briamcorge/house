@@ -6,7 +6,7 @@ import PropertyCard from '../components/PropertyCard'
 import PropertyModal from '../components/PropertyModal'
 import LandlordContractModal from '../components/LandlordContractModal'
 import BillSummaryModal from '../components/BillSummaryModal'
-import { generateRentBills, add30Days, formatDate } from '../utils/calculator'
+import { add30Days, formatDate } from '../utils/calculator'
 import { Edit2, Trash2, MoreVertical, Plus, Search, FileText, User } from 'lucide-react'
 
 export default function Properties() {

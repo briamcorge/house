@@ -72,7 +72,7 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
 let hydrated = false
 export const useStore = create<AppStore>()(
   persist(
-    (rawSet, get) => {
+    (rawSet) => {
       const set: typeof rawSet = ((fn) => {
         (rawSet as typeof rawSet)(fn)
         if (hydrated) {
