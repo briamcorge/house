@@ -1,7 +1,12 @@
-// 构建前自动加版本号，防止忘记更新 version.ts
+// 构建前自动加版本号（仅本地构建时生效，CI 不重复加）
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+
+// GitHub Actions 等 CI 环境有 CI=true，不自动加版本号（用已提交的版本）
+if (process.env.CI) {
+  process.exit(0)
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const versionPath = resolve(__dirname, '../src/version.ts')
