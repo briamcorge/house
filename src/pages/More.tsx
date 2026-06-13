@@ -201,7 +201,43 @@ export default function More() {
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
-          <h1 className="text-xl font-bold text-gray-900 mb-6">更多</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-3">更多</h1>
+          
+          {/* 用户状态栏 */}
+          {isSupabaseConfigured() && currentUser && (
+            <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2 mb-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-white text-sm font-medium">
+                  {(currentUser.user_metadata?.name || currentUser.email || '?')[0].toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {currentUser.user_metadata?.name || currentUser.email}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="shrink-0 p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                title="退出登录"
+              >
+                <LogOut className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+          )}
+
+          {isSupabaseConfigured() && !currentUser && supabaseReady && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
+              className="w-full flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2 mb-3 hover:bg-blue-100 transition-colors"
+            >
+              <LogIn className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-blue-700 font-medium">登录或注册以同步数据</span>
+            </button>
+          )}
           
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
             <div className="flex items-center gap-3 mb-3">
