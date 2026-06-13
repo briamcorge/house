@@ -92,10 +92,18 @@ export function onAuthChange(callback: (user: any) => void) {
 // 加载云端数据
 export async function loadCloudData(): Promise<SupabaseData | null> {
   const sb = getSupabase()
-  if (!sb) return null
+  if (!sb) {
+    console.error('[loadCloudData] Supabase 未配置')
+    return null
+  }
 
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return null
+  const { data: { user }, error: userError } = await sb.auth.getUser()
+  if (userError || !user) {
+    console.error('[loadCloudData] 用户未登录:', userError || 'user is null')
+    return null
+  }
+
+  console.log('[loadCloudData] 开始加载用户数据:', user.id)
 
   const { data, error } = await sb
     .from('user_data')
@@ -103,19 +111,62 @@ export async function loadCloudData(): Promise<SupabaseData | null> {
     .eq('user_id', user.id)
     .single()
 
-  if (error || !data) return null
-  return data.data as SupabaseData
+  if (error) {
+    console.error('[loadCloudData] 加载失败:', error)
+    return null
+  }
+  
+  if (!data) {
+    console.log('[loadCloudData] 云端无数据')
+    return null
+  }
+
+  const cloudData = data.data as SupabaseData
+  console.log('[loadCloudData] 加载成功:', {
+    properties: cloudData.properties.length,
+    rooms: cloudData.rooms.length,
+    tenants: cloudData.tenants.length,
+    bills: cloudData.bills.length,
+  })
+  return cloudData
 }
 
 // 保存数据到云端
-export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
+export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Promise<boolean> {
   const sb = getSupabase()
-  if (!sb) return false
+  if (!sb) {
+    console.error('[saveCloudData] Supabase 未配置')
+    return false
+  }
 
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return false
+  // 重试机制：等待 session 恢复（特别是页面刷新后）
+  let user: any = null
+  let userError: any = null
+  
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await sb.auth.getUser()
+    user = result.data?.user
+    userError = result.error
+    
+    if (user) break
+    
+    console.warn(`[saveCloudData] 第 ${i + 1} 次尝试获取用户失败，等待 500ms...`)
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  if (userError || !user) {
+    console.error('[saveCloudData] 用户未登录（重试后仍失败）:', userError || 'user is null')
+    return false
+  }
 
-  const { error } = await sb
+  console.log('[saveCloudData] 开始保存用户数据:', user.id, {
+    properties: syncData.properties.length,
+    rooms: syncData.rooms.length,
+    tenants: syncData.tenants.length,
+    bills: syncData.bills.length,
+  })
+
+  const { data, error } = await sb
     .from('user_data')
     .upsert({
       user_id: user.id,
@@ -123,7 +174,13 @@ export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
-  return !error
+  if (error) {
+    console.error('[saveCloudData] 保存失败:', error)
+    return false
+  }
+
+  console.log('[saveCloudData] 保存成功:', data)
+  return true
 }
 
 // ========== 管理员功能 ==========
