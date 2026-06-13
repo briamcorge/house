@@ -55,11 +55,11 @@ export default function RoomCard({ room, tenant, billSummary, onClick, onClickBi
         >
           <span className="text-gray-500">账单</span>
           <span>
-            <span className="text-green-600 font-medium">¥{billSummary.paid.toFixed(0)}</span>
+            <span className="text-green-600 font-medium">¥{Number(billSummary.paid).toFixed(0)}</span>
             <span className="text-gray-300 mx-1">/</span>
-            <span className="text-gray-900 font-medium">¥{billSummary.total.toFixed(0)}</span>
-            {billSummary.total - billSummary.paid > 0 && (
-              <span className="ml-1.5 text-orange-600">未收 ¥{(billSummary.total - billSummary.paid).toFixed(0)}</span>
+            <span className="text-gray-900 font-medium">¥{Number(billSummary.total).toFixed(0)}</span>
+            {Number(billSummary.total) - Number(billSummary.paid) > 0 && (
+              <span className="ml-1.5 text-orange-600">未收 ¥{(Number(billSummary.total) - Number(billSummary.paid)).toFixed(0)}</span>
             )}
           </span>
         </div>

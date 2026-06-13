@@ -194,11 +194,11 @@ export default function RoomDetail() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-base font-bold text-gray-900">
-                            {bill.paidAmount !== undefined && bill.paidAmount < bill.amount
-                              ? `¥${bill.paidAmount.toFixed(2)}/¥${bill.amount.toFixed(2)}`
-                              : `¥${bill.amount.toFixed(2)}`}
+                            {bill.paidAmount !== undefined && Number(bill.paidAmount) < Number(bill.amount)
+                              ? `¥${Number(bill.paidAmount).toFixed(2)}/¥${Number(bill.amount).toFixed(2)}`
+                              : `¥${Number(bill.amount).toFixed(2)}`}
                           </span>
-                          {bill.paidAmount !== undefined && bill.paidAmount < bill.amount && (
+                          {bill.paidAmount !== undefined && Number(bill.paidAmount) < Number(bill.amount) && (
                             <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">部分</span>
                           )}
                           {bill.status !== 'paid' && (

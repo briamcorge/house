@@ -95,15 +95,15 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
         <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 border-b border-gray-100">
           <div className="text-center">
             <p className="text-xs text-gray-500 mb-1">总计</p>
-            <p className="text-lg font-bold text-gray-900">¥{totalAmount.toFixed(0)}</p>
+            <p className="text-lg font-bold text-gray-900">¥{Number(totalAmount).toFixed(0)}</p>
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-500 mb-1">已{roomId ? '收' : '付'}</p>
-            <p className="text-lg font-bold text-green-600">¥{paidAmount.toFixed(0)}</p>
+            <p className="text-lg font-bold text-green-600">¥{Number(paidAmount).toFixed(0)}</p>
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-500 mb-1">未{roomId ? '收' : '付'}</p>
-            <p className="text-lg font-bold text-orange-600">¥{(totalAmount - paidAmount).toFixed(0)}</p>
+            <p className="text-lg font-bold text-orange-600">¥{(Number(totalAmount) - Number(paidAmount)).toFixed(0)}</p>
           </div>
         </div>
 
@@ -128,9 +128,9 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
                       {getStatusLabel(bill)}
                     </span>
                   </div>
-                  <span className="font-bold text-sm">{bill.paidAmount !== undefined && bill.paidAmount < bill.amount
-                    ? `¥${bill.paidAmount.toFixed(2)}/¥${bill.amount.toFixed(2)}`
-                    : `¥${bill.amount.toFixed(2)}`}</span>
+                  <span className="font-bold text-sm">{bill.paidAmount !== undefined && Number(bill.paidAmount) < Number(bill.amount)
+                    ? `¥${Number(bill.paidAmount).toFixed(2)}/¥${Number(bill.amount).toFixed(2)}`
+                    : `¥${Number(bill.amount).toFixed(2)}`}</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-gray-400">
                   <Calendar className="w-3 h-3" />

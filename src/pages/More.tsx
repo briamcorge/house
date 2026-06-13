@@ -89,7 +89,7 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
-  const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+  const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
@@ -178,6 +178,9 @@ export default function More() {
           '到期日': 'dueDate', '实付日': 'paidDate', '描述': 'description',
         }
 
+        // 需要转换为数字的字段
+        const numericFields = new Set(['amount', 'paidAmount', 'monthlyRent', 'deposit', 'otherFeeAmount', 'advanceDays'])
+
         const parseSheet = (sheetName: string): Record<string, unknown>[] => {
           const sheet = wb.Sheets[sheetName]
           if (!sheet) return []
@@ -185,7 +188,10 @@ export default function More() {
           return json.map(row => {
             const obj: Record<string, unknown> = {}
             for (const [cn, en] of Object.entries(headerMap)) {
-              if (row[cn] !== undefined) obj[en] = row[cn]
+              if (row[cn] !== undefined) {
+                // 数字字段：确保转换为 number 类型
+                obj[en] = numericFields.has(en) ? Number(row[cn]) || 0 : row[cn]
+              }
             }
             return obj
           })

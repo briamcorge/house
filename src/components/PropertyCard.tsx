@@ -50,22 +50,22 @@ export default function PropertyCard({
         >
           {hasTenantBills && (
             <span className="text-gray-500">
-              租客 <span className="text-green-600 font-medium">¥{billReceivable!.paid.toFixed(0)}</span>
+              租客 <span className="text-green-600 font-medium">¥{Number(billReceivable!.paid).toFixed(0)}</span>
               <span className="text-gray-300 mx-0.5">/</span>
-              <span className="text-gray-900 font-medium">¥{billReceivable!.total.toFixed(0)}</span>
-              {billReceivable!.total - billReceivable!.paid > 0 && (
-                <span className="ml-1 text-orange-600">未收¥{(billReceivable!.total - billReceivable!.paid).toFixed(0)}</span>
+              <span className="text-gray-900 font-medium">¥{Number(billReceivable!.total).toFixed(0)}</span>
+              {Number(billReceivable!.total) - Number(billReceivable!.paid) > 0 && (
+                <span className="ml-1 text-orange-600">未收¥{(Number(billReceivable!.total) - Number(billReceivable!.paid)).toFixed(0)}</span>
               )}
             </span>
           )}
           {hasTenantBills && hasLandlordBills && <span className="text-gray-200 shrink-0">|</span>}
           {hasLandlordBills && (
             <span className="text-gray-500">
-              业主 <span className="text-green-600 font-medium">¥{billPayable!.paid.toFixed(0)}</span>
+              业主 <span className="text-green-600 font-medium">¥{Number(billPayable!.paid).toFixed(0)}</span>
               <span className="text-gray-300 mx-0.5">/</span>
-              <span className="text-gray-900 font-medium">¥{billPayable!.total.toFixed(0)}</span>
-              {billPayable!.total - billPayable!.paid > 0 && (
-                <span className="ml-1 text-orange-600">未付¥{(billPayable!.total - billPayable!.paid).toFixed(0)}</span>
+              <span className="text-gray-900 font-medium">¥{Number(billPayable!.total).toFixed(0)}</span>
+              {Number(billPayable!.total) - Number(billPayable!.paid) > 0 && (
+                <span className="ml-1 text-orange-600">未付¥{(Number(billPayable!.total) - Number(billPayable!.paid)).toFixed(0)}</span>
               )}
             </span>
           )}
