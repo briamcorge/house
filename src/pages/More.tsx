@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser, checkIsAdmin, isAdminByEmail } from '../lib/supabase'
+import { getSupabase, isSupabaseConfigured, signOut, checkIsAdmin, isAdminByEmail } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -93,13 +93,10 @@ export default function More() {
   const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
-  // Supabase auth check
+  // Supabase auth check（不调用 API 验证，用本地 session，避免 CORS 问题）
   useEffect(() => {
     if (!isSupabaseConfigured()) return
-    getCurrentUser().then(({ data }) => {
-      setCurrentUser(data?.user || null)
-      setSupabaseReady(true)
-    })
+    setSupabaseReady(true)
     const sb = getSupabase()
     if (!sb) return
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
