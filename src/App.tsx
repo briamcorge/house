@@ -115,8 +115,17 @@ export default function App() {
           }
         }
       } else {
-        // Not logged in - show auth modal (after initial session check)
+        // Not logged in - show auth modal, clear any seed data
         if (event === 'INITIAL_SESSION') {
+          useStore.setState({
+            properties: [],
+            rooms: [],
+            tenants: [],
+            bills: [],
+            landlordContracts: [],
+            profitRecords: [],
+            trash: [],
+          })
           setShowAuth(true)
         }
       }

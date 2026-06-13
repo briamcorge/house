@@ -68,50 +68,6 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
   return `${prefix}-${String(count + 1).padStart(4, '0')}`
 }
 
-function buildSeedState() {
-  const now = new Date().toISOString()
-  const p1Id = createId()
-  const p2Id = createId()
-  const r1Id = createId()
-  const r2Id = createId()
-  const r3Id = createId()
-  const r4Id = createId()
-  const t1Id = createId()
-  const t2Id = createId()
-  const lc1Id = createId()
-  const lc2Id = createId()
-
-  return {
-    properties: [
-      { id: p1Id, address: '朝阳区建国路88号', createdAt: now },
-      { id: p2Id, address: '海淀区中关村大街100号', createdAt: now },
-    ] as Property[],
-    rooms: [
-      { id: r1Id, propertyId: p1Id, label: 'A', roomType: '主卧', status: 'occupied', createdAt: now },
-      { id: r2Id, propertyId: p1Id, label: 'B', roomType: '次卧', status: 'occupied', createdAt: now },
-      { id: r3Id, propertyId: p1Id, label: 'C', roomType: '次卧', status: 'vacant', createdAt: now },
-      { id: r4Id, propertyId: p2Id, label: 'A', roomType: '独卫', status: 'vacant', createdAt: now },
-    ] as Room[],
-    tenants: [
-      { id: t1Id, displayId: 'ZL-0001', name: '张先生', phone: '13800138000', roomId: r1Id, contractStart: '2025-08-01', contractEnd: '2026-08-01', paymentMethod: 'monthly', advanceDays: 7, otherFeeName: '卫管费', otherFeeAmount: 120, monthlyRent: 1800, status: 'active', createdAt: now },
-      { id: t2Id, displayId: 'ZL-0002', name: '李女士', phone: '13900139000', roomId: r2Id, contractStart: '2025-10-01', contractEnd: '2026-10-01', paymentMethod: 'quarterly', advanceDays: 0, monthlyRent: 1500, status: 'active', createdAt: now },
-    ] as Tenant[],
-    bills: [
-      { id: createId(), propertyId: p1Id, amount: 4500, type: 'rent', status: 'paid', direction: 'payable', dueDate: '2026-01-01', paidDate: '2026-01-01', createdAt: now },
-      { id: createId(), propertyId: p2Id, amount: 3800, type: 'rent', status: 'pending', direction: 'payable', dueDate: '2026-04-01', createdAt: now },
-      { id: createId(), roomId: r1Id, tenantId: t1Id, amount: 1800, type: 'rent', status: 'paid', direction: 'receivable', dueDate: '2026-01-01', paidDate: '2026-01-01', createdAt: now },
-      { id: createId(), roomId: r2Id, tenantId: t2Id, amount: 1500, type: 'rent', status: 'pending', direction: 'receivable', dueDate: '2026-04-01', createdAt: now },
-      { id: createId(), roomId: r1Id, tenantId: t1Id, amount: 180, type: 'water', status: 'overdue', direction: 'receivable', dueDate: '2026-05-25', createdAt: now },
-    ] as Bill[],
-    landlordContracts: [
-      { id: lc1Id, displayId: 'DL-0001', propertyId: p1Id, landlordName: '王业主', landlordPhone: '13800138001', monthlyRent: 3000, paymentMethod: 'quarterly', contractStart: '2025-06-01', contractEnd: '2026-12-01', status: 'active', createdAt: now },
-      { id: lc2Id, displayId: 'DL-0002', propertyId: p2Id, landlordName: '刘业主', landlordPhone: '13900139001', monthlyRent: 2500, paymentMethod: 'monthly', contractStart: '2025-07-01', contractEnd: '2027-01-01', status: 'active', createdAt: now },
-    ] as LandlordContract[],
-    profitRecords: [] as ProfitRecord[],
-    trash: [] as TrashItem[],
-  }
-}
-
 function stateToSyncData(state: AppStore) {
   return {
     properties: state.properties,
@@ -472,10 +428,17 @@ export const useStore = create<AppStore>()(
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       if (version === 0) {
-        // Version 1: Updated seed dates + added landlord contracts
-        return buildSeedState()
+        return {
+          properties: [],
+          rooms: [],
+          tenants: [],
+          bills: [],
+          landlordContracts: [],
+          profitRecords: [],
+          trash: [],
+        }
       }
-      return persistedState as typeof buildSeedState
+      return persistedState as AppStore
     },
   })
 )
