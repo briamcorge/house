@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, isAdminByEmail } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -93,10 +93,10 @@ export default function More() {
   const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
-  // 根据 auth context 中的用户信息判断管理员
+  // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
-    if (currentUser?.email) {
-      setIsAdmin(isAdminByEmail(currentUser.email))
+    if (currentUser?.id) {
+      checkIsAdmin(currentUser.id).then(setIsAdmin)
     } else {
       setIsAdmin(false)
     }

@@ -145,9 +145,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="至少6位密码"
+                    placeholder="至少8位密码"
                     required
-                    minLength={6}
+                    minLength={8}
                     className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                   />
                   <button
@@ -172,7 +172,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="再次输入密码"
                     required
-                    minLength={6}
+                    minLength={8}
                     className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                   />
                   <button

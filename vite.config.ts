@@ -6,9 +6,6 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vite.dev/config/
 export default defineConfig({
   base: process.env.VITE_BASE || '/house/',
-  server: {
-    host: '0.0.0.0',
-  },
   build: {
     sourcemap: 'hidden',
   },

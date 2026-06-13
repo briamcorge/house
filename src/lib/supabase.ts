@@ -4,8 +4,12 @@ let _supabase: SupabaseClient | null = null
 
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzpdx.supabase.co'
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2cGtxcW5memtrY3p0a2J6cGR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwOTUzNDEsImV4cCI6MjA5NjY3MTM0MX0.qUyyUzdD9EZE2iYvfGl0NMQOEZaRaUoKPjkq7ZtS9P0'
+  const url = import.meta.env.VITE_SUPABASE_URL || ''
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+  if (!url || !key) {
+    console.error('[Supabase] Missing environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env')
+    return null
+  }
   _supabase = createClient(url, key)
   return _supabase
 }
@@ -153,10 +157,3 @@ export async function getAllUserData(): Promise<{ user_id: string; email: string
   return data as any[]
 }
 
-// 管理员邮箱列表（客户端直判，100% 可靠）
-const ADMIN_EMAILS = ['c94138228@163.com']
-
-export function isAdminByEmail(email: string | null | undefined): boolean {
-  if (!email) return false
-  return ADMIN_EMAILS.includes(email.toLowerCase())
-}

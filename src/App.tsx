@@ -17,6 +17,7 @@ import Trash from "./pages/Trash";
 import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
+import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
 import LoginPage from "./pages/LoginPage";
 
@@ -104,8 +105,8 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
                 type={showPw ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少6位密码"
-                minLength={6}
+                placeholder="至少8位密码"
+                minLength={8}
                 className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
               />
               <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -120,7 +121,7 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="再次输入新密码"
-              minLength={6}
+              minLength={8}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
@@ -129,7 +130,7 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
             disabled={loading}
             onClick={async () => {
               if (password !== confirm) { setError('两次密码不一致'); return }
-              if (password.length < 6) { setError('密码至少6位'); return }
+              if (password.length < 8) { setError('密码至少8位'); return }
               setLoading(true); setError('')
               const { error } = await updatePassword(password)
               setLoading(false)
@@ -319,25 +320,27 @@ export default function App() {
 
   return (
     <Router basename={import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL.replace(/\/$/, '')}>
-      <div className="min-h-screen">
-        <LoginRedirect triggered={justLoggedIn} />
-        <StorageWarning />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/properties" element={<Properties />} />
-          <Route path="/properties/:propertyId" element={<RoomList />} />
-          <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
-          <Route path="/bills" element={<Bills />} />
-          <Route path="/tenants" element={<Tenants />} />
-          <Route path="/more" element={<More />} />
-          <Route path="/contracts" element={<Contracts />} />
-          <Route path="/trash" element={<Trash />} />
-          <Route path="/statistics" element={<Statistics />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-        <BottomNav />
-        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
-      </div>
+      <ErrorBoundary>
+        <div className="min-h-screen">
+          <LoginRedirect triggered={justLoggedIn} />
+          <StorageWarning />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/properties" element={<Properties />} />
+            <Route path="/properties/:propertyId" element={<RoomList />} />
+            <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
+            <Route path="/bills" element={<Bills />} />
+            <Route path="/tenants" element={<Tenants />} />
+            <Route path="/more" element={<More />} />
+            <Route path="/contracts" element={<Contracts />} />
+            <Route path="/trash" element={<Trash />} />
+            <Route path="/statistics" element={<Statistics />} />
+            <Route path="/admin" element={<Admin />} />
+          </Routes>
+          <BottomNav />
+          <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+        </div>
+      </ErrorBoundary>
     </Router>
   );
 }
