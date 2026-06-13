@@ -121,9 +121,9 @@ export default function More() {
     await signOut()
     // Force service worker to update
     if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations()
-      for (const reg of registrations) {
-        await reg.update()
+      const registration = await navigator.serviceWorker.getRegistration()
+      if (registration) {
+        await registration.update()
       }
     }
     // Full navigation - more reliable than reload() in PWA
