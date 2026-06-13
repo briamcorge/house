@@ -10,6 +10,7 @@ import More from "./pages/More";
 import Contracts from "./pages/Contracts";
 import Trash from "./pages/Trash";
 import Statistics from "./pages/Statistics";
+import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import AuthModal from "./components/AuthModal";
 import { AlertTriangle, X } from "lucide-react";
@@ -180,6 +181,7 @@ export default function App() {
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/trash" element={<Trash />} />
           <Route path="/statistics" element={<Statistics />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
         <BottomNav />
         <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />

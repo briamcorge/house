@@ -116,3 +116,23 @@ export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
 
   return !error
 }
+
+// ========== 管理员功能 ==========
+
+// 检查当前用户是否是管理员
+export async function checkIsAdmin(): Promise<boolean> {
+  const sb = getSupabase()
+  if (!sb) return false
+  const { data, error } = await sb.rpc('is_admin')
+  if (error) return false
+  return data as boolean
+}
+
+// 获取所有用户数据（仅管理员可调用）
+export async function getAllUserData(): Promise<{ user_id: string; email: string; data: any; updated_at: string }[]> {
+  const sb = getSupabase()
+  if (!sb) return []
+  const { data, error } = await sb.rpc('get_all_user_data')
+  if (error) return []
+  return data as any[]
+}

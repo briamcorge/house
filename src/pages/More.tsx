@@ -1,10 +1,10 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser } from '../lib/supabase'
+import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser, checkIsAdmin } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -84,6 +84,7 @@ export default function More() {
   const [supabaseReady, setSupabaseReady] = useState(false)
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
   const [profitBillId, setProfitBillId] = useState('')
@@ -110,6 +111,7 @@ export default function More() {
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setShowAuthModal(false)
       setCurrentUser(session?.user || null)
+      if (session?.user) checkIsAdmin().then(setIsAdmin)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -487,6 +489,16 @@ export default function More() {
 
         <div className="max-w-md mx-auto mt-8 text-center">
           <p className="text-sm text-gray-400">房屋管理 v{APP_VERSION}</p>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => navigate('/admin')}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>管理后台</span>
+            </button>
+          )}
         </div>
       </div>
 
