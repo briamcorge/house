@@ -4,7 +4,7 @@ let _supabase: SupabaseClient | null = null
 
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzzpdx.supabase.co'
+  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzpdpx.supabase.co'
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2cGtxcW5memtrY3p0a2J6cGR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwOTUzNDEsImV4cCI6MjA5NjY3MTM0MX0.qUyyUzdD9EZE2iYvfGl0NMQOEZaRaUoKPjkq7ZtS9P0'
   _supabase = createClient(url, key)
   return _supabase
@@ -35,10 +35,14 @@ export async function signIn(email: string, password: string) {
 }
 
 // 注册
-export async function signUp(email: string, password: string) {
+export async function signUp(email: string, password: string, name?: string, phone?: string) {
   const sb = getSupabase()
   if (!sb) return { data: null, error: new Error('Supabase 未配置') }
-  const { data, error } = await sb.auth.signUp({ email, password })
+  const { data, error } = await sb.auth.signUp({ 
+    email, 
+    password,
+    options: { data: { name: name || '', phone: phone || '' } }
+  })
   return { data, error }
 }
 
@@ -47,6 +51,16 @@ export async function signOut() {
   const sb = getSupabase()
   if (!sb) return { error: new Error('Supabase 未配置') }
   const { error } = await sb.auth.signOut()
+  return { error }
+}
+
+// 忘记密码
+export async function resetPassword(email: string) {
+  const sb = getSupabase()
+  if (!sb) return { error: new Error('Supabase 未配置') }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + import.meta.env.BASE_URL,
+  })
   return { error }
 }
 
