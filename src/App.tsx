@@ -318,7 +318,7 @@ export default function App() {
   }
 
   return (
-    <Router basename="/house">
+    <Router basename={import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <div className="min-h-screen">
         <LoginRedirect triggered={justLoggedIn} />
         <StorageWarning />

@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/house/',
+  base: process.env.VITE_BASE || '/house/',
   server: {
     host: '0.0.0.0',
   },
@@ -25,10 +25,10 @@ export default defineConfig({
         theme_color: '#1e3a5f',
         background_color: '#f3f4f6',
         display: 'standalone',
-        scope: '/house/',
-        start_url: '/house/',
+        scope: './',
+        start_url: './',
         icons: [
-          { src: '/house/favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: './favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
         ],
       },
       workbox: {
