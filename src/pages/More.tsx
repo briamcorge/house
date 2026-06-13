@@ -120,13 +120,13 @@ export default function More() {
   const handleSignOut = async () => {
     // 尝试服务端退出（不等待）
     signOut().catch(() => {})
-    // 立即清除本地 Supabase session（避免跳转后 session 残留）
-    const sbKeys: string[] = []
+    // 清除本地 Supabase session + 业务数据（避免跳转后残留）
+    const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('sb-')) sbKeys.push(key)
+      if (key && (key.startsWith('sb-') || key === 'property-manager-data')) keysToRemove.push(key)
     }
-    sbKeys.forEach(key => localStorage.removeItem(key))
+    keysToRemove.forEach(key => localStorage.removeItem(key))
     // 跳转到 App 根路径（处理子路径部署，如 /house/）
     window.location.href = import.meta.env.BASE_URL
   }
