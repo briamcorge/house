@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Shield, Mail, Database, Clock, Loader2, Users, ChevronDown, ChevronUp } from 'lucide-react'
-import { getAllUserData, checkIsAdmin, getCurrentUser } from '../lib/supabase'
+import { getAllUserData, isAdminByEmail, getCurrentUser } from '../lib/supabase'
 
 interface UserData {
   user_id: string
@@ -28,11 +28,15 @@ export default function Admin() {
     async function load() {
       const { data } = await getCurrentUser()
       if (!data?.user) { setLoading(false); return }
-      const admin = await checkIsAdmin(data.user.id)
+      const admin = isAdminByEmail(data.user.email)
       setIsAdmin(admin)
       if (admin) {
-        const data = await getAllUserData()
-        setUsers(data as UserData[])
+        try {
+          const users = await getAllUserData()
+          setUsers(users as UserData[])
+        } catch (e) {
+          console.error('Failed to load users:', e)
+        }
       }
       setLoading(false)
     }

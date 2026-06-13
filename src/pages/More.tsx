@@ -118,16 +118,9 @@ export default function More() {
   }, [currentUser])
 
   const handleSignOut = async () => {
-    await signOut()
-    // Force service worker to update
-    if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (registration) {
-        await registration.update()
-      }
-    }
-    // Full navigation - more reliable than reload() in PWA
-    window.location.replace(window.location.origin + import.meta.env.BASE_URL || '/')
+    // Fire and forget - don't wait for network
+    signOut().catch(() => {})
+    window.location.href = '/'
   }
 
   const handleExportExcel = () => {
