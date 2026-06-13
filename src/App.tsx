@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { updatePassword } from "./lib/supabase";
+import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { initSync, hasToken } from "./lib/cloud-sync";
+import { useStore } from "./store/useStore";
+import { isSupabaseConfigured, getSupabase, loadCloudData, saveCloudData, updatePassword } from "./lib/supabase";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -16,10 +18,6 @@ import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import AuthModal from "./components/AuthModal";
 import LoginPage from "./pages/LoginPage";
-import { AlertTriangle, X } from "lucide-react";
-import { initSync, hasToken } from "./lib/cloud-sync";
-import { useStore } from "./store/useStore";
-import { isSupabaseConfigured, getSupabase, loadCloudData, saveCloudData } from "./lib/supabase";
 
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024
@@ -182,6 +180,9 @@ export default function App() {
       return
     }
 
+    // 标记当前标签页"活跃"（存 sessionStorage，关浏览器/标签页即消失）
+    sessionStorage.setItem('tab_active', '1')
+
     // Listen for "open-auth" event from More.tsx
     const openAuthHandler = () => setShowAuth(true)
     window.addEventListener('open-auth', openAuthHandler)
@@ -195,6 +196,19 @@ export default function App() {
       }
 
       if (user) {
+        // 检测是否为新的浏览器会话（标签页/浏览器关闭后重新打开）
+        if (event === 'INITIAL_SESSION' && !sessionStorage.getItem('tab_active')) {
+          // 关掉过浏览器，session 无效，清除后显示登录页
+          await sb!.auth.signOut()
+          localStorage.removeItem('property-manager-data')
+          useStore.setState({
+            properties: [], rooms: [], tenants: [], bills: [],
+            landlordContracts: [], profitRecords: [], trash: [],
+          })
+          setCurrentUser(null)
+          return
+        }
+
         setCurrentUser(user)
         setShowAuth(false)
 
