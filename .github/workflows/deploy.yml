@@ -39,6 +39,8 @@ jobs:
 
   apk:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,18 +52,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - run: npm ci
-      - run: npm run build
+      - name: Build web for APK
+        run: npm run build
         env:
+          VITE_BASE: './'
           VITE_SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
       - name: Sync Capacitor
-        run: |
-          mkdir -p android/app/src/main/assets
-          npx cap sync android
+        run: npx cap sync android
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          echo "android.overridePathCheck=true" >> gradle.properties
           ./gradlew assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
