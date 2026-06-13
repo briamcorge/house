@@ -19,6 +19,7 @@ import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
+import UpdateCheck from "./components/UpdateCheck";
 import LoginPage from "./pages/LoginPage";
 
 const STORAGE_KEY = "property-manager-data"
@@ -276,6 +277,7 @@ export default function App() {
             <Route path="/statistics" element={<Statistics />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
+          <UpdateCheck />
           <BottomNav />
           <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
         </div>
