@@ -152,6 +152,15 @@ export default function More() {
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    
+    // 检查是否已登录
+    if (!currentUser) {
+      alert('请先登录，再导入 Excel 数据，否则数据无法同步到云端。')
+      window.dispatchEvent(new CustomEvent('open-auth'))
+      e.target.value = ''
+      return
+    }
+    
     const reader = new FileReader()
     reader.onload = async (ev) => {
       try {
@@ -192,7 +201,7 @@ export default function More() {
 
         // 同步保存到 Supabase（等完成再刷新）
         try {
-          await saveCloudData({
+          const saved = await saveCloudData({
             properties: props as any[],
             rooms: roomList as any[],
             tenants: tenantList as any[],
@@ -201,8 +210,13 @@ export default function More() {
             profitRecords: [],
             trash: [],
           })
+          console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
+          if (!saved) {
+            alert('Excel 数据已保存到本地，但云端同步失败。请检查网络连接后重试。')
+          }
         } catch (e) {
           console.error('云端保存失败', e)
+          alert('Excel 数据已保存到本地，但云端同步失败。')
         }
 
         window.location.reload()
