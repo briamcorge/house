@@ -109,7 +109,7 @@ export async function loadCloudData(): Promise<SupabaseData | null> {
     .from('user_data')
     .select('data, updated_at')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()  // 使用 maybeSingle 代替 single，0 行时返回 null 而不是报错
 
   if (error) {
     console.error('[loadCloudData] 加载失败:', error)
