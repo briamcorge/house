@@ -358,9 +358,6 @@ export default function Bills() {
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
                                 {getStatusLabel(bill.status, bill.direction)}
                               </span>
-                              {bill.status === 'overdue' && (
-                                <span className="text-xs text-red-500 font-medium">已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天</span>
-                              )}
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
                                 {directionLabels[bill.direction]}
                               </span>
@@ -454,6 +451,11 @@ export default function Bills() {
                         {bill.status === 'paid' && (
                           <div className="absolute top-2 right-12 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
                             ✓ {bill.direction === 'receivable' ? '已收' : '已付'}
+                          </div>
+                        )}
+                        {bill.status === 'overdue' && (
+                          <div className="absolute top-10 right-2 rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
+                            已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
                           </div>
                         )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
@@ -11,13 +11,15 @@ import Contracts from "./pages/Contracts";
 import Trash from "./pages/Trash";
 import Statistics from "./pages/Statistics";
 import BottomNav from "./components/BottomNav";
+import AuthModal from "./components/AuthModal";
 import { AlertTriangle, X } from "lucide-react";
 import { initSync, hasToken } from "./lib/cloud-sync";
 import { useStore } from "./store/useStore";
+import { supabase, isSupabaseConfigured, loadCloudData, saveCloudData } from "./lib/supabase";
 
 const STORAGE_KEY = "property-manager-data"
-const MAX_STORAGE_BYTES = 5 * 1024 * 1024 // 5MB conservative estimate
-const WARN_THRESHOLD = 0.8 // 80%
+const MAX_STORAGE_BYTES = 5 * 1024 * 1024
+const WARN_THRESHOLD = 0.8
 
 function StorageWarning() {
   const [dismissed, setDismissed] = useState(false)
@@ -63,6 +65,11 @@ function StorageWarning() {
 }
 
 export default function App() {
+  const [showAuth, setShowAuth] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
+  const syncTimer = useRef<any>(null)
+
+  // GitHub token sync (backward compat - removed when Supabase fully replaces it)
   useEffect(() => {
     if (hasToken()) {
       initSync((merged) => {
@@ -70,6 +77,83 @@ export default function App() {
       })
     }
   }, [])
+
+  // Supabase auth + sync
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setAuthReady(true)
+      return
+    }
+
+    // Listen for "open-auth" event from More.tsx
+    const openAuthHandler = () => setShowAuth(true)
+    window.addEventListener('open-auth', openAuthHandler)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user || null
+
+      if (event === 'INITIAL_SESSION') {
+        setAuthReady(true)
+      }
+
+      if (user) {
+        setShowAuth(false)
+        // Load cloud data into local store (once on login/startup)
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          const cloudData = await loadCloudData()
+          if (cloudData) {
+            useStore.setState({
+              properties: cloudData.properties,
+              rooms: cloudData.rooms,
+              tenants: cloudData.tenants,
+              bills: cloudData.bills,
+              landlordContracts: cloudData.landlordContracts,
+              profitRecords: cloudData.profitRecords,
+              trash: cloudData.trash,
+            } as any)
+          }
+        }
+      } else {
+        // Not logged in - show auth modal (after initial session check)
+        if (event === 'INITIAL_SESSION') {
+          setShowAuth(true)
+        }
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('open-auth', openAuthHandler)
+      if (syncTimer.current) clearTimeout(syncTimer.current)
+    }
+  }, [])
+
+  // Auto-save store changes to Supabase (debounced)
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    // Wait until auth is resolved before subscribing
+    if (!authReady) return
+
+    const unsub = useStore.subscribe((state) => {
+      if (syncTimer.current) clearTimeout(syncTimer.current)
+      syncTimer.current = setTimeout(() => {
+        saveCloudData({
+          properties: state.properties,
+          rooms: state.rooms,
+          tenants: state.tenants,
+          bills: state.bills,
+          landlordContracts: state.landlordContracts,
+          profitRecords: state.profitRecords,
+          trash: state.trash,
+        })
+      }, 3000)
+    })
+
+    return () => {
+      unsub()
+      if (syncTimer.current) clearTimeout(syncTimer.current)
+    }
+  }, [authReady])
 
   return (
     <Router basename="/house">
@@ -88,6 +172,7 @@ export default function App() {
           <Route path="/statistics" element={<Statistics />} />
         </Routes>
         <BottomNav />
+        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       </div>
     </Router>
   );

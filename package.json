@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@playwright/mcp": "^0.0.75",
+    "@supabase/supabase-js": "^2.108.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "react": "^18.3.1",

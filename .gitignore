@@ -18,6 +18,11 @@ dist-ssr
 .opencode/
 filters.xml
 
+# Environment (contains Supabase credentials)
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

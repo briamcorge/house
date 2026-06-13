@@ -1,10 +1,10 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Upload, Download, Users, DollarSign, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { getToken, setToken, hasToken, getLastSyncTimestamp, uploadData, downloadData, downloadDataFresh, syncUpload, mergeCloudData, clearCloudData } from '../lib/cloud-sync'
 import { APP_VERSION } from '../version'
+import { supabase, isSupabaseConfigured, signOut, getCurrentUser } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -79,6 +79,9 @@ export default function More() {
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [supabaseReady, setSupabaseReady] = useState(false)
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
@@ -95,150 +98,22 @@ export default function More() {
   const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
-  // Cloud sync state
-  const [showSync, setShowSync] = useState(false)
-  const [tokenInput, setTokenInput] = useState('')
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle')
-  const [syncMsg, setSyncMsg] = useState('')
-  const [lastSync, setLastSync] = useState(getLastSyncTimestamp())
+  // Supabase auth check
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    getCurrentUser().then(({ data }) => {
+      setCurrentUser(data?.user || null)
+      setSupabaseReady(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setShowAuthModal(false)
+      setCurrentUser(session?.user || null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
-  const handleSaveToken = () => {
-    if (!tokenInput.trim()) return
-    setToken(tokenInput.trim())
-    setTokenInput('')
-    setSyncMsg('同步密钥已保存，开始自动同步')
-    setSyncStatus('idle')
-  }
-
-  const handleClearToken = () => {
-    if (confirm('清除同步密钥后，云同步将停止。确定吗？')) {
-      setToken('')
-      setSyncMsg('已清除同步密钥')
-    }
-  }
-
-  const handleUpload = async () => {
-    const token = getToken()
-    if (!token) return
-    setSyncStatus('syncing')
-    setSyncMsg('正在同步（下载云端 → 合并 → 上传）...')
-    try {
-      const state = useStore.getState()
-      const merged = await syncUpload({
-        properties: state.properties,
-        rooms: state.rooms,
-        tenants: state.tenants,
-        bills: state.bills,
-        landlordContracts: state.landlordContracts,
-        profitRecords: state.profitRecords,
-        trash: state.trash,
-        syncTimestamp: new Date().toISOString(),
-      }, token)
-      useStore.setState({
-        properties: merged.properties as any,
-        rooms: merged.rooms as any,
-        tenants: merged.tenants as any,
-        bills: merged.bills as any,
-        landlordContracts: merged.landlordContracts as any,
-        profitRecords: merged.profitRecords as any,
-      })
-      setSyncStatus('idle')
-      setSyncMsg('同步成功')
-      setLastSync(getLastSyncTimestamp())
-    } catch (err) {
-      setSyncStatus('error')
-      setSyncMsg('同步失败: ' + (err instanceof Error ? err.message : '网络错误'))
-    }
-  }
-
-  const handleForceUpload = async () => {
-    const token = getToken()
-    if (!token) return
-    if (!confirm('⚠️ 警告：将以本机数据为准，直接覆盖云端。\n\n云端独有的数据会丢失，确定吗？')) return
-    setSyncStatus('syncing')
-    setSyncMsg('正在强制覆盖云端...')
-    try {
-      const state = useStore.getState()
-      await uploadData({
-        properties: state.properties,
-        rooms: state.rooms,
-        tenants: state.tenants,
-        bills: state.bills,
-        landlordContracts: state.landlordContracts,
-        profitRecords: state.profitRecords,
-        trash: state.trash,
-        syncTimestamp: new Date().toISOString(),
-      }, token)
-      setSyncStatus('idle')
-      setSyncMsg('强制覆盖成功')
-      setLastSync(getLastSyncTimestamp())
-    } catch (err) {
-      setSyncStatus('error')
-      setSyncMsg('上传失败: ' + (err instanceof Error ? err.message : '网络错误'))
-    }
-  }
-
-  const handleClearCloud = async () => {
-    const token = getToken()
-    if (!token) return
-    if (!confirm('⚠️ 警告：将彻底清空云端所有数据（包括回收站），且不可恢复！\n\n本机数据不受影响。确定吗？')) return
-    setSyncStatus('syncing')
-    setSyncMsg('正在清空云端...')
-    try {
-      await clearCloudData(token)
-      setSyncStatus('idle')
-      setSyncMsg('云端已清空')
-      setLastSync(getLastSyncTimestamp())
-    } catch (err) {
-      setSyncStatus('error')
-      setSyncMsg('清空失败: ' + (err instanceof Error ? err.message : '网络错误'))
-    }
-  }
-
-  const handleDownload = async () => {
-    setSyncStatus('syncing')
-    setSyncMsg('正在下载并合并...')
-    try {
-      const token = getToken()
-      const cloud = token ? await downloadDataFresh(token) : await downloadData()
-      if (!cloud) {
-        setSyncStatus('idle')
-        setSyncMsg('云端暂无数据')
-        return
-      }
-      const state = useStore.getState()
-      const local: any = {
-        properties: state.properties,
-        rooms: state.rooms,
-        tenants: state.tenants,
-        bills: state.bills,
-        landlordContracts: state.landlordContracts,
-        profitRecords: state.profitRecords,
-        trash: state.trash,
-        syncTimestamp: new Date().toISOString(),
-      }
-      const merged = mergeCloudData(local, cloud)
-
-      const preview = [
-        merged.properties ? `${merged.properties.length} 个房源` : '',
-        merged.rooms ? `${merged.rooms.length} 个房间` : '',
-        merged.tenants ? `${merged.tenants.length} 个租客` : '',
-        merged.bills ? `${merged.bills.length} 个账单` : '',
-      ].filter(Boolean).join('\n')
-
-      if (!confirm(`从云端下载合并数据（被删过的不会加回）。\n\n合并后将有:\n${preview}\n\n本机当前有 ${properties.length} 个房源, ${tenants.length} 个租客\n\n确定要合并吗？`)) {
-        setSyncStatus('idle')
-        setSyncMsg('已取消')
-        return
-      }
-
-      localStorage.setItem('property-manager-data', JSON.stringify({ state: merged, version: 1 }))
-      setSyncStatus('idle')
-      window.location.reload()
-    } catch (err) {
-      setSyncStatus('error')
-      setSyncMsg('下载失败: ' + (err instanceof Error ? err.message : '网络错误'))
-    }
+  const handleSignOut = async () => {
+    await signOut()
   }
 
   const handleExportExcel = () => {
@@ -407,89 +282,40 @@ export default function More() {
                       </button>
                     </div>
 
-                    <div className="border-t border-gray-100 pt-3 mt-1">
-                      <button type="button" onClick={() => setShowSync(!showSync)} className="w-full flex items-center justify-between py-2">
-                        <div className="flex items-center gap-2">
+                    {isSupabaseConfigured() && (
+                      <div className="border-t border-gray-100 pt-3 mt-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <Cloud className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm font-medium text-gray-900">云同步</span>
-                        </div>
-                        {hasToken() && (
-                          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">已开启</span>
-                        )}
-                      </button>
-
-                      {showSync && (
-                        <div className="mt-2 space-y-2">
-                          {!hasToken() ? (
-                            <>
-                              <p className="text-xs text-gray-500">输入你的 GitHub Personal Access Token（需 repo 权限）开启云同步</p>
-                              <div className="flex gap-2">
-                                <input
-                                  type="password"
-                                  value={tokenInput}
-                                  onChange={(e) => setTokenInput(e.target.value)}
-                                  placeholder="输入令牌"
-                                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={handleSaveToken}
-                                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                >保存</button>
-                              </div>
-                              <p className="text-xs text-gray-400">令牌只在本地保存，不会上传</p>
-                            </>
-                          ) : (
-                            <>
-                              {syncMsg && (
-                                <p className={`text-xs ${syncStatus === 'error' ? 'text-red-500' : 'text-gray-600'}`}>{syncMsg}</p>
-                              )}
-                              {lastSync && (
-                                <p className="text-xs text-gray-400">上次同步: {new Date(lastSync).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}</p>
-                              )}
-                              <div className="grid grid-cols-2 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={handleUpload}
-                                  disabled={syncStatus === 'syncing'}
-                                  className="py-2.5 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
-                                >
-                                  <Upload className="w-4 h-4" />
-                                  <span>同步上传</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleDownload}
-                                  disabled={syncStatus === 'syncing'}
-                                  className="py-2.5 px-3 bg-purple-50 text-purple-700 rounded-xl font-medium hover:bg-purple-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
-                                >
-                                  <Download className="w-4 h-4" />
-                                  <span>合并下载</span>
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleForceUpload}
-                                disabled={syncStatus === 'syncing'}
-                                className="w-full py-2.5 px-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
-                              >
-                                <Upload className="w-4 h-4" />
-                                <span>强制覆盖云端</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleClearCloud}
-                                disabled={syncStatus === 'syncing'}
-                                className="w-full py-2 px-3 bg-red-100 text-red-700 rounded-xl font-medium hover:bg-red-200 transition-colors flex items-center justify-center gap-1.5 text-xs disabled:opacity-50"
-                              >
-                                🗑️ 清空云端（彻底删除所有数据）
-                              </button>
-                              <button type="button" onClick={handleClearToken} className="text-xs text-gray-400 hover:text-red-500 transition-colors">清除密钥</button>
-                            </>
+                          <span className="text-sm font-medium text-gray-900">云端同步</span>
+                          {currentUser && (
+                            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full ml-auto">已登录</span>
                           )}
                         </div>
-                      )}
-                    </div>
+                        {currentUser ? (
+                          <div className="space-y-2">
+                            <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                            <p className="text-xs text-gray-400">数据已自动同步到云端</p>
+                            <button
+                              type="button"
+                              onClick={handleSignOut}
+                              className="w-full py-2 px-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              <span>退出登录</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
+                            className="w-full py-2.5 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                          >
+                            <LogIn className="w-4 h-4" />
+                            <span>登录以同步数据</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 {isProfit && showProfitForm && (
@@ -610,14 +436,14 @@ export default function More() {
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              if (confirm('确定要清除所有数据吗？此操作不可恢复！')) {
+              if (confirm('确定要清除本机数据吗？此操作不可恢复！')) {
                 clearAllData()
               }
             }}
             className="w-full bg-white rounded-2xl shadow-sm border border-red-100 p-4 flex items-center justify-center gap-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
           >
             <Trash2 className="w-5 h-5" />
-            <span className="font-medium">清除所有数据</span>
+            <span className="font-medium">清除本机数据</span>
           </button>
         </div>
 

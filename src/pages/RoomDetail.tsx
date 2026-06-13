@@ -185,7 +185,11 @@ export default function RoomDetail() {
                           <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
                           <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>{statusLabels[bill.status]}</span>
                           {bill.status === 'overdue' && (
-                            <span className="text-xs text-red-500">已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天</span>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
+                              <span className="rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
+                                已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
+                              </span>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
