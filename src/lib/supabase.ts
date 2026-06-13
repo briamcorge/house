@@ -119,17 +119,20 @@ export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
 
 // ========== 管理员功能 ==========
 
-// 检查指定用户是否是管理员（直接查表，传入 user_id）
+// 检查指定用户是否是管理员（先 RPC 绕过 RLS，失败则直查表）
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   const sb = getSupabase()
   if (!sb) return false
-  const { data, error } = await sb
+  // RPC 函数有 SECURITY DEFINER，绕过 RLS
+  const { data, error } = await sb.rpc('is_admin')
+  if (!error) return !!data
+  // 备用：直查表
+  const { data: row } = await sb
     .from('admin_users')
     .select('user_id')
     .eq('user_id', userId)
-    .single()
-  if (error) return false
-  return !!data
+    .maybeSingle()
+  return !!row
 }
 
 // 获取所有用户数据（仅管理员可调用）

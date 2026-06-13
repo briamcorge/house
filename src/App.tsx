@@ -117,7 +117,7 @@ export default function App() {
         }
       } else {
         // Not logged in - show auth modal, clear any seed data
-        if (event === 'INITIAL_SESSION') {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
           useStore.setState({
             properties: [],
             rooms: [],

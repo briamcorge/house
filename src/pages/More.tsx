@@ -119,6 +119,7 @@ export default function More() {
 
   const handleSignOut = async () => {
     await signOut()
+    window.location.reload()
   }
 
   const handleExportExcel = () => {
