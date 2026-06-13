@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, BarChart3, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, Download } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -359,11 +359,20 @@ export default function More() {
                     <div className="text-center">
                       <p className="text-sm text-gray-500">房屋管理系统 v{APP_VERSION}</p>
                       <p className="text-xs text-gray-400 mt-1">用于二房东房源/租客/账单管理</p>
+                      <a
+                        href="https://github.com/briamcorge/house/releases"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>下载最新 APK</span>
+                      </a>
                       {isAdmin && (
                         <button
                           type="button"
                           onClick={() => navigate('/admin')}
-                          className="mt-3 inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+                          className="mt-2 w-full inline-flex items-center justify-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
                         >
                           <Shield className="w-3.5 h-3.5" />
                           <span>管理后台</span>
