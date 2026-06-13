@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser, checkIsAdmin } from '../lib/supabase'
+import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser, checkIsAdmin, isAdminByEmail } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -110,8 +110,8 @@ export default function More() {
 
   // 当 currentUser 变化时，检查管理员状态
   useEffect(() => {
-    if (currentUser?.id) {
-      checkIsAdmin(currentUser.id).then(setIsAdmin)
+    if (currentUser?.email) {
+      setIsAdmin(isAdminByEmail(currentUser.email))
     } else {
       setIsAdmin(false)
     }
@@ -119,7 +119,15 @@ export default function More() {
 
   const handleSignOut = async () => {
     await signOut()
-    window.location.reload()
+    // Force service worker to update
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      for (const reg of registrations) {
+        await reg.update()
+      }
+    }
+    // Full navigation - more reliable than reload() in PWA
+    window.location.replace(window.location.origin + import.meta.env.BASE_URL || '/')
   }
 
   const handleExportExcel = () => {

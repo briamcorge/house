@@ -143,3 +143,11 @@ export async function getAllUserData(): Promise<{ user_id: string; email: string
   if (error) return []
   return data as any[]
 }
+
+// 管理员邮箱列表（客户端直判，100% 可靠）
+const ADMIN_EMAILS = ['c94138228@163.com']
+
+export function isAdminByEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  return ADMIN_EMAILS.includes(email.toLowerCase())
+}
