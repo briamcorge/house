@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, getSupabase } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -185,6 +185,25 @@ export default function More() {
 
         const state = { properties: props, rooms: roomList, tenants: tenantList, bills: billList }
       localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
+
+        // 导入后同步到 Supabase（如果已登录）
+        const sb = getSupabase()
+        if (sb) {
+          sb.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              saveCloudData({
+                properties: props as any[],
+                rooms: roomList as any[],
+                tenants: tenantList as any[],
+                bills: billList as any[],
+                landlordContracts: [],
+                profitRecords: [],
+                trash: [],
+              })
+            }
+          }).catch(() => {})
+        }
+
         window.location.reload()
       } catch (err) {
         alert('Excel 格式错误，请检查文件')
