@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord } from '../types'
 import { DraftBill } from '../utils/calculator'
 import { triggerSync } from '../lib/cloud-sync'
+import { triggerCloudSave } from '../lib/cloud-sync-context'
 
 interface AppStore {
   properties: Property[]
@@ -90,6 +91,7 @@ export const useStore = create<AppStore>()(
         (rawSet as typeof rawSet)(fn)
         if (hydrated) {
           triggerSync(stateToSyncData(get()))
+          triggerCloudSave() // 每次变更自动触发 Supabase 云同步（500ms debounce）
         }
       }) as typeof rawSet
       return {

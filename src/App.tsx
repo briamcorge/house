@@ -4,7 +4,8 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { initSync, hasToken } from "./lib/cloud-sync";
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
-import { isSupabaseConfigured, getSupabase, loadCloudData, saveCloudData, updatePassword } from "./lib/supabase";
+import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
+import { useCloudSync } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -166,7 +167,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
-  const syncTimer = useRef<any>(null)
+  const { saveNow } = useCloudSync()
 
   // GitHub token sync (backward compat)
   useEffect(() => {
@@ -205,41 +206,14 @@ export default function App() {
           landlordContracts: [], profitRecords: [], trash: [],
         })
       } else {
-        // 正常会话恢复 → 加载云端数据
-        loadCloudData().then(cloudData => {
-          if (cloudData) {
-            useStore.setState({
-              properties: cloudData.properties,
-              rooms: cloudData.rooms,
-              tenants: cloudData.tenants,
-              bills: cloudData.bills,
-              landlordContracts: cloudData.landlordContracts,
-              profitRecords: cloudData.profitRecords,
-              trash: cloudData.trash,
-            } as any)
-          }
-        })
+        // 正常会话恢复 → CloudSyncProvider 自动加载云端数据
       }
     }
 
     if (lastEvent === 'SIGNED_IN' && currentUser) {
       setShowAuth(false)
 
-      // 加载云端数据
-      loadCloudData().then(cloudData => {
-        if (cloudData) {
-          useStore.setState({
-            properties: cloudData.properties,
-            rooms: cloudData.rooms,
-            tenants: cloudData.tenants,
-            bills: cloudData.bills,
-            landlordContracts: cloudData.landlordContracts,
-            profitRecords: cloudData.profitRecords,
-            trash: cloudData.trash,
-          } as any)
-        }
-      })
-
+      // 登录成功后跳转首页 + CloudSyncProvider 自动加载云端数据
       setJustLoggedIn(true)
     }
 
@@ -270,31 +244,6 @@ export default function App() {
     window.addEventListener('open-auth', openAuthHandler)
     return () => window.removeEventListener('open-auth', openAuthHandler)
   }, [])
-
-  // Auto-save store changes to Supabase (debounced)
-  useEffect(() => {
-    if (!isSupabaseConfigured() || !authReady || !currentUser) return
-
-    const unsub = useStore.subscribe((state) => {
-      if (syncTimer.current) clearTimeout(syncTimer.current)
-      syncTimer.current = setTimeout(() => {
-        saveCloudData({
-          properties: state.properties,
-          rooms: state.rooms,
-          tenants: state.tenants,
-          bills: state.bills,
-          landlordContracts: state.landlordContracts,
-          profitRecords: state.profitRecords,
-          trash: state.trash,
-        })
-      }, 3000)
-    })
-
-    return () => {
-      unsub()
-      if (syncTimer.current) clearTimeout(syncTimer.current)
-    }
-  }, [authReady, currentUser])
 
   // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {

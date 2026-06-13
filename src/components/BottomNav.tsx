@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Building2, FileText, BarChart3, MoreHorizontal } from 'lucide-react'
+import { Home, Building2, FileText, BarChart3, MoreHorizontal, Cloud, CloudOff, Cloudy } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useCloudSync } from '../lib/cloud-sync-context'
 
 export default function BottomNav() {
   const location = useLocation()
+  const { status } = useCloudSync()
 
   const navItems = [
     { path: '/', label: '首页', icon: Home },
@@ -43,6 +45,19 @@ export default function BottomNav() {
           )
         })}
       </div>
+      {/* 同步状态指示器 */}
+      {status !== 'idle' && (
+        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg border border-gray-200 px-3 py-1 flex items-center gap-1.5 z-10">
+          {status === 'syncing' && <Cloudy className="w-3.5 h-3.5 text-blue-500 animate-pulse" />}
+          {status === 'synced' && <Cloud className="w-3.5 h-3.5 text-green-500" />}
+          {status === 'error' && <CloudOff className="w-3.5 h-3.5 text-red-500" />}
+          <span className="text-xs text-gray-500">
+            {status === 'syncing' && '同步中...'}
+            {status === 'synced' && '已同步'}
+            {status === 'error' && '同步失败'}
+          </span>
+        </div>
+      )}
     </nav>
   )
 }
