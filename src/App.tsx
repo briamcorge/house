@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { updatePassword } from "./lib/supabase";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -66,10 +68,91 @@ function StorageWarning() {
   )
 }
 
+function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
+          <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-gray-900 mb-2">密码重置成功</h2>
+          <p className="text-sm text-gray-500 mb-4">请使用新密码登录</p>
+          <button onClick={onComplete} className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors">
+            返回登录
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <h2 className="text-lg font-bold text-gray-900 text-center mb-2">设置新密码</h2>
+        <p className="text-sm text-gray-500 text-center mb-5">请为你的账号设置一个新密码</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">新密码</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type={showPw ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="至少6位密码"
+                minLength={6}
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="再次输入新密码"
+              minLength={6}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+          </div>
+          {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          <button
+            disabled={loading}
+            onClick={async () => {
+              if (password !== confirm) { setError('两次密码不一致'); return }
+              if (password.length < 6) { setError('密码至少6位'); return }
+              setLoading(true); setError('')
+              const { error } = await updatePassword(password)
+              setLoading(false)
+              if (error) { setError(error.message); return }
+              setDone(true)
+            }}
+            className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            重置密码
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [passwordResetMode, setPasswordResetMode] = useState(false)
   const syncTimer = useRef<any>(null)
 
   // GitHub token sync (backward compat - removed when Supabase fully replaces it)
@@ -80,6 +163,17 @@ export default function App() {
       })
     }
   }, [])
+
+  // Auth timeout: 如果 INITIAL_SESSION 8秒未触发，显示登录页（防止 PC 浏览器卡 loading）
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    const timer = setTimeout(() => {
+      if (!authReady) {
+        setAuthReady(true)
+      }
+    }, 8000)
+    return () => clearTimeout(timer)
+  }, [authReady])
 
   // Supabase auth + sync
   useEffect(() => {
@@ -103,6 +197,13 @@ export default function App() {
       if (user) {
         setCurrentUser(user)
         setShowAuth(false)
+
+        // 密码找回：用户从邮件点击了重置链接
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordResetMode(true)
+          return
+        }
+
         // Load cloud data into local store (once on login/startup)
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           const cloudData = await loadCloudData()
@@ -174,6 +275,11 @@ export default function App() {
   // 等待 auth 初始化完成，再决定显示登录页还是主应用
   if (isSupabaseConfigured() && authReady && !currentUser) {
     return <LoginPage onLogin={() => {}} />
+  }
+
+  // 密码找回模式：用户从邮件点击重置链接后，显示设置新密码页面
+  if (passwordResetMode && currentUser) {
+    return <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />
   }
 
   // Auth 未就绪时，显示空白加载（避免闪现数据）

@@ -58,9 +58,18 @@ export async function signOut() {
 export async function resetPassword(email: string) {
   const sb = getSupabase()
   if (!sb) return { error: new Error('Supabase 未配置') }
-  const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + import.meta.env.BASE_URL,
-  })
+  // 使用当前域名 + base path，确保链接能正确跳回应用
+  // 如 https://briamcorge.github.io/house/
+  const redirectTo = window.location.origin + import.meta.env.BASE_URL
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo })
+  return { error }
+}
+
+// 更新密码（密码找回后使用）
+export async function updatePassword(newPassword: string) {
+  const sb = getSupabase()
+  if (!sb) return { error: new Error('Supabase 未配置') }
+  const { error } = await sb.auth.updateUser({ password: newPassword })
   return { error }
 }
 
