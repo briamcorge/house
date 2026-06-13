@@ -38,9 +38,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   apk:
-    runs-on: ubuntu-22.04
-    container:
-      image: androidsdk/android-34:latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,8 +49,11 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Install dependencies
-        run: npm ci
+      - uses: r0adkll/setup-android@v1
+        with:
+          sdk-version: '34'
+          build-tools-version: '34.0.0'
+      - run: npm ci
       - name: Build web for APK
         run: npm run build
         env:
