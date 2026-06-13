@@ -36,3 +36,35 @@ jobs:
           path: dist
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+      - name: Sync Capacitor
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx cap sync android
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          echo "android.overridePathCheck=true" >> gradle.properties
+          ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: house-management-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
