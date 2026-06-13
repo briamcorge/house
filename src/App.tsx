@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { initSync, hasToken } from "./lib/cloud-sync";
+import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, loadCloudData, saveCloudData, updatePassword } from "./lib/supabase";
 import Home from "./pages/Home";
@@ -146,7 +147,7 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
   )
 }
 
-/** 登录后自动跳转首页（放在 Router 内部才能用 useNavigate） */
+/** 登录后自动跳转首页 */
 function LoginRedirect({ triggered }: { triggered: boolean }) {
   const navigate = useNavigate()
   const done = useRef(false)
@@ -160,14 +161,13 @@ function LoginRedirect({ triggered }: { triggered: boolean }) {
 }
 
 export default function App() {
+  const { user: currentUser, ready: authReady, lastEvent } = useAuth()
   const [showAuth, setShowAuth] = useState(false)
-  const [authReady, setAuthReady] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const syncTimer = useRef<any>(null)
 
-  // GitHub token sync (backward compat - removed when Supabase fully replaces it)
+  // GitHub token sync (backward compat)
   useEffect(() => {
     if (hasToken()) {
       initSync((merged) => {
@@ -176,65 +176,36 @@ export default function App() {
     }
   }, [])
 
-  // Auth timeout: 如果 INITIAL_SESSION 8秒未触发，显示登录页（防止 PC 浏览器卡 loading）
+  // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    const timer = setTimeout(() => {
-      if (!authReady) {
-        setAuthReady(true)
-      }
-    }, 8000)
-    return () => clearTimeout(timer)
-  }, [authReady])
+    if (!isSupabaseConfigured() || !lastEvent) return
 
-  // Supabase auth + sync
-  useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setAuthReady(true)
-      return
-    }
-
-    // 标记当前标签页"活跃"（存 sessionStorage，关浏览器/标签页即消失）
+    // 标记当前标签页"活跃"
     sessionStorage.setItem('tab_active', '1')
 
-    // Listen for "open-auth" event from More.tsx
-    const openAuthHandler = () => setShowAuth(true)
-    window.addEventListener('open-auth', openAuthHandler)
-
     const sb = getSupabase()
-    const { data: { subscription } } = sb!.auth.onAuthStateChange(async (event, session) => {
-      const user = session?.user || null
+    if (!sb) return
 
-      if (event === 'INITIAL_SESSION') {
-        setAuthReady(true)
-      }
-
-      if (user) {
-        // 检测是否为新的浏览器会话（标签页/浏览器关闭后重新打开）
-        if (event === 'INITIAL_SESSION' && !sessionStorage.getItem('tab_active')) {
-          // 关掉过浏览器，session 无效，清除后显示登录页
-          await sb!.auth.signOut()
-          localStorage.removeItem('property-manager-data')
-          useStore.setState({
-            properties: [], rooms: [], tenants: [], bills: [],
-            landlordContracts: [], profitRecords: [], trash: [],
-          })
-          setCurrentUser(null)
-          return
-        }
-
-        setCurrentUser(user)
-        setShowAuth(false)
-
-        // 密码找回：用户从邮件点击了重置链接
-        if (event === 'PASSWORD_RECOVERY') {
-          setPasswordResetMode(true)
-          return
-        }
-
-        // Load cloud data into local store (once on login/startup)
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          const cloudData = await loadCloudData()
+    if (lastEvent === 'INITIAL_SESSION') {
+      // 检测是否新的浏览器会话（关过浏览器/标签页）
+      if (!currentUser) {
+        // 没有用户 → 清除本地数据
+        localStorage.removeItem('property-manager-data')
+        useStore.setState({
+          properties: [], rooms: [], tenants: [], bills: [],
+          landlordContracts: [], profitRecords: [], trash: [],
+        })
+      } else if (!sessionStorage.getItem('tab_active')) {
+        // 关过浏览器，session 无效
+        sb.auth.signOut()
+        localStorage.removeItem('property-manager-data')
+        useStore.setState({
+          properties: [], rooms: [], tenants: [], bills: [],
+          landlordContracts: [], profitRecords: [], trash: [],
+        })
+      } else {
+        // 正常会话恢复 → 加载云端数据
+        loadCloudData().then(cloudData => {
           if (cloudData) {
             useStore.setState({
               properties: cloudData.properties,
@@ -246,43 +217,62 @@ export default function App() {
               trash: cloudData.trash,
             } as any)
           }
-        }
-
-        // 登录成功后跳转首页（放在加载数据之后，避免提前 return 导致数据不同步）
-        if (event === 'SIGNED_IN') {
-          setJustLoggedIn(true)
-        }
-      } else {
-        setCurrentUser(null)
-        // Not logged in - clear data
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
-          // 同时清除 localStorage 持久化数据，防止刷新后恢复
-          localStorage.removeItem('property-manager-data')
-          useStore.setState({
-            properties: [],
-            rooms: [],
-            tenants: [],
-            bills: [],
-            landlordContracts: [],
-            profitRecords: [],
-            trash: [],
-          })
-        }
+        })
       }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-      window.removeEventListener('open-auth', openAuthHandler)
-      if (syncTimer.current) clearTimeout(syncTimer.current)
     }
+
+    if (lastEvent === 'SIGNED_IN' && currentUser) {
+      setShowAuth(false)
+
+      // 加载云端数据
+      loadCloudData().then(cloudData => {
+        if (cloudData) {
+          useStore.setState({
+            properties: cloudData.properties,
+            rooms: cloudData.rooms,
+            tenants: cloudData.tenants,
+            bills: cloudData.bills,
+            landlordContracts: cloudData.landlordContracts,
+            profitRecords: cloudData.profitRecords,
+            trash: cloudData.trash,
+          } as any)
+        }
+      })
+
+      setJustLoggedIn(true)
+    }
+
+    if (lastEvent === 'PASSWORD_RECOVERY') {
+      setPasswordResetMode(true)
+    }
+
+    if (lastEvent === 'SIGNED_OUT') {
+      localStorage.removeItem('property-manager-data')
+      useStore.setState({
+        properties: [], rooms: [], tenants: [], bills: [],
+        landlordContracts: [], profitRecords: [], trash: [],
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastEvent])
+
+  // 独立监听 password_recovery（上面 SIGNED_IN 里的判断不生效因为 lastEvent !== 'PASSWORD_RECOVERY'）
+  useEffect(() => {
+    if (lastEvent === 'PASSWORD_RECOVERY' && currentUser) {
+      setPasswordResetMode(true)
+    }
+  }, [lastEvent, currentUser])
+
+  // 监听 open-auth 事件（从 More.tsx 触发）
+  useEffect(() => {
+    const openAuthHandler = () => setShowAuth(true)
+    window.addEventListener('open-auth', openAuthHandler)
+    return () => window.removeEventListener('open-auth', openAuthHandler)
   }, [])
 
   // Auto-save store changes to Supabase (debounced)
   useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    // Wait until auth is resolved before subscribing
-    if (!authReady) return
+    if (!isSupabaseConfigured() || !authReady || !currentUser) return
 
     const unsub = useStore.subscribe((state) => {
       if (syncTimer.current) clearTimeout(syncTimer.current)
@@ -303,19 +293,19 @@ export default function App() {
       unsub()
       if (syncTimer.current) clearTimeout(syncTimer.current)
     }
-  }, [authReady])
+  }, [authReady, currentUser])
 
-  // 等待 auth 初始化完成，再决定显示登录页还是主应用
+  // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {
     return <LoginPage onLogin={() => {}} />
   }
 
-  // 密码找回模式：用户从邮件点击重置链接后，显示设置新密码页面
+  // 密码找回模式
   if (passwordResetMode && currentUser) {
     return <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />
   }
 
-  // Auth 未就绪时，显示空白加载（避免闪现数据）
+  // Auth 未就绪 → 加载中
   if (isSupabaseConfigured() && !authReady) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">

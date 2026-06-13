@@ -4,7 +4,8 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { getSupabase, isSupabaseConfigured, signOut, checkIsAdmin, isAdminByEmail } from '../lib/supabase'
+import { useAuth } from '../lib/auth-context'
+import { isSupabaseConfigured, signOut, isAdminByEmail } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -74,8 +75,7 @@ export default function More() {
   const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [supabaseReady, setSupabaseReady] = useState(false)
+  const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -93,25 +93,7 @@ export default function More() {
   const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
-  // Supabase auth check
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return
-    setSupabaseReady(true)
-    const sb = getSupabase()
-    if (!sb) return
-
-    // 主动获取当前 session（弥补 onAuthStateChange 可能错过 INITIAL_SESSION 的问题）
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setCurrentUser(session.user)
-    })
-
-    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user || null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // 当 currentUser 变化时，检查管理员状态
+  // 根据 auth context 中的用户信息判断管理员
   useEffect(() => {
     if (currentUser?.email) {
       setIsAdmin(isAdminByEmail(currentUser.email))
