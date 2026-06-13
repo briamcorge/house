@@ -118,9 +118,17 @@ export default function More() {
   }, [currentUser])
 
   const handleSignOut = async () => {
-    // Fire and forget - don't wait for network
+    // 尝试服务端退出（不等待）
     signOut().catch(() => {})
-    window.location.href = '/'
+    // 立即清除本地 Supabase session（避免跳转后 session 残留）
+    const sbKeys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('sb-')) sbKeys.push(key)
+    }
+    sbKeys.forEach(key => localStorage.removeItem(key))
+    // 跳转到 App 根路径（处理子路径部署，如 /house/）
+    window.location.href = import.meta.env.BASE_URL
   }
 
   const handleExportExcel = () => {
