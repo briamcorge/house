@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Building2, BarChar
 
 export default function Statistics() {
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, profitRecords } = useStore()
+  const { properties, rooms, tenants, bills, profitRecords } = useStore()
 
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()

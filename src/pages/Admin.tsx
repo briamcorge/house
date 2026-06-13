@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Mail, Database, Clock, Loader2, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Shield, Mail, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { getAllUserData, checkIsAdmin, getCurrentUser } from '../lib/supabase'
 
 interface UserData {
@@ -67,9 +67,7 @@ export default function Admin() {
 
   const totalProperties = users.reduce((s, u) => s + (u.data?.properties?.length || 0), 0)
   const totalTenants = users.reduce((s, u) => s + (u.data?.tenants?.filter((t: any) => t.status === 'active')?.length || 0), 0)
-  const totalBills = users.reduce((s, u) => s + (u.data?.bills?.length || 0), 0)
-
-  return (
+    return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">

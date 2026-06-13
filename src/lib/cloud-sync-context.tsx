@@ -106,9 +106,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     return () => { _saveCallback = null }
   }, [doSave])
 
-  // 启动时加载云端数据
+  // 启动时加载云端数据（仅首次登录，刷新不重复拉取，避免覆盖本地新数据）
   useEffect(() => {
     if (!isSupabaseConfigured() || !ready || !user) return
+    const flagKey = `cloud_init_loaded_${user.id}`
+    if (sessionStorage.getItem(flagKey)) return
+    sessionStorage.setItem(flagKey, '1')
     loadNow()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user])

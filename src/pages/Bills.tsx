@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText } from 'lucide-react'
 
 function get30DaysAgo(): string {
   const d = new Date()
@@ -112,14 +112,12 @@ export default function Bills() {
     ? bills.filter(b => b.propertyId === contractFilter && b.direction === 'payable')
     : bills
 
-  const todayISO = new Date().toISOString().slice(0, 10)
   const thirtyDaysAgo = get30DaysAgo()
 
   const filteredBills = useMemo(() => {
-    const today = todayISO
     // 合同模式：显示全部，不限制月份
     if (contractFilter) {
-      let list = relevantBills.filter(b => {
+      const list = relevantBills.filter(b => {
         const matchesStatus = filterStatus === 'all'
           ? true
           : b.status === filterStatus
@@ -129,7 +127,7 @@ export default function Bills() {
     }
 
     // 非合同模式：应用方向 + 状态 + 30天筛选
-    let list = relevantBills.filter(b => {
+    const list = relevantBills.filter(b => {
       if (direction !== 'all' && b.direction !== direction) return false
       const matchesStatus = filterStatus === 'all'
         ? true

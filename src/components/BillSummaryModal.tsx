@@ -1,7 +1,7 @@
 import { useMemo, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { Bill } from '../types'
-import { X, DollarSign, Calendar, Home, User } from 'lucide-react'
+import { X, Calendar } from 'lucide-react'
 
 interface BillSummaryModalProps {
   isOpen: boolean
@@ -54,11 +54,6 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
   const getPropertyAddress = (pid?: string) => {
     if (!pid) return ''
     return properties.find(p => p.id === pid)?.address || ''
-  }
-
-  const getTenantName = (tid?: string) => {
-    if (!tid) return ''
-    return tenants.find(t => t.id === tid)?.name || ''
   }
 
   const totalAmount = filteredBills.reduce((s, b) => s + b.amount, 0)

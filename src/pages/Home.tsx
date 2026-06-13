@@ -21,11 +21,9 @@ export default function Home() {
   // 自动标记逾期账单
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10)
-    let updated = 0
     for (const bill of bills) {
       if (bill.status === 'pending' && bill.dueDate < today) {
         updateBill(bill.id, { status: 'overdue' })
-        updated++
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

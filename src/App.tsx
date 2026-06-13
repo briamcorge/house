@@ -4,7 +4,6 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
-import { useCloudSync } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -167,7 +166,6 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
-  const { saveNow } = useCloudSync()
 
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {

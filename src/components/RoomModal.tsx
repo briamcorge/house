@@ -39,20 +39,20 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
     setError('')
   }, [isOpen, editingRoom, propertyId, usedLabels.length])
 
+  // ESC键关闭
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!label) {
       showError(setError, '请选择房间编号')
-
-  // ESC键关闭
-  useEffect(() => {
-  const handleEsc = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') onClose()
-  }
-  document.addEventListener('keydown', handleEsc)
-  return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
       return
     }
     if (!propertyId) {

@@ -77,20 +77,20 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
     setError('')
   }, [isOpen, editingBill, defaultRoomId, defaultDirection])
 
+  // ESC键关闭
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (direction === 'payable' && !propertyId) {
       showError(setError, '请选择房源')
-
-  // ESC键关闭
-  useEffect(() => {
-  const handleEsc = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') onClose()
-  }
-  document.addEventListener('keydown', handleEsc)
-  return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
       return
     }
 

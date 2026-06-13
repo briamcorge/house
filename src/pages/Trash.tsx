@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { TrashItem, TrashType } from '../types'
+import { TrashType } from '../types'
 import { Trash2, RotateCcw, ChevronLeft, AlertTriangle, Search } from 'lucide-react'
 
 const typeLabels: Record<TrashType, string> = {
