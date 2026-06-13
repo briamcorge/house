@@ -3,15 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, ChevronRight, Droplets, Zap, Flame, Receipt, FileText } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle } from 'lucide-react'
 
-function getMonthKey(dateStr: string): string {
-  return dateStr.slice(0, 7) // "2026-06"
-}
-
-function getMonthLabel(key: string): string {
-  const [y, m] = key.split('-')
-  return `${y}年${parseInt(m)}月`
+function get30DaysAgo(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 30)
+  return d.toISOString().slice(0, 10)
 }
 
 export default function Bills() {
@@ -22,14 +19,14 @@ export default function Bills() {
   const contractFilter = state?.propertyId || null
   const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'pending')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'all')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
-  const [currentMonth, setCurrentMonth] = useState('')
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
+  const [showAllBills, setShowAllBills] = useState(false)
 
   // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
@@ -110,55 +107,57 @@ export default function Bills() {
     payable: 'bg-orange-50 text-orange-700',
   }
 
-  // Filter and group bills
+  // Filter and sort bills
   const relevantBills = contractFilter
     ? bills.filter(b => b.propertyId === contractFilter && b.direction === 'payable')
     : bills
 
-  const allMonthKeys = useMemo(() => {
-    const keys = new Set<string>()
-    for (const b of relevantBills) keys.add(getMonthKey(b.dueDate))
-    const sorted = Array.from(keys).sort((a, b) => a.localeCompare(b))
-    if (!currentMonth && sorted.length > 0) {
-      // 默认跳到最早有未处理账单的月份
-      const unpaidMonth = sorted.find(mk =>
-        relevantBills.some(b => getMonthKey(b.dueDate) === mk && b.status !== 'paid')
-      )
-      setTimeout(() => setCurrentMonth(unpaidMonth || sorted[0]), 0)
-    }
-    return sorted
-  }, [relevantBills, currentMonth])
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const thirtyDaysAgo = get30DaysAgo()
 
-  // Bills for the currently selected month
-  const currentMonthBills = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
+  const filteredBills = useMemo(() => {
+    const today = todayISO
+    // 合同模式：显示全部，不限制月份
     if (contractFilter) {
-      // 合同查看模式：不过滤月份，显示全部
-      return relevantBills.filter(b => {
-        const matchesStatus = filterStatus === 'all' 
+      let list = relevantBills.filter(b => {
+        const matchesStatus = filterStatus === 'all'
           ? true
-          : filterStatus === 'overdue'
-            ? (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < today))
-            : b.status === filterStatus
+          : b.status === filterStatus
         return matchesStatus
       })
+      return list
     }
-    return relevantBills.filter(b => {
-      const mk = getMonthKey(b.dueDate)
-      if (mk !== currentMonth) return false
-      const matchesDirection = direction === 'all' || b.direction === direction
-      const matchesStatus = filterStatus === 'all' 
-        ? true
-        : filterStatus === 'overdue'
-          ? (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < today))
-          : b.status === filterStatus
-      return matchesDirection && matchesStatus
-    })
-  }, [relevantBills, currentMonth, direction, filterStatus, contractFilter])
 
-  const monthIndex = allMonthKeys.indexOf(currentMonth)
-  const canGoEarlier = monthIndex > 0
-  const canGoLater = monthIndex < allMonthKeys.length - 1
+    // 非合同模式：应用方向 + 状态 + 30天筛选
+    let list = relevantBills.filter(b => {
+      if (direction !== 'all' && b.direction !== direction) return false
+      const matchesStatus = filterStatus === 'all'
+        ? true
+        : b.status === filterStatus
+      if (!matchesStatus) return false
+      // 30天窗口
+      if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
+      return true
+    })
+    return list
+  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo])
+
+  const hasMoreBills = useMemo(() => {
+    if (showAllBills || contractFilter) return false
+    return relevantBills.some(b => b.dueDate < thirtyDaysAgo)
+  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo])
+
+  // Sorting: overdue(dueDate desc) → pending(dueDate asc) → paid(paidDate desc)
+  const displayBills = useMemo(() => {
+    return [...filteredBills].sort((a, b) => {
+      const order = { overdue: 0, pending: 1, paid: 2 }
+      const cmp = (order[a.status] ?? 99) - (order[b.status] ?? 99)
+      if (cmp !== 0) return cmp
+      if (a.status === 'overdue') return b.dueDate.localeCompare(a.dueDate)
+      if (a.status === 'paid') return (b.paidDate || '').localeCompare(a.paidDate || '')
+      return a.dueDate.localeCompare(b.dueDate)
+    })
+  }, [filteredBills])
 
   const handleSaveBill = (data: Omit<Bill, 'id' | 'createdAt'>) => {
     if (editingBill) {
@@ -257,18 +256,9 @@ export default function Bills() {
           {/* 状态筛选 */}
           <div className="flex gap-2">
             {([
-              { key: 'all', label: '全部' },
-              ...(direction === 'all'
-                ? [
-                    { key: 'pending' as const, label: '待处理' },
-                    { key: 'paid' as const, label: '已完成' },
-                    { key: 'overdue' as const, label: '已逾期' },
-                  ]
-                : [
-                    { key: 'pending' as const, label: direction === 'payable' ? '未付' : '未收' },
-                    { key: 'paid' as const, label: direction === 'payable' ? '已付' : '已收' },
-                    { key: 'overdue' as const, label: '已逾期' },
-                  ]),
+              { key: 'all' as const, label: '全部' },
+              { key: 'pending' as const, label: direction === 'all' ? '待处理' : (direction === 'payable' ? '未付' : '未收') },
+              { key: 'paid' as const, label: direction === 'all' ? '已完成' : (direction === 'payable' ? '已付' : '已收') },
             ] as const).map((f) => (
               <button
                 key={f.key}
@@ -288,37 +278,15 @@ export default function Bills() {
 
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
-          {currentMonth || contractFilter ? (
-            <div className="mb-6">
-              {/* 月份导航（合同模式隐藏） */}
-              {!contractFilter && (<>
-              <div className="flex items-center justify-between mb-4 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
-                <button
-                  type="button"
-                  onClick={() => canGoEarlier && setCurrentMonth(allMonthKeys[monthIndex - 1])}
-                  className={`p-2 rounded-lg ${canGoEarlier ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h2 className="text-base font-bold text-gray-800">{getMonthLabel(currentMonth)}</h2>
-                <button
-                  type="button"
-                  onClick={() => canGoLater && setCurrentMonth(allMonthKeys[monthIndex + 1])}
-                  className={`p-2 rounded-lg ${canGoLater ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-              </>)}
-              
-              {/* 合同模式下显示全部汇总 */}
-              {contractFilter && currentMonthBills.length > 0 && (() => {
-                const totalPaid = currentMonthBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
-                const totalUnpaid = currentMonthBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
+          <div className="mb-6">
+            {/* 合同模式下显示全部汇总 */}
+            {contractFilter && displayBills.length > 0 && (() => {
+              const totalPaid = displayBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+              const totalUnpaid = displayBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
                 return (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">{currentMonthBills.length} 笔</span>
+                      <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-orange-50 rounded-lg p-2 text-xs">
@@ -336,16 +304,16 @@ export default function Bills() {
 
               {/* 月份汇总 */}
               {(() => {
-                const receivableBills = currentMonthBills.filter(b => b.direction === 'receivable')
-                const payableBills = currentMonthBills.filter(b => b.direction === 'payable')
+                const receivableBills = displayBills.filter(b => b.direction === 'receivable')
+                const payableBills = displayBills.filter(b => b.direction === 'payable')
                 const receivablePaid = receivableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                 const receivableUnpaid = receivableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
                 const payablePaid = payableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                 const payableUnpaid = payableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
-                return currentMonthBills.length > 0 ? (
+                return displayBills.length > 0 ? (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">{currentMonthBills.length} 笔</span>
+                      <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-blue-50 rounded-lg p-2 text-xs">
@@ -367,16 +335,16 @@ export default function Bills() {
 
               {/* 账单列表 */}
               <div className="space-y-3">
-                {currentMonthBills.length === 0 ? (
+                {displayBills.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="w-10 h-10 text-gray-400" />
                     </div>
-                    <p className="text-gray-500">该月暂无账单</p>
-                    <p className="text-sm text-gray-400 mt-1">试试切换月份或调整筛选条件</p>
+                    <p className="text-gray-500">暂无匹配账单</p>
+                    <p className="text-sm text-gray-400 mt-1">试试调整筛选条件</p>
                   </div>
                 ) : (
-                    currentMonthBills.map((bill) => {
+                    displayBills.map((bill) => {
                     const tenantName = getTenantName(bill.tenantId)
                     return (
                       <div key={bill.id} className="relative bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
@@ -390,6 +358,9 @@ export default function Bills() {
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
                                 {getStatusLabel(bill.status, bill.direction)}
                               </span>
+                              {bill.status === 'overdue' && (
+                                <span className="text-xs text-red-500 font-medium">已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天</span>
+                              )}
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
                                 {directionLabels[bill.direction]}
                               </span>
@@ -491,16 +462,17 @@ export default function Bills() {
                   })
                 )}
               </div>
+
+              {hasMoreBills && !showAllBills && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllBills(true)}
+                  className="w-full mt-4 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors"
+                >
+                  加载更多（显示所有历史账单）
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-10 h-10 text-gray-400" />
-              </div>
-              <p className="text-gray-500">暂无账单</p>
-              <p className="text-sm text-gray-400 mt-1">点击下方按钮添加账单</p>
-            </div>
-          )}
 
           <button
             type="button"

@@ -35,26 +35,14 @@ export default function Home() {
   const totalRooms = rooms.length
   const occupiedRooms = tenants.filter(t => t.status === 'active').length
 
-  const unpaidReceivable = useMemo(() =>
-    bills.filter(b => {
-      if (b.direction !== 'receivable') return false
-      if (b.status !== 'pending' && b.status !== 'overdue') return false
-      const daysLeft = Math.ceil((new Date(b.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      return daysLeft <= 30
-    }),
+  const cardOverdueReceivableTotal = useMemo(() =>
+    bills.filter(b => b.direction === 'receivable' && b.status === 'overdue').reduce((s, b) => s + b.amount, 0),
     [bills]
   )
-  const unpaidPayable = useMemo(() =>
-    bills.filter(b => {
-      if (b.direction !== 'payable') return false
-      if (b.status !== 'pending' && b.status !== 'overdue') return false
-      const daysLeft = Math.ceil((new Date(b.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      return daysLeft <= 30
-    }),
+  const cardOverduePayableTotal = useMemo(() =>
+    bills.filter(b => b.direction === 'payable' && b.status === 'overdue').reduce((s, b) => s + b.amount, 0),
     [bills]
   )
-  const unpaidReceivableTotal = unpaidReceivable.reduce((s, b) => s + b.amount, 0)
-  const unpaidPayableTotal = unpaidPayable.reduce((s, b) => s + b.amount, 0)
 
   const expiringTenants = useMemo(() =>
     tenants.filter(t => {
@@ -157,19 +145,17 @@ export default function Home() {
 
           {/* 待办事项汇总 */}
           <div className="grid grid-cols-2 gap-2 mb-4">
-            <div onClick={() => navigate('/bills', { state: { direction: 'receivable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-red-600">未收账单</span>
-                <span className="text-xs text-gray-400">{unpaidReceivable.length} 笔</span>
+                <span className="text-sm font-medium text-red-600">逾期账单（应收）</span>
               </div>
-              <p className="text-xl font-bold text-red-700">¥{formatMoney(unpaidReceivableTotal)}</p>
+              <p className="text-xl font-bold text-red-700">¥{formatMoney(cardOverdueReceivableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/bills', { state: { direction: 'payable', status: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-orange-600">未付账单</span>
-                <span className="text-xs text-gray-400">{unpaidPayable.length} 笔</span>
+                <span className="text-sm font-medium text-orange-600">逾期账单（应付）</span>
               </div>
-              <p className="text-xl font-bold text-orange-700">¥{formatMoney(unpaidPayableTotal)}</p>
+              <p className="text-xl font-bold text-orange-700">¥{formatMoney(cardOverduePayableTotal)}</p>
             </div>
             <div onClick={() => navigate('/tenants', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">

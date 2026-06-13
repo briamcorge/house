@@ -22,9 +22,11 @@ export default function RoomDetail() {
   const roomBills = bills
     .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === selectedTenant?.id)
     .sort((a, b) => {
-      const order = { pending: 0, overdue: 1, paid: 2 }
+      const order = { overdue: 0, pending: 1, paid: 2 }
       const cmp = (order[a.status] ?? 99) - (order[b.status] ?? 99)
       if (cmp !== 0) return cmp
+      if (a.status === 'overdue') return b.dueDate.localeCompare(a.dueDate)
+      if (a.status === 'paid') return (b.paidDate || '').localeCompare(a.paidDate || '')
       return a.dueDate.localeCompare(b.dueDate)
     })
   const [checkoutTenant, setCheckoutTenant] = useState<Tenant | null>(null)
@@ -174,17 +176,20 @@ export default function RoomDetail() {
                   </div>
                 ) : (
                   roomBills.map((bill) => (
-                    <div key={bill.id} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={bill.id} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+                      <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
-                            {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3.5 h-3.5" /> })()}
+                          <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                            {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                           </div>
-                          <span className="font-medium text-gray-900">{typeLabels[bill.type]}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>{statusLabels[bill.status]}</span>
+                          <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>{statusLabels[bill.status]}</span>
+                          {bill.status === 'overdue' && (
+                            <span className="text-xs text-red-500">已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-gray-900">
+                          <span className="text-base font-bold text-gray-900">
                             {bill.paidAmount !== undefined && bill.paidAmount < bill.amount
                               ? `¥${bill.paidAmount.toFixed(2)}/¥${bill.amount.toFixed(2)}`
                               : `¥${bill.amount.toFixed(2)}`}
@@ -203,14 +208,15 @@ export default function RoomDetail() {
                           )}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {bill.description && <div className="mb-1">{bill.description}</div>}
+                      <div className="text-xs text-gray-400 flex items-center gap-2">
+                        {bill.description && <span>{bill.description}</span>}
+                        {bill.description && (bill.dueDate || bill.paidDate) && <span>·</span>}
                         <span>应收日：{bill.dueDate}</span>
-                        {bill.paidDate && <span className="ml-2">实收：{bill.paidDate}</span>}
+                        {bill.paidDate && <span>实收：{bill.paidDate}</span>}
                       </div>
                       {bill.status === 'paid' && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
-                          <span className="rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/70 px-4 py-2 rounded-md text-lg font-black opacity-75">
+                          <span className="rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
                             ✓ 已收
                           </span>
                         </div>
