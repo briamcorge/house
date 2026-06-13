@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord } from '../types'
 import { DraftBill } from '../utils/calculator'
-import { triggerSync } from '../lib/cloud-sync'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
 
 interface AppStore {
@@ -69,19 +68,6 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
   return `${prefix}-${String(count + 1).padStart(4, '0')}`
 }
 
-function stateToSyncData(state: AppStore) {
-  return {
-    properties: state.properties,
-    rooms: state.rooms,
-    tenants: state.tenants,
-    bills: state.bills,
-    landlordContracts: state.landlordContracts,
-    profitRecords: state.profitRecords,
-    trash: state.trash,
-    syncTimestamp: new Date().toISOString(),
-  }
-}
-
 // Sync outer: wraps set() to auto-upload after every mutation
 let hydrated = false
 export const useStore = create<AppStore>()(
@@ -90,7 +76,6 @@ export const useStore = create<AppStore>()(
       const set: typeof rawSet = ((fn) => {
         (rawSet as typeof rawSet)(fn)
         if (hydrated) {
-          triggerSync(stateToSyncData(get()))
           triggerCloudSave() // 每次变更自动触发 Supabase 云同步（500ms debounce）
         }
       }) as typeof rawSet
