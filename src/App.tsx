@@ -13,6 +13,7 @@ import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import AuthModal from "./components/AuthModal";
+import LoginPage from "./pages/LoginPage";
 import { AlertTriangle, X } from "lucide-react";
 import { initSync, hasToken } from "./lib/cloud-sync";
 import { useStore } from "./store/useStore";
@@ -68,7 +69,7 @@ function StorageWarning() {
 export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const [authRequired, setAuthRequired] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const syncTimer = useRef<any>(null)
 
   // GitHub token sync (backward compat - removed when Supabase fully replaces it)
@@ -87,11 +88,8 @@ export default function App() {
       return
     }
 
-    // Listen for "open-auth" event from More.tsx (user-initiated, not gate)
-    const openAuthHandler = () => {
-      setAuthRequired(false)
-      setShowAuth(true)
-    }
+    // Listen for "open-auth" event from More.tsx
+    const openAuthHandler = () => setShowAuth(true)
     window.addEventListener('open-auth', openAuthHandler)
 
     const sb = getSupabase()
@@ -103,6 +101,7 @@ export default function App() {
       }
 
       if (user) {
+        setCurrentUser(user)
         setShowAuth(false)
         // Load cloud data into local store (once on login/startup)
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
@@ -120,7 +119,8 @@ export default function App() {
           }
         }
       } else {
-        // Not logged in - show auth modal, clear data
+        setCurrentUser(null)
+        // Not logged in - clear data
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
           // 同时清除 localStorage 持久化数据，防止刷新后恢复
           localStorage.removeItem('property-manager-data')
@@ -133,8 +133,6 @@ export default function App() {
             profitRecords: [],
             trash: [],
           })
-          setAuthRequired(true)
-          setShowAuth(true)
         }
       }
     })
@@ -173,6 +171,23 @@ export default function App() {
     }
   }, [authReady])
 
+  // 等待 auth 初始化完成，再决定显示登录页还是主应用
+  if (isSupabaseConfigured() && authReady && !currentUser) {
+    return <LoginPage onLogin={() => {}} />
+  }
+
+  // Auth 未就绪时，显示空白加载（避免闪现数据）
+  if (isSupabaseConfigured() && !authReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/60 text-sm">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Router basename="/house">
       <div className="min-h-screen">
@@ -191,7 +206,7 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
         </Routes>
         <BottomNav />
-        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} required={authRequired} />
+        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       </div>
     </Router>
   );
