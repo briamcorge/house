@@ -107,27 +107,50 @@ export async function loadCloudData(): Promise<SupabaseData | null> {
 
   const { data, error } = await sb
     .from('user_data')
-    .select('data')
+    .select('data, updated_at')
     .eq('user_id', user.id)
     .single()
 
   if (error) {
     console.error('[loadCloudData] 加载失败:', error)
+    console.error('[loadCloudData] 错误详情:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
     return null
   }
   
   if (!data) {
-    console.log('[loadCloudData] 云端无数据')
+    console.log('[loadCloudData] 云端无数据 (data is null)')
     return null
   }
 
-  const cloudData = data.data as SupabaseData
-  console.log('[loadCloudData] 加载成功:', {
-    properties: cloudData.properties.length,
-    rooms: cloudData.rooms.length,
-    tenants: cloudData.tenants.length,
-    bills: cloudData.bills.length,
+  console.log('[loadCloudData] 原始响应:', {
+    hasData: !!data.data,
+    dataType: typeof data.data,
+    updated_at: data.updated_at,
   })
+
+  const cloudData = data.data as SupabaseData
+  
+  // 验证数据结构
+  if (!cloudData || typeof cloudData !== 'object') {
+    console.error('[loadCloudData] 数据格式错误:', cloudData)
+    return null
+  }
+
+  console.log('[loadCloudData] 加载成功:', {
+    properties: cloudData.properties?.length || 0,
+    rooms: cloudData.rooms?.length || 0,
+    tenants: cloudData.tenants?.length || 0,
+    bills: cloudData.bills?.length || 0,
+    landlordContracts: cloudData.landlordContracts?.length || 0,
+    profitRecords: cloudData.profitRecords?.length || 0,
+    trash: cloudData.trash?.length || 0,
+  })
+  
   return cloudData
 }
 
@@ -180,6 +203,31 @@ export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Pro
   }
 
   console.log('[saveCloudData] 保存成功:', data)
+  
+  // 验证：立即读取刚保存的数据
+  console.log('[saveCloudData] 验证保存结果...')
+  const { data: verifyData, error: verifyError } = await sb
+    .from('user_data')
+    .select('data, updated_at')
+    .eq('user_id', user.id)
+    .single()
+  
+  if (verifyError) {
+    console.error('[saveCloudData] 验证失败:', verifyError)
+    return false
+  }
+  
+  if (verifyData) {
+    const savedData = verifyData.data as SupabaseData
+    console.log('[saveCloudData] ✅ 验证成功:', {
+      properties: savedData.properties.length,
+      rooms: savedData.rooms.length,
+      tenants: savedData.tenants.length,
+      bills: savedData.bills.length,
+      updated_at: verifyData.updated_at,
+    })
+  }
+  
   return true
 }
 
