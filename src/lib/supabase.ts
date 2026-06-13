@@ -119,16 +119,14 @@ export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
 
 // ========== 管理员功能 ==========
 
-// 检查当前用户是否是管理员
-export async function checkIsAdmin(): Promise<boolean> {
+// 检查指定用户是否是管理员（直接查表，传入 user_id）
+export async function checkIsAdmin(userId: string): Promise<boolean> {
   const sb = getSupabase()
   if (!sb) return false
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return false
   const { data, error } = await sb
     .from('admin_users')
     .select('user_id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
   if (error) return false
   return !!data

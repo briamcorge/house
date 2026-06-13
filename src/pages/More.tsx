@@ -103,12 +103,19 @@ export default function More() {
     const sb = getSupabase()
     if (!sb) return
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
-      setShowAuthModal(false)
       setCurrentUser(session?.user || null)
-      if (session?.user) checkIsAdmin().then(setIsAdmin)
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // 当 currentUser 变化时，检查管理员状态
+  useEffect(() => {
+    if (currentUser?.id) {
+      checkIsAdmin(currentUser.id).then(setIsAdmin)
+    } else {
+      setIsAdmin(false)
+    }
+  }, [currentUser])
 
   const handleSignOut = async () => {
     await signOut()
