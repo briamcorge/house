@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, getSupabase } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -190,23 +190,19 @@ export default function More() {
         const state = { properties: props, rooms: roomList, tenants: tenantList, bills: billList }
         localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
 
-        // 导入后同步到 Supabase（如果已登录）— 必须等保存完成再刷新
-        const sb = getSupabase()
-        if (sb) {
-          try {
-            const { data: { user } } = await sb.auth.getUser()
-            if (user) {
-              await saveCloudData({
-                properties: props as any[],
-                rooms: roomList as any[],
-                tenants: tenantList as any[],
-                bills: billList as any[],
-                landlordContracts: [],
-                profitRecords: [],
-                trash: [],
-              })
-            }
-          } catch { /* 网络错误忽略 */ }
+        // 同步保存到 Supabase（等完成再刷新）
+        try {
+          await saveCloudData({
+            properties: props as any[],
+            rooms: roomList as any[],
+            tenants: tenantList as any[],
+            bills: billList as any[],
+            landlordContracts: [],
+            profitRecords: [],
+            trash: [],
+          })
+        } catch (e) {
+          console.error('云端保存失败', e)
         }
 
         window.location.reload()
