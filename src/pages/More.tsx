@@ -93,12 +93,18 @@ export default function More() {
   const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
   const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
 
-  // Supabase auth check（不调用 API 验证，用本地 session，避免 CORS 问题）
+  // Supabase auth check
   useEffect(() => {
     if (!isSupabaseConfigured()) return
     setSupabaseReady(true)
     const sb = getSupabase()
     if (!sb) return
+
+    // 主动获取当前 session（弥补 onAuthStateChange 可能错过 INITIAL_SESSION 的问题）
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setCurrentUser(session.user)
+    })
+
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user || null)
     })

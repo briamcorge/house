@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { initSync, hasToken } from "./lib/cloud-sync";
 import { useStore } from "./store/useStore";
@@ -146,11 +146,25 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
   )
 }
 
+/** 登录后自动跳转首页（放在 Router 内部才能用 useNavigate） */
+function LoginRedirect({ triggered }: { triggered: boolean }) {
+  const navigate = useNavigate()
+  const done = useRef(false)
+  useEffect(() => {
+    if (triggered && !done.current) {
+      done.current = true
+      navigate('/', { replace: true })
+    }
+  }, [triggered, navigate])
+  return null
+}
+
 export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
+  const [justLoggedIn, setJustLoggedIn] = useState(false)
   const syncTimer = useRef<any>(null)
 
   // GitHub token sync (backward compat - removed when Supabase fully replaces it)
@@ -233,6 +247,11 @@ export default function App() {
             } as any)
           }
         }
+
+        // 登录成功后跳转首页（放在加载数据之后，避免提前 return 导致数据不同步）
+        if (event === 'SIGNED_IN') {
+          setJustLoggedIn(true)
+        }
       } else {
         setCurrentUser(null)
         // Not logged in - clear data
@@ -311,6 +330,7 @@ export default function App() {
   return (
     <Router basename="/house">
       <div className="min-h-screen">
+        <LoginRedirect triggered={justLoggedIn} />
         <StorageWarning />
         <Routes>
           <Route path="/" element={<Home />} />
