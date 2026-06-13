@@ -123,9 +123,15 @@ export async function saveCloudData(syncData: SupabaseData): Promise<boolean> {
 export async function checkIsAdmin(): Promise<boolean> {
   const sb = getSupabase()
   if (!sb) return false
-  const { data, error } = await sb.rpc('is_admin')
+  const { data: { user } } = await sb.auth.getUser()
+  if (!user) return false
+  const { data, error } = await sb
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .single()
   if (error) return false
-  return data as boolean
+  return !!data
 }
 
 // 获取所有用户数据（仅管理员可调用）

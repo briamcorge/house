@@ -33,13 +33,6 @@ const menuItems: MenuItem[] = [
     path: '/contracts'
   },
   {
-    icon: BarChart3,
-    label: '统计报表',
-    description: '收支/入住率/房源收益',
-    color: 'blue',
-    path: '/statistics'
-  },
-  {
     icon: Users,
     label: '租客管理',
     description: '查看所有租客信息',
@@ -78,6 +71,7 @@ export default function More() {
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -204,44 +198,44 @@ export default function More() {
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-3">更多</h1>
-          
-          {/* 用户状态栏 */}
-          {isSupabaseConfigured() && currentUser && (
-            <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2 mb-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
-                <span className="text-white text-sm font-medium">
-                  {(currentUser.user_metadata?.name || currentUser.email || '?')[0].toUpperCase()}
-                </span>
+
+          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
+            {/* 已登录用户信息（在蓝色卡片内） */}
+            {isSupabaseConfigured() && currentUser && (
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/20">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                  <span className="text-white text-sm font-medium">
+                    {(currentUser.user_metadata?.name || currentUser.email || '?')[0].toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {currentUser.user_metadata?.name || currentUser.email}
+                  </p>
+                  <p className="text-xs text-blue-200 truncate">{currentUser.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                  title="退出登录"
+                >
+                  <LogOut className="w-4 h-4 text-blue-200" />
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {currentUser.user_metadata?.name || currentUser.email}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
-              </div>
+            )}
+
+            {isSupabaseConfigured() && !currentUser && supabaseReady && (
               <button
                 type="button"
-                onClick={handleSignOut}
-                className="shrink-0 p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                title="退出登录"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
+                className="w-full flex items-center gap-2 mb-3 pb-3 border-b border-white/20 hover:bg-white/5 rounded-lg transition-colors"
               >
-                <LogOut className="w-4 h-4 text-gray-500" />
+                <LogIn className="w-4 h-4 text-blue-200" />
+                <span className="text-sm text-blue-200 font-medium">登录或注册以同步数据</span>
               </button>
-            </div>
-          )}
+            )}
 
-          {isSupabaseConfigured() && !currentUser && supabaseReady && (
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
-              className="w-full flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2 mb-3 hover:bg-blue-100 transition-colors"
-            >
-              <LogIn className="w-4 h-4 text-blue-600" />
-              <span className="text-sm text-blue-700 font-medium">登录或注册以同步数据</span>
-            </button>
-          )}
-          
-          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <UserPlus className="w-5 h-5 text-white" />
@@ -291,10 +285,10 @@ export default function More() {
                     if (item.path) navigate(item.path)
                     else if (isBackup) setShowBackup(!showBackup)
                     else if (isProfit) setShowProfitForm(!showProfitForm)
-                    else if (isAbout) alert(`房屋管理系统 v${APP_VERSION}\n用于二房东日常房源/租客/账单管理\n数据存储于当前浏览器中`)
+                    else if (isAbout) setShowAbout(!showAbout)
                     else alert(`${item.label}功能开发中...`)
                   }}
-                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm ? 'rounded-b-none border-b-0' : ''}`}
+                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout ? 'rounded-b-none border-b-0' : ''}`}
                 >
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
                     <Icon className="w-6 h-6" />
@@ -303,7 +297,7 @@ export default function More() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-500">{item.description}</p>
                   </div>
-                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm ? 'rotate-90' : ''}`}>
+                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout ? 'rotate-90' : ''}`}>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -356,6 +350,24 @@ export default function More() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+                {isAbout && showAbout && (
+                  <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">房屋管理系统 v{APP_VERSION}</p>
+                      <p className="text-xs text-gray-400 mt-1">用于二房东房源/租客/账单管理</p>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => navigate('/admin')}
+                          className="mt-3 inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                          <span>管理后台</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {isProfit && showProfitForm && (
@@ -485,20 +497,6 @@ export default function More() {
             <Trash2 className="w-5 h-5" />
             <span className="font-medium">清除本机数据</span>
           </button>
-        </div>
-
-        <div className="max-w-md mx-auto mt-8 text-center">
-          <p className="text-sm text-gray-400">房屋管理 v{APP_VERSION}</p>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => navigate('/admin')}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-1.5 transition-colors"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>管理后台</span>
-            </button>
-          )}
         </div>
       </div>
 
