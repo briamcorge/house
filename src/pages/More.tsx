@@ -212,11 +212,21 @@ export default function More() {
           })
           console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
           if (!saved) {
-            alert('Excel 数据已保存到本地，但云端同步失败。请检查网络连接后重试。')
+            // 打开控制台查看详细错误日志
+            console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
+            alert('Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。')
+          } else {
+            console.log('✅ Excel 数据已成功保存到云端')
+            // 关键修复：设置 sessionStorage 标记，防止刷新后 loadNow() 覆盖刚导入的数据
+            if (currentUser?.id) {
+              const flagKey = `cloud_init_loaded_${currentUser.id}`
+              sessionStorage.setItem(flagKey, '1')
+              console.log('✅ 已设置 sessionStorage 标记:', flagKey)
+            }
           }
         } catch (e) {
-          console.error('云端保存失败', e)
-          alert('Excel 数据已保存到本地，但云端同步失败。')
+          console.error('云端保存异常', e)
+          alert('Excel 数据已保存到本地，但云端同步失败：' + (e as Error).message)
         }
 
         window.location.reload()
