@@ -15,7 +15,7 @@ import AuthModal from "./components/AuthModal";
 import { AlertTriangle, X } from "lucide-react";
 import { initSync, hasToken } from "./lib/cloud-sync";
 import { useStore } from "./store/useStore";
-import { supabase, isSupabaseConfigured, loadCloudData, saveCloudData } from "./lib/supabase";
+import { isSupabaseConfigured, getSupabase, loadCloudData, saveCloudData } from "./lib/supabase";
 
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024
@@ -89,7 +89,8 @@ export default function App() {
     const openAuthHandler = () => setShowAuth(true)
     window.addEventListener('open-auth', openAuthHandler)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const sb = getSupabase()
+    const { data: { subscription } } = sb!.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user || null
 
       if (event === 'INITIAL_SESSION') {

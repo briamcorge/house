@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { supabase, isSupabaseConfigured, signOut, getCurrentUser } from '../lib/supabase'
+import { getSupabase, isSupabaseConfigured, signOut, getCurrentUser } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -105,7 +105,9 @@ export default function More() {
       setCurrentUser(data?.user || null)
       setSupabaseReady(true)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const sb = getSupabase()
+    if (!sb) return
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setShowAuthModal(false)
       setCurrentUser(session?.user || null)
     })
