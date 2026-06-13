@@ -68,6 +68,7 @@ function StorageWarning() {
 export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  const [authRequired, setAuthRequired] = useState(false)
   const syncTimer = useRef<any>(null)
 
   // GitHub token sync (backward compat - removed when Supabase fully replaces it)
@@ -86,8 +87,11 @@ export default function App() {
       return
     }
 
-    // Listen for "open-auth" event from More.tsx
-    const openAuthHandler = () => setShowAuth(true)
+    // Listen for "open-auth" event from More.tsx (user-initiated, not gate)
+    const openAuthHandler = () => {
+      setAuthRequired(false)
+      setShowAuth(true)
+    }
     window.addEventListener('open-auth', openAuthHandler)
 
     const sb = getSupabase()
@@ -116,8 +120,10 @@ export default function App() {
           }
         }
       } else {
-        // Not logged in - show auth modal, clear any seed data
+        // Not logged in - show auth modal, clear data
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+          // 同时清除 localStorage 持久化数据，防止刷新后恢复
+          localStorage.removeItem('property-manager-data')
           useStore.setState({
             properties: [],
             rooms: [],
@@ -127,6 +133,7 @@ export default function App() {
             profitRecords: [],
             trash: [],
           })
+          setAuthRequired(true)
           setShowAuth(true)
         }
       }
@@ -184,7 +191,7 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
         </Routes>
         <BottomNav />
-        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+        <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} required={authRequired} />
       </div>
     </Router>
   );

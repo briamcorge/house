@@ -5,9 +5,10 @@ import { signIn, signUp, resetPassword } from '../lib/supabase'
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
+  required?: boolean
 }
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, required = false }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -72,15 +73,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (!required && e.target === e.currentTarget) onClose() }}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-5 pb-3 shrink-0">
           <h2 className="text-xl font-bold text-gray-900">
             {mode === 'login' ? '登录' : mode === 'forgot' ? '找回密码' : '注册'}
           </h2>
-          <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          {!required && (
+            <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          )}
         </div>
 
         <div className="overflow-y-auto px-5 pb-5">
