@@ -39,8 +39,8 @@ jobs:
 
   apk:
     runs-on: ubuntu-22.04
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
+    container:
+      image: androidsdk/android-34:latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,33 +51,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
       - name: Build web for APK
         run: npm run build
         env:
           VITE_BASE: './'
           VITE_SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
-      - name: Build APK
+      - name: Copy web assets and build APK
         run: |
-          # 手动复制 web 资源到 Android 项目
           mkdir -p android/app/src/main/assets/public
           cp -r dist/* android/app/src/main/assets/public/
           cp capacitor.config.ts android/app/src/main/assets/capacitor.config.json 2>/dev/null || true
-          # 构建 APK，输出到日志文件
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon 2>&1 | tee gradle.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "=== GRADLE BUILD FAILED ==="
-            tail -100 gradle.log
-            exit 1
-          fi
-      - name: Upload Gradle log (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-log
-          path: android/gradle.log
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
