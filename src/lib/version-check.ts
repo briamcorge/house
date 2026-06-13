@@ -18,7 +18,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const text = await res.text()
-    const match = text.match(/APP_VERSION\s*=\s*'(\d+\.\d+\.\d+)'/)
+    const match = text.match(/APP_VERSION\s*=\s*'(\d+\.\d+)'/)
     if (!match) throw new Error('无法解析版本号')
 
     const latestVersion = match[1]
@@ -40,12 +40,15 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   }
 }
 
-/** 版本号比较：a > b → 正数，a < b → 负数，相等 → 0 */
+/** 版本号比较：支持 1.52 或 1.0.52 两种格式 */
 function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number)
   const pb = b.split('.').map(Number)
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
+  const maxLen = Math.max(pa.length, pb.length)
+  for (let i = 0; i < maxLen; i++) {
+    const av = pa[i] || 0
+    const bv = pb[i] || 0
+    if (av !== bv) return av - bv
   }
   return 0
 }
