@@ -4,7 +4,7 @@ let _supabase: SupabaseClient | null = null
 
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzpdpx.supabase.co'
+  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzpdx.supabase.co'
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2cGtxcW5memtrY3p0a2J6cGR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwOTUzNDEsImV4cCI6MjA5NjY3MTM0MX0.qUyyUzdD9EZE2iYvfGl0NMQOEZaRaUoKPjkq7ZtS9P0'
   _supabase = createClient(url, key)
   return _supabase
