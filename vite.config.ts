@@ -13,7 +13,8 @@ export default defineConfig({
   plugins: [
     react(),
     tsconfigPaths(),
-    VitePWA({
+    // APK 构建（VITE_BASE=./）去掉 PWA，避免 Capacitor WebView 中 service worker 干扰
+    process.env.VITE_BASE === './' ? null : VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {

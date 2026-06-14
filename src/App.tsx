@@ -358,51 +358,43 @@ export default function App() {
     }
   }, [currentUser, deviceTokenReady])
 
-  // 未登录 → 显示登录页
-  if (isSupabaseConfigured() && authReady && !currentUser) {
-    return <LoginPage onLogin={() => {}} />
-  }
-
-  // 密码找回模式
-  if (passwordResetMode && currentUser) {
-    return <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />
-  }
-
-  // Auth 未就绪 → 加载中
-  if (isSupabaseConfigured() && !authReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60 text-sm">加载中...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <Router>
-      <ErrorBoundary>
-        <div className="min-h-screen">
-          <LoginRedirect triggered={justLoggedIn} />
-          <StorageWarning />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/properties" element={<Properties />} />
-            <Route path="/properties/:propertyId" element={<RoomList />} />
-            <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
-            <Route path="/bills" element={<Bills />} />
-            <Route path="/tenants" element={<Tenants />} />
-            <Route path="/more" element={<More />} />
-            <Route path="/contracts" element={<Contracts />} />
-            <Route path="/trash" element={<Trash />} />
-            <Route path="/statistics" element={<Statistics />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-          <BottomNav />
-          <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      {/* 未登录 → 显示登录页 */}
+      {isSupabaseConfigured() && authReady && !currentUser ? (
+        <LoginPage onLogin={() => {}} />
+      ) : passwordResetMode && currentUser ? (
+        <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />
+      ) : isSupabaseConfigured() && !authReady ? (
+        <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-white/60 text-sm">加载中...</p>
+          </div>
         </div>
-      </ErrorBoundary>
+      ) : (
+        <ErrorBoundary>
+          <div className="min-h-screen">
+            <LoginRedirect triggered={justLoggedIn} />
+            <StorageWarning />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/properties" element={<Properties />} />
+              <Route path="/properties/:propertyId" element={<RoomList />} />
+              <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
+              <Route path="/bills" element={<Bills />} />
+              <Route path="/tenants" element={<Tenants />} />
+              <Route path="/more" element={<More />} />
+              <Route path="/contracts" element={<Contracts />} />
+              <Route path="/trash" element={<Trash />} />
+              <Route path="/statistics" element={<Statistics />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+            <BottomNav />
+            <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+          </div>
+        </ErrorBoundary>
+      )}
     </Router>
   );
 }
