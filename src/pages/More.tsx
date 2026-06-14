@@ -108,7 +108,7 @@ export default function More() {
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && (key.startsWith('sb-') || key === 'property-manager-data')) keysToRemove.push(key)
+      if (key && (key.startsWith('sb-') || key === 'property-manager-data' || key === 'device_session_token')) keysToRemove.push(key)
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
     // 清除云同步标记，确保下次登录重新拉取云端数据
@@ -188,6 +188,9 @@ export default function More() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    // 操作日志
+    const s = useStore.getState()
+    useStore.setState({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'export', entity: 'excel', details: `导出Excel (${sheets.length}个表)`, createdAt: new Date().toISOString() }] })
   }
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,6 +249,9 @@ export default function More() {
 
         const state = { properties: props, rooms: roomList, landlordContracts: contractList, tenants: tenantList, bills: billList }
         localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
+        // 操作日志
+        const s2 = useStore.getState()
+        useStore.setState({ auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }] })
 
         // 同步保存到 Supabase（等完成再刷新）
         try {

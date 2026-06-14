@@ -94,3 +94,13 @@ export interface TrashItem {
   label: string
   deletedAt: string
 }
+
+export interface AuditLogEntry {
+  id: string
+  timestamp: string
+  action: 'create' | 'update' | 'delete' | 'payment' | 'import' | 'export' | 'restore' | 'clear' | 'checkout' | 'renew' | 'terminate'
+  entity: string
+  entityId?: string
+  details: string
+  createdAt: string
+}
