@@ -244,11 +244,12 @@ export default function App() {
       localStorage.setItem('device_session_token', deviceToken)
       const sb = getSupabase()
       if (sb) {
-        sb.from('active_sessions')
-          .upsert({ user_id: currentUser.id, session_token: deviceToken })
-          .then(({ error }) => {
-            if (error) console.error('设备锁写入失败:', error)
-          })
+        // 必须 await 写入完成，否则轮询会看到旧 token 把自己踢掉
+        ;(async () => {
+          const { error } = await sb.from('active_sessions')
+            .upsert({ user_id: currentUser.id, session_token: deviceToken })
+          if (error) console.error('设备锁写入失败:', error)
+        })()
       }
 
       // 登录成功后跳转首页 + CloudSyncProvider 自动加载云端数据
@@ -331,9 +332,18 @@ export default function App() {
       }
     }
 
-    checkDeviceLock() // 立即检查一次
-    const interval = setInterval(checkDeviceLock, 15000) // 每15秒轮询
-    return () => clearInterval(interval)
+    // 不立即检查，等 3 秒后再开始（给登录写入 token 留时间）
+    const timer = setTimeout(() => {
+      checkDeviceLock()
+      const interval = setInterval(checkDeviceLock, 15000)
+      // 保存 interval ID 以便清理
+      ;(timer as any).__interval = interval
+    }, 3000)
+
+    return () => {
+      clearTimeout(timer)
+      if ((timer as any).__interval) clearInterval((timer as any).__interval)
+    }
   }, [currentUser])
 
   // 未登录 → 显示登录页
