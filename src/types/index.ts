@@ -45,7 +45,7 @@ export interface Bill {
   tenantId?: string
   amount: number
   paidAmount?: number
-  type: 'rent' | 'water' | 'electric' | 'gas' | 'other'
+  type: 'rent' | 'water' | 'electric' | 'gas' | 'internet' | 'hygiene' | 'other'
   status: 'pending' | 'paid' | 'overdue'
   direction: BillDirection
   dueDate: string

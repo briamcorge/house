@@ -31,6 +31,8 @@ export default function BillCard({ bill, propertyAddress }: BillCardProps) {
     water: '水费',
     electric: '电费',
     gas: '燃气费',
+    internet: '网费',
+    hygiene: '卫管费',
     other: '其他'
   }
 
