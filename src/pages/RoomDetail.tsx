@@ -21,14 +21,7 @@ export default function RoomDetail() {
   const selectedTenant = roomTenants.find(t => t.id === selectedTenantId) || roomTenants[0] || null
   const roomBills = bills
     .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === selectedTenant?.id)
-    .sort((a, b) => {
-      const order = { overdue: 0, pending: 1, paid: 2 }
-      const cmp = (order[a.status] ?? 99) - (order[b.status] ?? 99)
-      if (cmp !== 0) return cmp
-      if (a.status === 'overdue') return b.dueDate.localeCompare(a.dueDate)
-      if (a.status === 'paid') return (b.paidDate || '').localeCompare(a.paidDate || '')
-      return a.dueDate.localeCompare(b.dueDate)
-    })
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   const [checkoutTenant, setCheckoutTenant] = useState<Tenant | null>(null)
   const [isRenewal, setIsRenewal] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string; value: string } | null>(null)

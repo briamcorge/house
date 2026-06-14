@@ -171,14 +171,16 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured() || !lastEvent) return
 
-    // 标记当前标签页"活跃"
-    sessionStorage.setItem('tab_active', '1')
-
     const sb = getSupabase()
     if (!sb) return
 
     if (lastEvent === 'INITIAL_SESSION') {
-      // 检测是否新的浏览器会话（关过浏览器/标签页）
+      // 检测是否新的浏览器会话（关过浏览器/标签页）— 需在设 tab_active 之前判断
+      const isNewBrowserSession = !sessionStorage.getItem('tab_active')
+
+      // 标记当前标签页"活跃"（设 tab_active 之后，同标签页刷新不会触发退出）
+      sessionStorage.setItem('tab_active', '1')
+
       if (!currentUser) {
         // 没有用户 → 清除本地数据
         localStorage.removeItem('property-manager-data')
@@ -186,7 +188,7 @@ export default function App() {
           properties: [], rooms: [], tenants: [], bills: [],
           landlordContracts: [], profitRecords: [], trash: [],
         })
-      } else if (!sessionStorage.getItem('tab_active')) {
+      } else if (isNewBrowserSession) {
         // 关过浏览器，session 无效
         sb.auth.signOut()
         localStorage.removeItem('property-manager-data')
