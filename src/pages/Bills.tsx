@@ -3,11 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-<<<<<<< HEAD
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText } from 'lucide-react'
-=======
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles } from 'lucide-react'
->>>>>>> 196293f (v1.61: bill sorting (dueDate asc), unpaid includes overdue, compact BillModal, add internet/hygiene fee types)
 
 function get30DaysAgo(): string {
   const d = new Date()
@@ -78,9 +74,9 @@ export default function Bills() {
     rent: '房租',
     water: '水费',
     electric: '电费',
-    gas: '燃气�?,
+    gas: '燃气费',
     internet: '网费',
-    hygiene: '卫管�?,
+    hygiene: '卫管费',
     other: '其他'
   }
   const typeIcons: Record<string, typeof Home> = {
@@ -100,7 +96,7 @@ export default function Bills() {
   }
 
   const getStatusLabel = (status: Bill['status'], dir: BillDirection) => {
-    if (status === 'paid') return dir === 'receivable' ? '�?已收' : '�?已付'
+    if (status === 'paid') return dir === 'receivable' ? '✓ 已收' : '✓ 已付'
     if (status === 'pending') return dir === 'receivable' ? '未收' : '未付'
     return '已逾期'
   }
@@ -123,7 +119,7 @@ export default function Bills() {
   const thirtyDaysAgo = get30DaysAgo()
 
   const filteredBills = useMemo(() => {
-    // 合同模式：显示全部，不限制月�?
+    // 合同模式：显示全部，不限制月份
     if (contractFilter) {
       const list = relevantBills.filter(b => {
         const matchesStatus = filterStatus === 'all'
@@ -136,7 +132,7 @@ export default function Bills() {
       return list
     }
 
-    // 非合同模式：应用方向 + 状�?+ 30天筛�?
+    // 非合同模式：应用方向 + 状态 + 30天筛选
     const list = relevantBills.filter(b => {
       if (direction !== 'all' && b.direction !== direction) return false
       const matchesStatus = filterStatus === 'all'
@@ -145,7 +141,7 @@ export default function Bills() {
           ? (b.status === 'pending' || b.status === 'overdue')
           : b.status === filterStatus
       if (!matchesStatus) return false
-      // 30天窗�?
+      // 30天窗口
       if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
       return true
     })
@@ -157,7 +153,7 @@ export default function Bills() {
     return relevantBills.some(b => b.dueDate < thirtyDaysAgo)
   }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo])
 
-  // Sorting: 全部�?dueDate 升序（从前往后）
+  // Sorting: 全部按 dueDate 升序（从前往后）
   const displayBills = useMemo(() => {
     return [...filteredBills].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   }, [filteredBills])
@@ -179,7 +175,7 @@ export default function Bills() {
   }
 
   const handleDeleteBill = (id: string) => {
-    if (confirm('确定要删除这个账单吗�?)) {
+    if (confirm('确定要删除这个账单吗？')) {
       deleteBill(id)
       setBillMenu(null)
     }
@@ -203,7 +199,7 @@ export default function Bills() {
             <h1 className="text-xl font-bold text-gray-900 mb-3">账单管理</h1>
           )}
 
-          {/* 总体汇�?+ 方向筛选（合同查看模式下隐藏） */}
+          {/* 总体汇总 + 方向筛选（合同查看模式下隐藏） */}
           <div className={contractFilter ? 'hidden' : ''}>
           <div className="grid grid-cols-4 gap-2 mb-3">
             {(() => {
@@ -234,7 +230,7 @@ export default function Bills() {
             })()}
           </div>
           
-          {/* 方向筛�?*/}
+          {/* 方向筛选 */}
           <div className="flex gap-2 mb-3">
             {([
               { key: 'all', label: '全部' },
@@ -256,12 +252,12 @@ export default function Bills() {
           </div>
           </div>
 
-          {/* 状态筛�?*/}
+          {/* 状态筛选 */}
           <div className="flex gap-2">
             {([
               { key: 'all' as const, label: '全部' },
-              { key: 'pending' as const, label: direction === 'all' ? '待处�? : (direction === 'payable' ? '未付' : '未收') },
-              { key: 'paid' as const, label: direction === 'all' ? '已完�? : (direction === 'payable' ? '已付' : '已收') },
+              { key: 'pending' as const, label: direction === 'all' ? '待处理' : (direction === 'payable' ? '未付' : '未收') },
+              { key: 'paid' as const, label: direction === 'all' ? '已完成' : (direction === 'payable' ? '已付' : '已收') },
             ] as const).map((f) => (
               <button
                 key={f.key}
@@ -282,22 +278,22 @@ export default function Bills() {
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           <div className="mb-6">
-            {/* 合同模式下显示全部汇�?*/}
+            {/* 合同模式下显示全部汇总 */}
             {contractFilter && displayBills.length > 0 && (() => {
               const totalPaid = displayBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
               const totalUnpaid = displayBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
                 return (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">{displayBills.length} �?/span>
+                      <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-orange-50 rounded-lg p-2 text-xs">
-                        <span className="text-orange-600">未付�?/span>
+                        <span className="text-orange-600">未付：</span>
                         <span className="font-medium text-orange-700">¥{totalUnpaid.toFixed(0)}</span>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-2 text-xs">
-                        <span className="text-blue-600">已付�?/span>
+                        <span className="text-blue-600">已付：</span>
                         <span className="font-medium text-blue-700">¥{totalPaid.toFixed(0)}</span>
                       </div>
                     </div>
@@ -305,7 +301,7 @@ export default function Bills() {
                 )
               })()}
 
-              {/* 月份汇�?*/}
+              {/* 月份汇总 */}
               {(() => {
                 const receivableBills = displayBills.filter(b => b.direction === 'receivable')
                 const payableBills = displayBills.filter(b => b.direction === 'payable')
@@ -316,19 +312,19 @@ export default function Bills() {
                 return displayBills.length > 0 ? (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">{displayBills.length} �?/span>
+                      <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-blue-50 rounded-lg p-2 text-xs">
-                        <span className="text-blue-600">已收�?/span>
+                        <span className="text-blue-600">已收：</span>
                         <span className="font-medium text-blue-700">¥{receivablePaid.toFixed(0)}</span>
-                        <span className="text-blue-400 ml-2">未收�?/span>
+                        <span className="text-blue-400 ml-2">未收：</span>
                         <span className="font-medium text-blue-600">¥{receivableUnpaid.toFixed(0)}</span>
                       </div>
                       <div className="bg-orange-50 rounded-lg p-2 text-xs">
-                        <span className="text-orange-600">未付�?/span>
+                        <span className="text-orange-600">未付：</span>
                         <span className="font-medium text-orange-700">¥{payableUnpaid.toFixed(0)}</span>
-                        <span className="text-orange-400 ml-2">已付�?/span>
+                        <span className="text-orange-400 ml-2">已付：</span>
                         <span className="font-medium text-orange-600">¥{payablePaid.toFixed(0)}</span>
                       </div>
                     </div>
@@ -344,7 +340,7 @@ export default function Bills() {
                       <Search className="w-10 h-10 text-gray-400" />
                     </div>
                     <p className="text-gray-500">暂无匹配账单</p>
-                    <p className="text-sm text-gray-400 mt-1">试试调整筛选条�?/p>
+                    <p className="text-sm text-gray-400 mt-1">试试调整筛选条件</p>
                   </div>
                 ) : (
                     displayBills.map((bill) => {
@@ -445,7 +441,7 @@ export default function Bills() {
                           )}
                           <div className="flex items-center gap-1.5 text-sm text-gray-600">
                             <Calendar className="w-4 h-4 text-gray-400" />
-                            <span>{bill.direction === 'payable' ? '应付�? : '应收�?}：{bill.dueDate}</span>
+                            <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
                             {bill.paidDate && bill.status === 'paid' && (
                               <span className="text-green-600 ml-2">实付：{bill.paidDate}</span>
                             )}
@@ -453,12 +449,12 @@ export default function Bills() {
                         </div>
                         {bill.status === 'paid' && (
                           <div className="absolute top-2 right-12 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
-                            �?{bill.direction === 'receivable' ? '已收' : '已付'}
+                            ✓ {bill.direction === 'receivable' ? '已收' : '已付'}
                           </div>
                         )}
                         {bill.status === 'overdue' && (
                           <div className="absolute top-10 right-2 rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
-                            已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}�?
+                            已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
                           </div>
                         )}
 
@@ -509,7 +505,7 @@ export default function Bills() {
           <div className="bg-white rounded-t-3xl w-full max-w-md">
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">{(payConfirmBill.direction === 'receivable') ? '收款确认' : '付款确认'}</h2>
-              <p className="text-xs text-gray-400 mt-1">可修改本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额和日�?/p>
+              <p className="text-xs text-gray-400 mt-1">可修改本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额和日期</p>
             </div>
             <div className="p-4 space-y-3">
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
@@ -518,7 +514,7 @@ export default function Bills() {
                   <span className="text-sm font-medium">{typeLabels[payConfirmBill.type]}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">总金�?/span>
+                  <span className="text-sm text-gray-500">总金额</span>
                   <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
                 </div>
                 {payConfirmBill.description && (
@@ -528,7 +524,7 @@ export default function Bills() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">{payConfirmBill.direction === 'receivable' ? '应收�? : '应付�?}</span>
+                  <span className="text-sm text-gray-500">{payConfirmBill.direction === 'receivable' ? '应收日' : '应付日'}</span>
                   <span className="text-sm font-medium">{payConfirmBill.dueDate}</span>
                 </div>
                 {payConfirmBill.roomId && (
@@ -585,7 +581,7 @@ export default function Bills() {
                   const paidAmt = payAmount ? parseFloat(payAmount) : undefined
                   const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
                   if (isPartial) {
-                    // 拆单：原账单金额减少，新生成一笔已付账�?
+                    // 拆单：原账单金额减少，新生成一笔已付账单
                     const remaining = payConfirmBill.amount - paidAmt
                     updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
                     addBill({
