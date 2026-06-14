@@ -175,10 +175,10 @@ export default function App() {
     if (!sb) return
 
     if (lastEvent === 'INITIAL_SESSION') {
-      // 检测是否新的浏览器会话（关过浏览器/标签页）— 需在设 tab_active 之前判断
+      // 检测是否新的浏览器会话（关过浏览器/标签页）
       const isNewBrowserSession = !sessionStorage.getItem('tab_active')
 
-      // 标记当前标签页"活跃"（设 tab_active 之后，同标签页刷新不会触发退出）
+      // 标记当前标签页"活跃"
       sessionStorage.setItem('tab_active', '1')
 
       if (!currentUser) {
@@ -189,20 +189,67 @@ export default function App() {
           landlordContracts: [], profitRecords: [], trash: [],
         })
       } else if (isNewBrowserSession) {
-        // 关过浏览器，session 无效
-        sb.auth.signOut()
-        localStorage.removeItem('property-manager-data')
-        useStore.setState({
-          properties: [], rooms: [], tenants: [], bills: [],
-          landlordContracts: [], profitRecords: [], trash: [],
-        })
+        // 关过浏览器，session 无效 → 清除数据并退出
+        const sb = getSupabase()
+        if (sb) {
+          sb.auth.signOut()
+          localStorage.removeItem('property-manager-data')
+          localStorage.removeItem('device_session_token')
+          useStore.setState({
+            properties: [], rooms: [], tenants: [], bills: [],
+            landlordContracts: [], profitRecords: [], trash: [],
+          })
+        }
       } else {
+        // 正常会话恢复 → 检查设备锁（严格单设备模式）
+        const myToken = localStorage.getItem('device_session_token')
+        const sb = getSupabase()
+        if (sb && myToken) {
+          sb.from('active_sessions')
+            .select('session_token')
+            .eq('user_id', currentUser.id)
+            .single()
+            .then(({ data, error }) => {
+              if (!error && data && data.session_token !== myToken) {
+                // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 强制退出
+                console.log('检测到另一台设备登录，强制退出')
+                sb.auth.signOut()
+                localStorage.removeItem('property-manager-data')
+                localStorage.removeItem('device_session_token')
+                useStore.setState({
+                  properties: [], rooms: [], tenants: [], bills: [],
+                  landlordContracts: [], profitRecords: [], trash: [],
+                })
+              }
+            })
+        } else if (sb && !myToken) {
+          // 没有本地 token（可能是旧版本升级来的）→ 写入当前设备为活跃设备
+          const deviceToken = crypto.randomUUID()
+          localStorage.setItem('device_session_token', deviceToken)
+          sb.from('active_sessions')
+            .upsert({ user_id: currentUser.id, session_token: deviceToken })
+            .then(({ error }) => {
+              if (error) console.error('设备锁初始化失败:', error)
+            })
+        }
         // 正常会话恢复 → CloudSyncProvider 自动加载云端数据
       }
     }
 
     if (lastEvent === 'SIGNED_IN' && currentUser) {
       setShowAuth(false)
+
+      // 生成设备会话 token，写入数据库（严格单设备模式）
+      const deviceToken = crypto.randomUUID()
+      localStorage.setItem('device_session_token', deviceToken)
+      const sb = getSupabase()
+      if (sb) {
+        sb.from('active_sessions')
+          .upsert({ user_id: currentUser.id, session_token: deviceToken })
+          .then(({ error }) => {
+            if (error) console.error('设备锁写入失败:', error)
+          })
+      }
 
       // 登录成功后跳转首页 + CloudSyncProvider 自动加载云端数据
       setJustLoggedIn(true)
