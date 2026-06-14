@@ -8,6 +8,7 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/house/',
   build: {
     sourcemap: 'hidden',
+    emptyOutDir: true,
   },
   plugins: [
     react(),
