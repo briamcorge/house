@@ -318,11 +318,12 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   <FileText className="w-3 h-3 inline mr-0.5" />
                   备注
                 </label>
-                <input
+                <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="账单期间或备注"
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
             </div>

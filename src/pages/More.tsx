@@ -120,7 +120,7 @@ export default function More() {
     window.location.href = import.meta.env.BASE_URL
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const wb = XLSX.utils.book_new()
 
     const sheets: [string, Record<string, unknown>[], Record<string, string>][] = [
@@ -149,15 +149,37 @@ export default function More() {
     // 生成文件 blob
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
     const fileName = `房屋管理数据_${new Date().toISOString().slice(0, 10)}.xlsx`
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 
-    // 优先用 Web Share API（兼容 Capacitor / 手机浏览器）
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
-      navigator.share({ files: [new File([blob], fileName, { type: blob.type })], title: fileName })
-      return
+    // 检测是否在 Capacitor 环境
+    const isCapacitor = !!(window as any).Capacitor?.isNativePlatform
+
+    if (isCapacitor) {
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const { Share } = await import('@capacitor/share')
+        // 写入临时文件
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(wbout)))
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+        })
+        // 分享文件（弹保存/分享菜单）
+        await Share.share({
+          title: fileName,
+          text: '房屋管理数据导出',
+          url: (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri,
+        })
+        // 清理临时文件
+        await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }).catch(() => {})
+        return
+      } catch (e) {
+        console.warn('Capacitor 导出失败，降级到 Web API:', e)
+      }
     }
 
-    // 降级：Blob URL 下载（桌面浏览器）
+    // 降级：Blob URL 下载（桌面浏览器 / 备用）
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -186,15 +208,13 @@ export default function More() {
         const data = new Uint8Array(ev.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array' })
 
-        const headerMap: Record<string, string> = {
-          'ID': 'id', '地址': 'address', '备注': 'description', '创建时间': 'createdAt',
-          '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status',
-          '合同编号': 'displayId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone',
-          '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart',
-          '合同结束': 'contractEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod',
-          '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount',
-          '金额': 'amount', '已付金额': 'paidAmount', '方向': 'direction',
-          '到期日': 'dueDate', '实付日': 'paidDate', '描述': 'description',
+        // 按 sheet 类型分别映射字段，避免同名字段冲突（如'类型'→roomType vs type）
+        const sheetHeaders: Record<string, Record<string, string>> = {
+          '房源': { 'ID': 'id', '地址': 'address', '备注': 'description', '创建时间': 'createdAt' },
+          '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
+          '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '创建时间': 'createdAt' },
+          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '创建时间': 'createdAt' },
+          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '实付日': 'paidDate', '描述': 'description', '创建时间': 'createdAt' },
         }
 
         // 需要转换为数字的字段
@@ -203,6 +223,8 @@ export default function More() {
         const parseSheet = (sheetName: string): Record<string, unknown>[] => {
           const sheet = wb.Sheets[sheetName]
           if (!sheet) return []
+          const headerMap = sheetHeaders[sheetName]
+          if (!headerMap) return []
           const json = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[]
           return json.map(row => {
             const obj: Record<string, unknown> = {}

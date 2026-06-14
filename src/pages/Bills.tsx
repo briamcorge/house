@@ -141,8 +141,10 @@ export default function Bills() {
           ? (b.status === 'pending' || b.status === 'overdue')
           : b.status === filterStatus
       if (!matchesStatus) return false
-      // 30天窗口
-      if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
+      // 30天窗口（仅对"已收/已付"筛选时生效，未收/逾期全部显示）
+      if (filterStatus === 'paid') {
+        if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
+      }
       return true
     })
     return list
