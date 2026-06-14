@@ -207,7 +207,7 @@ export default function Home() {
                             {isRefund ? (b.description || '退款') : (b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主'))}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
-                            {isRefund ? '退款' : (b.type === 'rent' ? '房租' : b.type === 'water' ? '水费' : b.type === 'electric' ? '电费' : b.type === 'gas' ? '燃气费' : '其他')}
+                            {isRefund ? '退款' : (b.type === 'rent' ? '房租' : b.type === 'water' ? '水费' : b.type === 'electric' ? '电费' : b.type === 'gas' ? '燃气费' : b.type === 'internet' ? '网费' : b.type === 'hygiene' ? '卫管费' : '其他')}
                             {tenant && tenant.displayId && ` #${tenant.displayId}`}
                             {!isRefund && room && ` · ${room.label}室`}
                             {!isRefund && b.description && ` · ${b.description}`}

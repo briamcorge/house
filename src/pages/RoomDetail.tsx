@@ -5,7 +5,11 @@ import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
+<<<<<<< HEAD
 import { ChevronLeft, Plus, FileText, Droplets, Zap, Flame, Receipt } from 'lucide-react'
+=======
+import { ChevronLeft, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles } from 'lucide-react'
+>>>>>>> 196293f (v1.61: bill sorting (dueDate asc), unpaid includes overdue, compact BillModal, add internet/hygiene fee types)
 import { add30Days, formatDate } from '../utils/calculator'
 
 export default function RoomDetail() {
@@ -49,21 +53,23 @@ export default function RoomDetail() {
     }
   }, [payConfirmBill])
 
-  const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', other: '其他' }
+  const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气�?, internet: '网费', hygiene: '卫管�?, other: '其他' }
   const typeIcons: Record<string, typeof FileText> = {
     rent: FileText,
     water: Droplets,
     electric: Zap,
     gas: Flame,
+    internet: Wifi,
+    hygiene: Sparkles,
     other: Receipt
   }
   const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-500 text-white', overdue: 'bg-red-100 text-red-700' }
-  const statusLabels: Record<string, string> = { pending: '未收', paid: '✓ 已收', overdue: '已逾期' }
+  const statusLabels: Record<string, string> = { pending: '未收', paid: '�?已收', overdue: '已逾期' }
 
   if (!room) {
     return (
       <div className="min-h-screen bg-gray-50 pb-24 flex items-center justify-center">
-        <p className="text-gray-500">房间不存在</p>
+        <p className="text-gray-500">房间不存�?/p>
       </div>
     )
   }
@@ -77,7 +83,7 @@ export default function RoomDetail() {
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{property?.address} - {room.label} 室</h1>
+              <h1 className="text-xl font-bold text-gray-900">{property?.address} - {room.label} �?/h1>
               <p className="text-sm text-gray-500">{room.roomType}</p>
             </div>
           </div>
@@ -130,7 +136,7 @@ export default function RoomDetail() {
                         )}
                         <span className="text-xs text-gray-400">#{t.displayId}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {t.status === 'active' ? '在租' : '已退租'}
+                          {t.status === 'active' ? '在租' : '已退�?}
                         </span>
                       </div>
                       <div className="flex gap-2">
@@ -138,7 +144,7 @@ export default function RoomDetail() {
                         {t.status === 'active' ? (
                           <>
                             <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline">续约</button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline">退租</button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline">退�?/button>
                           </>
                         ) : (
                           <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有账单？`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline">删除</button>
@@ -148,7 +154,7 @@ export default function RoomDetail() {
                     <div className="text-xs text-gray-500 mt-1">
                       {t.phone && <span className="mr-3">{t.phone}</span>}
                       <span>{t.contractStart} ~ {t.contractEnd}</span>
-                      <span className="ml-2 text-gray-400">¥{t.monthlyRent}/月</span>
+                      <span className="ml-2 text-gray-400">¥{t.monthlyRent}/�?/span>
                     </div>
                   </div>
                 ))}
@@ -156,13 +162,13 @@ export default function RoomDetail() {
             )}
           </div>
 
-          {/* 选中合同的租客账单 */}
+          {/* 选中合同的租客账�?*/}
           {selectedTenant && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold text-gray-900">
                   <FileText className="w-5 h-5 inline mr-1" />
-                  {selectedTenant.name} 的账单
+                  {selectedTenant.name} 的账�?
                 </h2>
                 <button type="button" onClick={() => setShowBillModal(true)} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
                   <Plus className="w-4 h-4" />添加
@@ -179,7 +185,7 @@ export default function RoomDetail() {
                     <div key={bill.id} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                          <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
                             {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                           </div>
                           <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
@@ -187,7 +193,7 @@ export default function RoomDetail() {
                           {bill.status === 'overdue' && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
                               <span className="rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
-                                已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
+                                已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}�?
                               </span>
                             </div>
                           )}
@@ -221,7 +227,7 @@ export default function RoomDetail() {
                       {bill.status === 'paid' && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
                           <span className="rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
-                            ✓ 已收
+                            �?已收
                           </span>
                         </div>
                       )}
@@ -309,7 +315,7 @@ export default function RoomDetail() {
                   <span className="text-sm font-medium">{typeLabels[payConfirmBill.type]}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">总金额</span>
+                  <span className="text-sm text-gray-500">总金�?/span>
                   <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
                 </div>
                 {payConfirmBill.description && (
@@ -319,7 +325,7 @@ export default function RoomDetail() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">应收日</span>
+                  <span className="text-sm text-gray-500">应收�?/span>
                   <span className="text-sm font-medium">{payConfirmBill.dueDate}</span>
                 </div>
               </div>
@@ -349,7 +355,7 @@ export default function RoomDetail() {
               </div>
 
               <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
-                留空本次收款金额则视为全额收款
+                留空本次收款金额则视为全额收�?
               </div>
 
               <div className="flex gap-3 pt-2">

@@ -37,7 +37,7 @@ export default function PaymentModal({ isOpen, onClose, direction }: PaymentModa
   }
 
   const typeLabels: Record<string, string> = {
-    rent: '房租', water: '水费', electric: '电费', gas: '燃气费', other: '其他'
+    rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他'
   }
 
   const title = direction === 'receivable' ? '收款' : '付款'
