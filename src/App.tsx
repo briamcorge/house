@@ -381,7 +381,7 @@ export default function App() {
   }
 
   return (
-    <Router basename={import.meta.env.BASE_URL === './' ? '/' : import.meta.env.BASE_URL.replace(/\/$/, '')}>
+    <Router>
       <ErrorBoundary>
         <div className="min-h-screen">
           <LoginRedirect triggered={justLoggedIn} />
