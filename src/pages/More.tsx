@@ -146,7 +146,26 @@ export default function More() {
       XLSX.utils.book_append_sheet(wb, ws, name)
     }
 
-    XLSX.writeFile(wb, `房屋管理数据_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    // 生成文件 blob
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const fileName = `房屋管理数据_${new Date().toISOString().slice(0, 10)}.xlsx`
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+
+    // 优先用 Web Share API（兼容 Capacitor / 手机浏览器）
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+      navigator.share({ files: [new File([blob], fileName, { type: blob.type })], title: fileName })
+      return
+    }
+
+    // 降级：Blob URL 下载（桌面浏览器）
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
