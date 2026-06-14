@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord } from '../types'
+import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord, AuditLogEntry } from '../types'
 import { DraftBill } from '../utils/calculator'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
 
@@ -11,6 +11,7 @@ interface AppStore {
   bills: Bill[]
   landlordContracts: LandlordContract[]
   trash: TrashItem[]
+  auditLogs: AuditLogEntry[]
 
   addProperty: (property: Omit<Property, 'id' | 'createdAt'>) => void
   updateProperty: (id: string, property: Partial<Property>) => void
@@ -79,6 +80,12 @@ export const useStore = create<AppStore>()(
           triggerCloudSave() // 每次变更自动触发 Supabase 云同步（500ms debounce）
         }
       }) as typeof rawSet
+
+      // 操作日志辅助
+      const recordLog = (state: AppStore, action: AuditLogEntry['action'], entity: string, entityId?: string, details?: string): AuditLogEntry[] => {
+        return [...state.auditLogs, { id: createId(), timestamp: new Date().toISOString(), action, entity, entityId: entityId || '', details: details || '', createdAt: new Date().toISOString() }]
+      }
+
       return {
       properties: [],
       rooms: [],
@@ -87,21 +94,26 @@ export const useStore = create<AppStore>()(
       landlordContracts: [],
       profitRecords: [],
       trash: [],
+      auditLogs: [],
 
       addProperty: (property) =>
-        set((state) => ({
-          properties: [
-            ...state.properties,
-            { ...property, id: createId(), createdAt: new Date().toISOString() } as Property,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          return {
+            properties: [...state.properties, { ...property, id, createdAt: now } as Property],
+            auditLogs: recordLog(state, 'create', 'property', id, property.address),
+          }
+        }),
 
       updateProperty: (id, property) =>
-        set((state) => ({
-          properties: state.properties.map((p) =>
-            p.id === id ? { ...p, ...property } : p
-          ),
-        })),
+        set((state) => {
+          const p = state.properties.find(x => x.id === id)
+          return {
+            properties: state.properties.map((p2) => p2.id === id ? { ...p2, ...property } : p2),
+            auditLogs: recordLog(state, 'update', 'property', id, p?.address || ''),
+          }
+        }),
 
       deleteProperty: (id) =>
         set((state) => {
@@ -120,22 +132,29 @@ export const useStore = create<AppStore>()(
             bills: state.bills.filter((b) => b.propertyId !== id && !(b.roomId && roomIds.includes(b.roomId))),
             landlordContracts: state.landlordContracts.filter((c) => c.propertyId !== id),
             trash: [...state.trash, ...trashItems],
+            auditLogs: recordLog(state, 'delete', 'property', id, prop?.address || ''),
           }
         }),
       addRoom: (room) =>
-        set((state) => ({
-          rooms: [
-            ...state.rooms,
-            { ...room, id: createId(), createdAt: new Date().toISOString() } as Room,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          return {
+            rooms: [...state.rooms, { ...room, id, createdAt: now } as Room],
+            auditLogs: recordLog(state, 'create', 'room', id, `${room.label}室`),
+          }
+        }),
 
       updateRoom: (id, room) =>
-        set((state) => ({
-          rooms: state.rooms.map((r) =>
-            r.id === id ? { ...r, ...room } : r
-          ),
-        })),
+        set((state) => {
+          const r = state.rooms.find(x => x.id === id)
+          return {
+            rooms: state.rooms.map((r2) =>
+              r2.id === id ? { ...r2, ...room } : r2
+            ),
+            auditLogs: recordLog(state, 'update', 'room', id, `${r?.label || ''}室`),
+          }
+        }),
 
       deleteRoom: (id) =>
         set((state) => {
@@ -146,22 +165,27 @@ export const useStore = create<AppStore>()(
           return {
             rooms: state.rooms.filter((r) => r.id !== id),
             trash: [...state.trash, ...trash],
+            auditLogs: recordLog(state, 'delete', 'room', id, `${room.label}室`),
           }
         }),
 
       addTenant: (tenant) =>
-        set((state) => ({
-          tenants: [
-            ...state.tenants,
-            { ...tenant, displayId: nextDisplayId(state, 'ZL'), id: createId(), createdAt: new Date().toISOString() } as Tenant,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          const newTenant: Tenant = { ...tenant, displayId: nextDisplayId(state, 'ZL'), id, createdAt: now }
+          return {
+            tenants: [...state.tenants, newTenant],
+            auditLogs: recordLog(state, 'create', 'tenant', id, `租客 ${tenant.name}`),
+          }
+        }),
 
       updateTenant: (id, tenant) =>
         set((state) => ({
           tenants: state.tenants.map((t) =>
             t.id === id ? { ...t, ...tenant } : t
           ),
+          auditLogs: recordLog(state, 'update', 'tenant', id, tenant.name || `租客`),
         })),
 
       deleteTenant: (id) =>
@@ -177,6 +201,7 @@ export const useStore = create<AppStore>()(
               ? state.rooms.map((r) => r.id === tenant.roomId ? { ...r, status: 'vacant' as const } : r)
               : state.rooms,
             trash: [...state.trash, ...trash],
+            auditLogs: recordLog(state, 'delete', 'tenant', id, `${tenant.name}`),
           }
         }),
 
@@ -188,6 +213,7 @@ export const useStore = create<AppStore>()(
           rooms: state.rooms.map((r) =>
             r.id === roomId ? { ...r, status: 'vacant' } : r
           ),
+          auditLogs: recordLog(state, 'terminate', 'tenant', id, `退租`),
         })),
 
       extendContract: (id, newEndDate) =>
@@ -195,21 +221,25 @@ export const useStore = create<AppStore>()(
           tenants: state.tenants.map((t) =>
             t.id === id ? { ...t, contractEnd: newEndDate } : t
           ),
+          auditLogs: recordLog(state, 'update', 'tenant', id, `续约至${newEndDate}`),
         })),
 
       addBill: (bill) =>
-        set((state) => ({
-          bills: [
-            ...state.bills,
-            { ...bill, id: createId(), createdAt: new Date().toISOString() } as Bill,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          return {
+            bills: [...state.bills, { ...bill, id, createdAt: now } as Bill],
+            auditLogs: recordLog(state, 'create', 'bill', id, `¥${bill.amount} ${bill.type}`),
+          }
+        }),
 
       updateBill: (id, bill) =>
         set((state) => ({
           bills: state.bills.map((b) =>
             b.id === id ? { ...b, ...bill } : b
           ),
+          auditLogs: recordLog(state, 'update', 'bill', id, `¥${bill.amount}`),
         })),
 
       deleteBill: (id) =>
@@ -218,6 +248,7 @@ export const useStore = create<AppStore>()(
           return {
             bills: state.bills.filter((b) => b.id !== id),
             trash: bill ? [...state.trash, { id: createId(), type: 'bill' as const, originalId: id, data: bill, label: `¥${bill.amount} ${bill.type}`, deletedAt: new Date().toISOString().slice(0, 10) }] : state.trash,
+            auditLogs: recordLog(state, 'delete', 'bill', id, `¥${bill.amount}`),
           }
         }),
 
@@ -244,6 +275,7 @@ export const useStore = create<AppStore>()(
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'occupied' as const } : r
             ),
+            auditLogs: recordLog(state, 'create', 'tenant', tenantId, `新租客 ${tenant.name}`),
           }
         }),
 
@@ -270,6 +302,7 @@ export const useStore = create<AppStore>()(
               ...state.bills.filter((b) => !(b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenantId)),
               ...newBills,
             ],
+            auditLogs: recordLog(state, 'update', 'tenant', tenantId, `修改合同`),
           }
         }),
 
@@ -299,22 +332,29 @@ export const useStore = create<AppStore>()(
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'occupied' as const } : r
             ),
+            auditLogs: recordLog(state, 'renew', 'tenant', oldTenantId, `续租 ${tenant.name}`),
           }
         }),
 
       addLandlordContract: (contract) =>
-        set((state) => ({
-          landlordContracts: [
-            ...state.landlordContracts,
-            { ...contract, displayId: nextDisplayId(state, 'DL'), id: createId(), createdAt: new Date().toISOString() } as LandlordContract,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          return {
+            landlordContracts: [
+              ...state.landlordContracts,
+              { ...contract, displayId: nextDisplayId(state, 'DL'), id, createdAt: now } as LandlordContract,
+            ],
+            auditLogs: recordLog(state, 'create', 'landlord_contract', id, `业主合同`),
+          }
+        }),
 
       updateLandlordContract: (id, data) =>
         set((state) => ({
           landlordContracts: state.landlordContracts.map((c) =>
             c.id === id ? { ...c, ...data } : c
           ),
+          auditLogs: recordLog(state, 'update', 'landlord_contract', id, `修改业主合同`),
         })),
 
       deleteLandlordContract: (id, propertyId) =>
@@ -327,6 +367,7 @@ export const useStore = create<AppStore>()(
             landlordContracts: state.landlordContracts.filter((c) => c.id !== id),
             bills: state.bills.filter((b) => !(b.propertyId === propertyId && b.direction === 'payable')),
             trash: [...state.trash, ...trash],
+            auditLogs: recordLog(state, 'delete', 'landlord_contract', id, `删除业主合同`),
           }
         }),
 
@@ -335,6 +376,7 @@ export const useStore = create<AppStore>()(
           landlordContracts: state.landlordContracts.map((c) =>
             c.id === id ? { ...c, status: 'ended' as const } : c
           ),
+          auditLogs: recordLog(state, 'terminate', 'landlord_contract', id, `终止业主合同`),
         })),
 
       deleteTenantAndBills: (id, roomId) =>
@@ -348,30 +390,44 @@ export const useStore = create<AppStore>()(
             bills: state.bills.filter((b) => !(b.roomId === roomId && b.direction === 'receivable' && b.tenantId === id)),
             rooms: state.rooms.map((r) => r.id === roomId && r.status === 'occupied' ? { ...r, status: 'vacant' as const } : r),
             trash: [...state.trash, ...trash],
+            auditLogs: recordLog(state, 'delete', 'tenant', id, `${tenant.name}`),
           }
         }),
 
       clearAllData: () =>
-        set({ properties: [], rooms: [], tenants: [], bills: [], landlordContracts: [], profitRecords: [], trash: [] }),
+        set((state) => ({
+          properties: [],
+          rooms: [],
+          tenants: [],
+          bills: [],
+          landlordContracts: [],
+          profitRecords: [],
+          trash: [],
+          auditLogs: recordLog(state, 'clear', 'all', '', '清空全部数据'),
+        })),
 
       addProfitRecord: (record) =>
-        set((state) => ({
-          profitRecords: [
-            ...state.profitRecords,
-            { ...record, id: createId(), createdAt: new Date().toISOString() } as ProfitRecord,
-          ],
-        })),
+        set((state) => {
+          const now = new Date().toISOString()
+          const id = createId()
+          return {
+            profitRecords: [...state.profitRecords, { ...record, id, createdAt: now } as ProfitRecord],
+            auditLogs: recordLog(state, 'create', 'profit_record', id, `¥${record.profitAmount}`),
+          }
+        }),
 
       updateProfitRecord: (id, data) =>
         set((state) => ({
           profitRecords: state.profitRecords.map((r) =>
             r.id === id ? { ...r, ...data } : r
           ),
+          auditLogs: recordLog(state, 'update', 'profit_record', id, '修改利润记录'),
         })),
 
       deleteProfitRecord: (id) =>
         set((state) => ({
           profitRecords: state.profitRecords.filter((r) => r.id !== id),
+          auditLogs: recordLog(state, 'delete', 'profit_record', id, '删除利润记录'),
         })),
 
       addToTrash: (type, originalId, data, label) =>
@@ -384,29 +440,37 @@ export const useStore = create<AppStore>()(
           const item = state.trash.find((t) => t.id === trashId)
           if (!item) return state
           const data = item.data
+          const log = recordLog(state, 'restore', item.type, item.originalId, `恢复 ${item.label}`)
           switch (item.type) {
             case 'property':
-              return { properties: [...state.properties, data as Property], trash: state.trash.filter((t) => t.id !== trashId) }
+              return { properties: [...state.properties, data as Property], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'room':
-              return { rooms: [...state.rooms, data as Room], trash: state.trash.filter((t) => t.id !== trashId) }
+              return { rooms: [...state.rooms, data as Room], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'tenant':
-              return { tenants: [...state.tenants, data as Tenant], trash: state.trash.filter((t) => t.id !== trashId) }
+              return { tenants: [...state.tenants, data as Tenant], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'landlord_contract':
-              return { landlordContracts: [...state.landlordContracts, data as LandlordContract], trash: state.trash.filter((t) => t.id !== trashId) }
+              return { landlordContracts: [...state.landlordContracts, data as LandlordContract], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'bill':
-              return { bills: [...state.bills, data as Bill], trash: state.trash.filter((t) => t.id !== trashId) }
+              return { bills: [...state.bills, data as Bill], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             default:
               return state
           }
         }),
 
       permanentlyDelete: (trashId) =>
-        set((state) => ({
-          trash: state.trash.filter((t) => t.id !== trashId),
-        })),
+        set((state) => {
+          const item = state.trash.find((t) => t.id === trashId)
+          return {
+            trash: state.trash.filter((t) => t.id !== trashId),
+            auditLogs: item ? recordLog(state, 'delete', item.type, item.originalId, `彻底删除 ${item.label}`) : state.auditLogs,
+          }
+        }),
 
       emptyTrash: () =>
-        set({ trash: [] }),
+        set((state) => ({
+          trash: [],
+          auditLogs: recordLog(state, 'clear', 'trash', '', '清空回收站'),
+        })),
     }
   },
   {
@@ -423,6 +487,7 @@ export const useStore = create<AppStore>()(
           landlordContracts: [],
           profitRecords: [],
           trash: [],
+          auditLogs: [],
         }
       }
       return persistedState as AppStore

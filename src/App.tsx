@@ -208,7 +208,7 @@ export default function App() {
           sb.from('active_sessions')
             .select('session_token')
             .eq('user_id', currentUser.id)
-            .single()
+            .maybeSingle()
             .then(({ data, error }) => {
               if (!error && data && data.session_token !== myToken) {
                 // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 强制退出
@@ -253,6 +253,8 @@ export default function App() {
 
       // 登录成功后跳转首页 + CloudSyncProvider 自动加载云端数据
       setJustLoggedIn(true)
+      // 操作日志
+      useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'create', entity: 'auth', details: `${currentUser.email} 登录`, createdAt: new Date().toISOString() }] }))
     }
 
     if (lastEvent === 'PASSWORD_RECOVERY') {
@@ -260,6 +262,8 @@ export default function App() {
     }
 
     if (lastEvent === 'SIGNED_OUT') {
+      // 操作日志（退出前记录）
+      useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'delete', entity: 'auth', details: `${currentUser?.email || ''} 退出`, createdAt: new Date().toISOString() }] }))
       localStorage.removeItem('property-manager-data')
       useStore.setState({
         properties: [], rooms: [], tenants: [], bills: [],
@@ -283,35 +287,24 @@ export default function App() {
     return () => window.removeEventListener('open-auth', openAuthHandler)
   }, [])
 
-  // 设备锁：定时轮询（每15秒检查一次，另一台设备登录后快速踢出）
+  // 设备锁：监听 cloud-sync 触发的 kick 事件（另一台设备登录时立即踢出）
   useEffect(() => {
-    if (!currentUser || !isSupabaseConfigured()) return
-    const sb = getSupabase()
-    if (!sb) return
-
-    const checkDeviceLock = async () => {
-      const myToken = localStorage.getItem('device_session_token')
-      if (!myToken) return
-      const { data } = await sb.from('active_sessions')
-        .select('session_token')
-        .eq('user_id', currentUser.id)
-        .single()
-      if (data && data.session_token !== myToken) {
-        console.log('设备锁：检测到另一台设备登录，强制退出')
-        localStorage.removeItem('device_session_token')
-        await sb.auth.signOut()
+    const handler = () => {
+      console.log('收到 device-kicked 事件，强制退出')
+      const sb = getSupabase()
+      if (sb) {
+        sb.auth.signOut()
         localStorage.removeItem('property-manager-data')
+        localStorage.removeItem('device_session_token')
         useStore.setState({
           properties: [], rooms: [], tenants: [], bills: [],
           landlordContracts: [], profitRecords: [], trash: [],
         })
       }
     }
-
-    checkDeviceLock() // 立即检查一次
-    const interval = setInterval(checkDeviceLock, 15000) // 每15秒轮询
-    return () => clearInterval(interval)
-  }, [currentUser])
+    window.addEventListener('device-kicked', handler)
+    return () => window.removeEventListener('device-kicked', handler)
+  }, [])
 
   // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {

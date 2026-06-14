@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase } from './supabase'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -42,6 +42,27 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const doSave = useCallback(async (): Promise<boolean> => {
     if (saving.current || !isSupabaseConfigured() || !user) return false
     saving.current = true
+
+    // 🔒 设备锁：每次保存前检查 active_sessions，另一台设备登录则踢出
+    try {
+      const myToken = localStorage.getItem('device_session_token')
+      if (myToken) {
+        const sb = getSupabase()
+        if (sb) {
+          const { data, error } = await sb.from('active_sessions')
+            .select('session_token')
+            .eq('user_id', user.id)
+            .maybeSingle()
+          if (!error && data && data.session_token !== myToken) {
+            console.log('设备锁：检测到另一台设备登录，拒绝保存并踢出')
+            window.dispatchEvent(new CustomEvent('device-kicked'))
+            saving.current = false
+            return false
+          }
+        }
+      }
+    } catch { /* active_sessions 查询失败不影响正常使用 */ }
+
     setStatus('syncing')
     setLastError(null)
     try {
