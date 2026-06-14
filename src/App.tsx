@@ -306,6 +306,36 @@ export default function App() {
     return () => window.removeEventListener('device-kicked', handler)
   }, [])
 
+  // 设备锁：定时轮询（每15秒检查一次，另一台设备登录后快速踢出）
+  useEffect(() => {
+    if (!currentUser || !isSupabaseConfigured()) return
+    const sb = getSupabase()
+    if (!sb) return
+
+    const checkDeviceLock = async () => {
+      const myToken = localStorage.getItem('device_session_token')
+      if (!myToken) return
+      try {
+        const { data, error } = await sb.from('active_sessions')
+          .select('session_token')
+          .eq('user_id', currentUser.id)
+          .maybeSingle()
+        if (!error && data && data.session_token !== myToken) {
+          console.log('设备锁轮询：检测到另一台设备登录，强制退出')
+          window.dispatchEvent(new CustomEvent('device-kicked'))
+        } else if (error) {
+          console.warn('设备锁轮询失败（表 active_sessions 可能未创建）:', error.message)
+        }
+      } catch (e) {
+        console.warn('设备锁轮询异常（表 active_sessions 可能未创建）:', e)
+      }
+    }
+
+    checkDeviceLock() // 立即检查一次
+    const interval = setInterval(checkDeviceLock, 15000) // 每15秒轮询
+    return () => clearInterval(interval)
+  }, [currentUser])
+
   // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {
     return <LoginPage onLogin={() => {}} />
