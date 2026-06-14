@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
@@ -18,7 +18,6 @@ import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
-import UpdateCheck from "./components/UpdateCheck";
 import LoginPage from "./pages/LoginPage";
 
 const STORAGE_KEY = "property-manager-data"
@@ -400,7 +399,6 @@ export default function App() {
             <Route path="/statistics" element={<Statistics />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
-          <UpdateCheck />
           <BottomNav />
           <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
         </div>
