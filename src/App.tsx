@@ -307,7 +307,7 @@ export default function App() {
     return () => window.removeEventListener('device-kicked', handler)
   }, [])
 
-  // 设备锁：定时轮询（每15秒检查一次，另一台设备登录后快速踢出）
+  // 设备锁：定时轮询 + 页面可见性检查（解决手机浏览器后台节流问题）
   useEffect(() => {
     if (!currentUser || !isSupabaseConfigured()) return
     const sb = getSupabase()
@@ -322,26 +322,36 @@ export default function App() {
           .eq('user_id', currentUser.id)
           .maybeSingle()
         if (!error && data && data.session_token !== myToken) {
-          console.log('设备锁轮询：检测到另一台设备登录，强制退出')
+          console.log('设备锁：检测到另一台设备登录，强制退出')
           window.dispatchEvent(new CustomEvent('device-kicked'))
         } else if (error) {
-          console.warn('设备锁轮询失败（表 active_sessions 可能未创建）:', error.message)
+          console.warn('设备锁查询失败:', error.message)
         }
       } catch (e) {
-        console.warn('设备锁轮询异常（表 active_sessions 可能未创建）:', e)
+        console.warn('设备锁查询异常:', e)
       }
     }
 
-    // 不立即检查，等 3 秒后再开始（给登录写入 token 留时间）
+    // 定时轮询（每15秒）
     let intervalId: ReturnType<typeof setInterval> | null = null
     const timer = setTimeout(() => {
       checkDeviceLock()
       intervalId = setInterval(checkDeviceLock, 15000)
     }, 3000)
 
+    // 页面从后台切回前台时立即检查（解决手机浏览器后台节流）
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('页面恢复可见，检查设备锁')
+        checkDeviceLock()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       clearTimeout(timer)
       if (intervalId) clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [currentUser])
 
