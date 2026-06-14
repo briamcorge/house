@@ -240,21 +240,22 @@ export default function More() {
 
         const props = parseSheet('房源')
         const roomList = parseSheet('房间')
+        const contractList = parseSheet('代理合同')
         const tenantList = parseSheet('租客')
         const billList = parseSheet('账单')
 
-        const state = { properties: props, rooms: roomList, tenants: tenantList, bills: billList }
+        const state = { properties: props, rooms: roomList, landlordContracts: contractList, tenants: tenantList, bills: billList }
         localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
 
         // 同步保存到 Supabase（等完成再刷新）
         try {
-          const saved = await saveCloudData({
-            properties: props as any[],
-            rooms: roomList as any[],
-            tenants: tenantList as any[],
-            bills: billList as any[],
-            landlordContracts: [],
-            profitRecords: [],
+            const saved = await saveCloudData({
+              properties: props as any[],
+              rooms: roomList as any[],
+              tenants: tenantList as any[],
+              bills: billList as any[],
+              landlordContracts: contractList as any[],
+              profitRecords: [],
             trash: [],
           })
           console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
