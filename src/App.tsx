@@ -333,16 +333,15 @@ export default function App() {
     }
 
     // 不立即检查，等 3 秒后再开始（给登录写入 token 留时间）
+    let intervalId: ReturnType<typeof setInterval> | null = null
     const timer = setTimeout(() => {
       checkDeviceLock()
-      const interval = setInterval(checkDeviceLock, 15000)
-      // 保存 interval ID 以便清理
-      ;(timer as any).__interval = interval
+      intervalId = setInterval(checkDeviceLock, 15000)
     }, 3000)
 
     return () => {
       clearTimeout(timer)
-      if ((timer as any).__interval) clearInterval((timer as any).__interval)
+      if (intervalId) clearInterval(intervalId)
     }
   }, [currentUser])
 
