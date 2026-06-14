@@ -283,6 +283,36 @@ export default function App() {
     return () => window.removeEventListener('open-auth', openAuthHandler)
   }, [])
 
+  // 设备锁：定时轮询（每15秒检查一次，另一台设备登录后快速踢出）
+  useEffect(() => {
+    if (!currentUser || !isSupabaseConfigured()) return
+    const sb = getSupabase()
+    if (!sb) return
+
+    const checkDeviceLock = async () => {
+      const myToken = localStorage.getItem('device_session_token')
+      if (!myToken) return
+      const { data } = await sb.from('active_sessions')
+        .select('session_token')
+        .eq('user_id', currentUser.id)
+        .single()
+      if (data && data.session_token !== myToken) {
+        console.log('设备锁：检测到另一台设备登录，强制退出')
+        localStorage.removeItem('device_session_token')
+        await sb.auth.signOut()
+        localStorage.removeItem('property-manager-data')
+        useStore.setState({
+          properties: [], rooms: [], tenants: [], bills: [],
+          landlordContracts: [], profitRecords: [], trash: [],
+        })
+      }
+    }
+
+    checkDeviceLock() // 立即检查一次
+    const interval = setInterval(checkDeviceLock, 15000) // 每15秒轮询
+    return () => clearInterval(interval)
+  }, [currentUser])
+
   // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {
     return <LoginPage onLogin={() => {}} />
