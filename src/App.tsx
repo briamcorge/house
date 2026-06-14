@@ -166,6 +166,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
+  const [deviceTokenReady, setDeviceTokenReady] = useState(false)
 
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
@@ -245,11 +246,14 @@ export default function App() {
       const sb = getSupabase()
       if (sb) {
         // 必须 await 写入完成，否则轮询会看到旧 token 把自己踢掉
-        ;(async () => {
-          const { error } = await sb.from('active_sessions')
-            .upsert({ user_id: currentUser.id, session_token: deviceToken })
-          if (error) console.error('设备锁写入失败:', error)
-        })()
+        sb.from('active_sessions')
+          .upsert({ user_id: currentUser.id, session_token: deviceToken })
+          .then(({ error }) => {
+            if (error) console.error('设备锁写入失败:', error)
+            setDeviceTokenReady(true)
+          })
+      } else {
+        setDeviceTokenReady(true)
       }
 
       // 登录成功后跳转首页 + CloudSyncProvider 自动加载云端数据
@@ -309,7 +313,7 @@ export default function App() {
 
   // 设备锁：定时轮询 + 页面可见性检查（解决手机浏览器后台节流问题）
   useEffect(() => {
-    if (!currentUser || !isSupabaseConfigured()) return
+    if (!currentUser || !isSupabaseConfigured() || !deviceTokenReady) return
     const sb = getSupabase()
     if (!sb) return
 
@@ -332,7 +336,7 @@ export default function App() {
       }
     }
 
-    // 定时轮询（每15秒）
+    // 定时轮询（每15秒）- token 写入完成后再启动
     let intervalId: ReturnType<typeof setInterval> | null = null
     const timer = setTimeout(() => {
       checkDeviceLock()
@@ -353,7 +357,7 @@ export default function App() {
       if (intervalId) clearInterval(intervalId)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [currentUser])
+  }, [currentUser, deviceTokenReady])
 
   // 未登录 → 显示登录页
   if (isSupabaseConfigured() && authReady && !currentUser) {
