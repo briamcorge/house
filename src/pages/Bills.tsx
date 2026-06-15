@@ -348,7 +348,7 @@ export default function Bills() {
                     displayBills.map((bill) => {
                     const tenantName = getTenantName(bill.tenantId)
                     return (
-                      <div key={bill.id} className="relative bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+                      <div key={bill.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -356,9 +356,13 @@ export default function Bills() {
                                 {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                               </div>
                               <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>
-                                {getStatusLabel(bill.status, bill.direction)}
-                              </span>
+                              {bill.status !== 'pending' && (
+                                <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
+                                  bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                }`}>
+                                  {bill.status === 'paid' ? '已收' : '逾期'}
+                                </span>
+                              )}
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
                                 {directionLabels[bill.direction]}
                               </span>
@@ -449,17 +453,6 @@ export default function Bills() {
                             )}
                           </div>
                         </div>
-                        {bill.status === 'paid' && (
-                          <div className="absolute top-2 right-12 rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
-                            ✓ {bill.direction === 'receivable' ? '已收' : '已付'}
-                          </div>
-                        )}
-                        {bill.status === 'overdue' && (
-                          <div className="absolute top-10 right-2 rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/80 px-2 py-0.5 rounded-md text-xs font-black z-[1] pointer-events-none select-none">
-                            已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
-                          </div>
-                        )}
-
                       </div>
                     )
                   })

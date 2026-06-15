@@ -52,8 +52,6 @@ export default function RoomDetail() {
     hygiene: Sparkles,
     other: Receipt
   }
-  const statusClasses: Record<string, string> = { pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-green-500 text-white', overdue: 'bg-red-100 text-red-700' }
-  const statusLabels: Record<string, string> = { pending: '未收', paid: '✓ 已收', overdue: '已逾期' }
 
   if (!room) {
     return (
@@ -171,31 +169,23 @@ export default function RoomDetail() {
                   </div>
                 ) : (
                   roomBills.map((bill) => (
-                    <div key={bill.id} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+                    <div key={bill.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                           <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
                             {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                           </div>
                           <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
-                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${statusClasses[bill.status]}`}>{statusLabels[bill.status]}</span>
-                          {bill.status === 'overdue' && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
-                              <span className="rotate-[-6deg] border-[3px] border-orange-500 text-orange-600 bg-orange-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
-                                已逾期{Math.ceil((Date.now() - new Date(bill.dueDate).getTime()) / (1000*60*60*24))}天
-                              </span>
-                            </div>
+                          {bill.status !== 'pending' && (
+                            <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
+                              bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                            }`}>
+                              {bill.status === 'paid' ? '已收' : '逾期'}
+                            </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-base font-bold text-gray-900">
-                            {bill.paidAmount !== undefined && bill.paidAmount < bill.amount
-                              ? `¥${bill.paidAmount.toFixed(2)}/¥${bill.amount.toFixed(2)}`
-                              : `¥${bill.amount.toFixed(2)}`}
-                          </span>
-                          {bill.paidAmount !== undefined && bill.paidAmount < bill.amount && (
-                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">部分</span>
-                          )}
+                          <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(2)}</span>
                           {bill.status !== 'paid' && (
                             <button
                               type="button"
@@ -213,13 +203,6 @@ export default function RoomDetail() {
                         <span>应收日：{bill.dueDate}</span>
                         {bill.paidDate && <span>实收：{bill.paidDate}</span>}
                       </div>
-                      {bill.status === 'paid' && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-[1]">
-                          <span className="rotate-[-12deg] border-[3px] border-red-500 text-red-500 bg-red-50/70 px-4 py-2 rounded-md text-base font-black opacity-75">
-                            ✓ 已收
-                          </span>
-                        </div>
-                      )}
                     </div>
                   ))
                 )}
