@@ -127,13 +127,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     return () => { _saveCallback = null }
   }, [doSave])
 
-  // 启动时加载云端数据（仅首次登录，刷新不重复拉取，避免覆盖本地新数据）
+  // 启动时加载云端数据（仅本地无数据时加载，避免覆盖已有数据）
   useEffect(() => {
     if (!isSupabaseConfigured() || !ready || !user) return
-    const flagKey = `cloud_init_loaded_${user.id}`
-    if (sessionStorage.getItem(flagKey)) return
-    sessionStorage.setItem(flagKey, '1')
-    loadNow()
+    const state = useStore.getState()
+    const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
+    if (!hasLocalData) {
+      loadNow()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user])
 
