@@ -62,6 +62,7 @@ export interface LandlordContract {
   landlordPhone?: string
   monthlyRent: number
   paymentMethod: PaymentMethod
+  deposit?: number
   contractStart: string
   contractEnd: string
   status: 'active' | 'ended'

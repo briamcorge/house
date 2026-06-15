@@ -176,15 +176,9 @@ export default function RoomDetail() {
                             {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                           </div>
                           <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
-                          {bill.status !== 'pending' && (
-                            <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                              bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                            }`}>
-                              {bill.status === 'paid' ? '已收' : '逾期'}
-                            </span>
-                          )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {bill.paidDate && bill.status === 'paid' && <span className="text-xs text-green-600">实收：{bill.paidDate}</span>}
                           <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(2)}</span>
                           {bill.status !== 'paid' && (
                             <button
@@ -199,9 +193,8 @@ export default function RoomDetail() {
                       </div>
                       <div className="text-xs text-gray-400 flex items-center gap-2">
                         {bill.description && <span>{bill.description}</span>}
-                        {bill.description && (bill.dueDate || bill.paidDate) && <span>·</span>}
+                        {bill.description && bill.dueDate && <span>·</span>}
                         <span>应收日：{bill.dueDate}</span>
-                        {bill.paidDate && <span>实收：{bill.paidDate}</span>}
                       </div>
                     </div>
                   ))

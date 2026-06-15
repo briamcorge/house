@@ -216,7 +216,7 @@ export default function Properties() {
       <LandlordContractModal
         isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
         onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
-        onConfirm={(draftBills, rent, name, phone, cs, ce) => {
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
           draftBills.forEach((bill) => {
             addBill({
               propertyId: landlordPropertyId!,
@@ -237,10 +237,11 @@ export default function Properties() {
             contractStart: cs || draftBills[0]?.dueDate || '',
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
+            deposit: deposit,
           })
           setLandlordPropertyId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
           const pid = landlordEdit?.pid
           if (!pid) return
           const now = new Date().toISOString().slice(0, 7)
@@ -264,6 +265,7 @@ export default function Properties() {
             contractStart: cs || draftBills[0]?.dueDate || '',
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
+            deposit: deposit,
           })
           setLandlordEdit(null)
         }}

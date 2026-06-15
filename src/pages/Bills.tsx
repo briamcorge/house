@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, Calendar, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles } from 'lucide-react'
 
 function get30DaysAgo(): string {
   const d = new Date()
@@ -440,18 +440,16 @@ export default function Bills() {
                             </div>
                           )}
                           {tenantName && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
                               <User className="w-4 h-4 text-gray-400" />
                               <span>{tenantName}</span>
+                              <span className="text-gray-300">·</span>
+                              <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
+                              {bill.paidDate && bill.status === 'paid' && (
+                                <span className="text-green-600 ml-1">实付：{bill.paidDate}</span>
+                              )}
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
-                            {bill.paidDate && bill.status === 'paid' && (
-                              <span className="text-green-600 ml-2">实付：{bill.paidDate}</span>
-                            )}
-                          </div>
                         </div>
                       </div>
                     )
