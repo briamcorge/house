@@ -396,6 +396,27 @@ export default function App() {
     }
   }, [currentUser, deviceTokenReady])
 
+  // Capacitor App：Android 返回键（手势返回/物理返回）
+  useEffect(() => {
+    let handler: { remove: () => void } | null = null
+    import('@capacitor/app').then(({ App: CapacitorApp }) => {
+      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back()
+        } else {
+          const hash = window.location.hash
+          const depth = hash.split('/').length - 1
+          if (depth > 1) {
+            window.history.back()
+          } else {
+            CapacitorApp.exitApp()
+          }
+        }
+      }).then(h => { handler = h })
+    }).catch(() => { /* 非 Capacitor 环境忽略 */ })
+    return () => { handler?.remove() }
+  }, [])
+
   return (
     <Router>
       {/* 未登录 → 显示登录页 */}
