@@ -237,18 +237,18 @@ export default function RoomList() {
       <LandlordContractModal
         isOpen={editContractId !== null}
         onClose={() => setEditContractId(null)}
-        onConfirm={(draftBills, rent, name, phone, cs, ce) => {
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, amount: bill.amount, type: 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description })
           })
-          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active' })
+          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, amount: bill.amount, type: 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}` })
           })
-          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active' })
+          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
         }}
         propertyAddress={property?.address || ''}

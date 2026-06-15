@@ -6,14 +6,15 @@ import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/ca
 interface LandlordContractModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string) => void
-  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string) => void
+  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number) => void
+  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number) => void
   onSaveEdit?: (landlordName?: string, landlordPhone?: string) => void
   propertyAddress: string
   existingRent?: number
   existingPaymentMethod?: PaymentMethod
   existingStart?: string
   existingEnd?: string
+  existingDeposit?: number
   existingName?: string
   existingPhone?: string
   isSimpleEdit?: boolean
@@ -34,7 +35,7 @@ function showError(setter: (msg: string) => void, msg: string) {
   setTimeout(() => setter(''), 5000)
 }
 
-export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
+export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [landlordName, setLandlordName] = useState('')
@@ -55,6 +56,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   const [error, setError] = useState('')
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
   const [billKey, setBillKey] = useState(0)
+  const [deposit, setDeposit] = useState('')
 
   useEffect(() => {
     if (isOpen) {
@@ -71,11 +73,12 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
         setContractEnd(existingEnd || formatDate(add30Days(new Date(), 359)))
       }
       setPaymentMethod(existingPaymentMethod || 'monthly')
+      setDeposit(existingDeposit?.toString() || '')
       setError('')
       setDraftBills([])
       setBillKey(0)
     }
-  }, [isOpen, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone])
+  }, [isOpen, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit])
 
   const regenerateBills = () => {
     const rent = parseFloat(monthlyRent)
@@ -121,9 +124,9 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       return
     }
     if (existingRent !== undefined) {
-      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd)
+      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined)
     } else {
-      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd)
+      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined)
     }
     onClose()
   }
@@ -252,6 +255,21 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <DollarSign className="w-4 h-4 inline mr-1" />
+                押金（选填）
+              </label>
+              <input
+                type="number"
+                value={deposit}
+                onChange={(e) => setDeposit(e.target.value)}
+                placeholder="例如：5000"
+                min="0"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <DollarSign className="w-4 h-4 inline mr-1" />
                 付款方式
               </label>
               <select
@@ -311,6 +329,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                 <div className="text-right">
                   <p className="text-sm font-medium text-orange-900">月付房东 ¥{parseFloat(monthlyRent) || 0}</p>
                   <p className="text-xs text-orange-500">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
+                  {parseFloat(deposit) > 0 && <p className="text-xs text-orange-500">押金 ¥{parseFloat(deposit)}</p>}
                 </div>
               </div>
             </div>
