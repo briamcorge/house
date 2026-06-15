@@ -1,2 +1,2 @@
-// 构建时自动递增版本号（scripts/bump-version.js负责）
-export const APP_VERSION = '1.81'
+// Auto-incremented by scripts/bump-version.js
+export const APP_VERSION = '1.82'
