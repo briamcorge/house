@@ -167,6 +167,7 @@ export function generateCycles(
 
     const paid = payableBills
       .filter(b => b.dueDate >= cs && b.dueDate <= ce && b.status === 'paid')
+      .filter(b => !b.description || !b.description.includes('押金'))
       .reduce((s, b) => s + b.amount, 0)
 
     cycles.push({ cycleStart: cs, cycleEnd: ce, landlordPaid: paid })
