@@ -1,5 +1,5 @@
 {
-  "version": "1.100",
+  "version": "1.99",
   "apkUrl": "",
-  "notes": "APK地址自动拼 + 原生插件恢复"
+  "notes": "修复: 直跳 APK 下载地址，不走 Release 页面"
 }
