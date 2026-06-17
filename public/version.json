@@ -1,5 +1,5 @@
 {
-  "version": "1.94",
-  "apkUrl": "https://gitee.com/c94138228/house/releases/download/v1.92/a%E6%88%BF%E5%B1%8B%E7%AE%A1%E7%90%86v1.92.apk",
-  "notes": "修复：dist臃肿导致白屏 + APK内原生检查版本通过Java HTTP"
+  "version": "1.95",
+  "apkUrl": "https://gitee.com/c94138228/house/releases/download/v1.95/house.apk",
+  "notes": "修复下载按钮 + 原生插件恢复"
 }
