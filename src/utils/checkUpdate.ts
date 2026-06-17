@@ -26,12 +26,11 @@ async function fetchRemoteVersion(): Promise<UpdateInfo | null> {
     }
   }
 
-  // Web/PWA → fetch 到 Gitee raw
+  // Web/PWA → 同域 version.json（部署在 GitHub Pages，无 CORS 限制）
   try {
-    const res = await fetch(
-      'https://gitee.com/c94138228/house/raw/master/version.json',
-      { cache: 'no-cache' }
-    )
+    const base = import.meta.env.BASE_URL || '/'
+    const url = `${base}version.json`
+    const res = await fetch(url, { cache: 'no-cache' })
     if (!res.ok) return null
     return await res.json()
   } catch {
