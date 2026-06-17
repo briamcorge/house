@@ -11,7 +11,7 @@ import { Edit2, Trash2, MoreVertical, Plus, Search, FileText, User } from 'lucid
 
 export default function Properties() {
   const navigate = useNavigate()
-  const { properties, rooms, bills, landlordContracts, addProperty, updateProperty, deleteProperty, addBill, addLandlordContract, updateLandlordContract } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addProperty, updateProperty, deleteProperty, addBill, addLandlordContract, updateLandlordContract } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editingProperty, setEditingProperty] = useState<Property | undefined>()
   const [propertyMenu, setPropertyMenu] = useState<string | null>(null)
@@ -177,9 +177,23 @@ export default function Properties() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm('确定要删除这个房源吗？')) {
-                            deleteProperty(property.id)
+                          // 前置检查：活跃租客 + 活跃业主合同
+                          const propRoomIds = rooms.filter(r => r.propertyId === property.id).map(r => r.id)
+                          const activeTenants = tenants.filter(t => propRoomIds.includes(t.roomId) && t.status === 'active').length
+                          const activeContracts = landlordContracts.filter(c => c.propertyId === property.id && c.status === 'active').length
+                          const warnings: string[] = []
+                          if (activeTenants > 0) warnings.push(`${activeTenants} 份活跃租客合同`)
+                          if (activeContracts > 0) warnings.push(`${activeContracts} 份活跃业主合同`)
+                          if (warnings.length > 0) {
+                            alert(`该房源下有 ${warnings.join(' / ')}，请先处理后再删除`)
+                            setPropertyMenu(null)
+                            return
                           }
+                          // 第一步确认
+                          if (!confirm('确定要删除这个房源吗？')) { setPropertyMenu(null); return }
+                          // 第二步确认：是否保留已付账单
+                          const keepPaid = confirm('是否保留已付清的账单及流水？\n\n选择"确定"= 保留已付账单\n选择"取消"= 删除所有关联账单')
+                          deleteProperty(property.id, keepPaid)
                           setPropertyMenu(null)
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

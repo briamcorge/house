@@ -15,7 +15,7 @@ interface AppStore {
 
   addProperty: (property: Omit<Property, 'id' | 'createdAt'>) => void
   updateProperty: (id: string, property: Partial<Property>) => void
-  deleteProperty: (id: string) => void
+  deleteProperty: (id: string, keepPaidBills?: boolean) => void
 
   addRoom: (room: Omit<Room, 'id' | 'createdAt'>) => void
   updateRoom: (id: string, room: Partial<Room>) => void
@@ -115,7 +115,7 @@ export const useStore = create<AppStore>()(
           }
         }),
 
-      deleteProperty: (id) =>
+      deleteProperty: (id, keepPaidBills = true) =>
         set((state) => {
           const prop = state.properties.find((p) => p.id === id)
           const roomIds = state.rooms.filter((r) => r.propertyId === id).map((r) => r.id)
@@ -124,12 +124,21 @@ export const useStore = create<AppStore>()(
           state.rooms.filter((r) => r.propertyId === id).forEach((r) => trashItems.push({ id: createId(), type: 'room', originalId: r.id, data: r, label: `${r.label}室`, deletedAt: new Date().toISOString().slice(0, 10) }))
           state.tenants.filter((t) => roomIds.includes(t.roomId)).forEach((t) => trashItems.push({ id: createId(), type: 'tenant', originalId: t.id, data: t, label: t.name, deletedAt: new Date().toISOString().slice(0, 10) }))
           state.landlordContracts.filter((c) => c.propertyId === id).forEach((c) => trashItems.push({ id: createId(), type: 'landlord_contract', originalId: c.id, data: c, label: `代理合同 ${c.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) }))
-          state.bills.filter((b) => b.propertyId === id || (b.roomId && roomIds.includes(b.roomId))).forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          const billBelongsTo = (b: Bill) => b.propertyId === id || (b.roomId && roomIds.includes(b.roomId))
+          if (keepPaidBills) {
+            // 保留已付账单，只删未付
+            state.bills.filter((b) => billBelongsTo(b) && b.status !== 'paid').forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          } else {
+            // 全部账单删除
+            state.bills.filter(billBelongsTo).forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          }
           return {
             properties: state.properties.filter((p) => p.id !== id),
             rooms: state.rooms.filter((r) => r.propertyId !== id),
             tenants: state.tenants.filter((t) => !roomIds.includes(t.roomId)),
-            bills: state.bills.filter((b) => b.propertyId !== id && !(b.roomId && roomIds.includes(b.roomId))),
+            bills: keepPaidBills
+              ? state.bills.filter((b) => !(billBelongsTo(b) && b.status !== 'paid'))
+              : state.bills.filter((b) => !billBelongsTo(b)),
             landlordContracts: state.landlordContracts.filter((c) => c.propertyId !== id),
             trash: [...state.trash, ...trashItems],
             auditLogs: recordLog(state, 'delete', 'property', id, prop?.address || ''),
@@ -161,9 +170,11 @@ export const useStore = create<AppStore>()(
           const room = state.rooms.find((r) => r.id === id)
           const trash: TrashItem[] = []
           if (room) trash.push({ id: createId(), type: 'room', originalId: id, data: room, label: `${room.label}室`, deletedAt: new Date().toISOString().slice(0, 10) })
-          state.bills.filter((b) => b.roomId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          // 只删未付账单，已付账单保留作为历史流水
+          state.bills.filter((b) => b.roomId === id && b.status !== 'paid').forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
           return {
             rooms: state.rooms.filter((r) => r.id !== id),
+            bills: state.bills.filter((b) => !(b.roomId === id && b.status !== 'paid')),
             trash: [...state.trash, ...trash],
             auditLogs: recordLog(state, 'delete', 'room', id, `${room.label}室`),
           }
