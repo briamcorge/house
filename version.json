@@ -1,5 +1,5 @@
 {
-  "version": "1.98",
-  "apkUrl": "https://gitee.com/c94138228/house/releases/download/v1.98/house.apk",
-  "notes": "去除 PWA + 原生插件恢复（APK 内直接下载安装）"
+  "version": "1.100",
+  "apkUrl": "",
+  "notes": "APK地址自动拼 + 原生插件恢复"
 }
