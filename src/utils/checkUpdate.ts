@@ -10,7 +10,7 @@ export interface UpdateInfo {
  * 用版本号拼出 APK 下载地址，不依赖 version.json 里的 apkUrl，
  * 避免「部署时 Release 还没创建」的时序问题。
  */
-function buildApkUrl(version: string): string {
+export function buildApkUrl(version: string): string {
   return `https://gitee.com/c94138228/house/releases/download/v${version}/house.apk`
 }
 

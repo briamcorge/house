@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { fetchLatestVersion } from '../utils/checkUpdate'
+import { fetchLatestVersion, buildApkUrl } from '../utils/checkUpdate'
 import type { UpdateInfo } from '../utils/checkUpdate'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
@@ -492,19 +492,27 @@ export default function More() {
                         type="button"
                         onClick={async () => {
                           const isCapacitor = !!(window as any).Capacitor?.isNativePlatform
+                          // 先获取最新版本信息
+                          const info = latestVersion || await fetchLatestVersion()
+
                           if (isCapacitor) {
-                            const info = latestVersion || await fetchLatestVersion()
                             if (info) {
                               try {
                                 const { AppUpdate } = await import('../utils/update')
                                 await AppUpdate.downloadAndInstall({ url: info.apkUrl })
                                 return
                               } catch {
-                                // 原生安装失败，降级打开 Gitee
+                                // 原生安装失败，降级
                               }
                             }
                           }
-                          window.open('https://gitee.com/c94138228/house/releases/latest', '_blank')
+
+                          // 网页版 / Capacitor 降级：直接打开 APK 下载地址
+                          if (info) {
+                            window.open(info.apkUrl, '_blank')
+                          } else {
+                            window.open('https://gitee.com/c94138228/house/releases/latest', '_blank')
+                          }
                         }}
                         className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
                       >
