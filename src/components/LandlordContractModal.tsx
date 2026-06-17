@@ -207,20 +207,36 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
             </div>
 
             {!isSimpleEdit && (<>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <DollarSign className="w-4 h-4 inline mr-1" />
-                月租金（交给房东）
-              </label>
-              <input
-                type="number"
-                value={monthlyRent}
-                onChange={(e) => setMonthlyRent(e.target.value)}
-                placeholder="例如：4500"
-                min="1"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  月租金（交给房东）
+                </label>
+                <input
+                  type="number"
+                  value={monthlyRent}
+                  onChange={(e) => setMonthlyRent(e.target.value)}
+                  placeholder="例如：4500"
+                  min="1"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  押金（选填）
+                </label>
+                <input
+                  type="number"
+                  value={deposit}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  placeholder="例如：5000"
+                  min="0"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -250,21 +266,6 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   required
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <DollarSign className="w-4 h-4 inline mr-1" />
-                押金（选填）
-              </label>
-              <input
-                type="number"
-                value={deposit}
-                onChange={(e) => setDeposit(e.target.value)}
-                placeholder="例如：5000"
-                min="0"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
 
             <div>

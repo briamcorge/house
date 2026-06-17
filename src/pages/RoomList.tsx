@@ -7,7 +7,7 @@ import RoomModal from '../components/RoomModal'
 import TenantModal from '../components/TenantModal'
 import BillSummaryModal from '../components/BillSummaryModal'
 import LandlordContractModal from '../components/LandlordContractModal'
-import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText } from 'lucide-react'
+import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2 } from 'lucide-react'
 
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
@@ -135,16 +135,6 @@ export default function RoomList() {
                   room={room}
                   tenant={getTenantForRoom(room.id)}
                   onClick={() => navigate(`/properties/${propertyId}/rooms/${room.id}`)}
-                  onDelete={() => {
-                    const roomTenants = tenants.filter(t => t.roomId === room.id)
-                    if (roomTenants.length > 0) {
-                      alert('该房间存在租客记录，请先删除租客后再删除房间')
-                      return
-                    }
-                    if (confirm(`确定删除${room.label}室？`)) {
-                      deleteRoom(room.id)
-                    }
-                  }}
                   billSummary={(() => {
                     const roomBills = bills.filter(b => b.roomId === room.id)
                     const total = roomBills.reduce((s, b) => s + b.amount, 0)
@@ -185,6 +175,24 @@ export default function RoomList() {
                       >
                         <UserPlus className="w-4 h-4" />
                         租客合同
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomMenu(null)
+                          const roomTenants = tenants.filter(t => t.roomId === room.id)
+                          if (roomTenants.length > 0) {
+                            alert('该房间存在租客记录，请先删除租客后再删除房间')
+                            return
+                          }
+                          if (confirm(`确定删除${room.label}室？`)) {
+                            deleteRoom(room.id)
+                          }
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        删除房间
                       </button>
                     </div>
                     </>
