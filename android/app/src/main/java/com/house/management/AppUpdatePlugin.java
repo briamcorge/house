@@ -3,18 +3,58 @@ package com.house.management;
 import android.content.Intent;
 import android.net.Uri;
 import androidx.core.content.FileProvider;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 @CapacitorPlugin(name = "AppUpdate")
 public class AppUpdatePlugin extends Plugin {
+
+  private static final String VERSION_URL =
+    "https://gitee.com/c94138228/house/raw/master/version.json";
+
+  /**
+   * 从 Gitee raw 获取最新的版本信息（原生 HTTP，无 CORS 限制）
+   */
+  @PluginMethod
+  public void checkVersion(PluginCall call) {
+    new Thread(
+      () -> {
+        try {
+          HttpURLConnection conn = (HttpURLConnection) new URL(VERSION_URL).openConnection();
+          conn.setConnectTimeout(10000);
+          conn.setReadTimeout(10000);
+          conn.setRequestMethod("GET");
+          conn.connect();
+
+          BufferedReader reader = new BufferedReader(
+            new InputStreamReader(conn.getInputStream(), "UTF-8")
+          );
+          StringBuilder sb = new StringBuilder();
+          String line;
+          while ((line = reader.readLine()) != null) {
+            sb.append(line);
+          }
+          reader.close();
+          conn.disconnect();
+
+          JSObject result = new JSObject(sb.toString());
+          call.resolve(result);
+        } catch (Exception e) {
+          call.reject("获取版本信息失败: " + e.getMessage());
+        }
+      }
+    ).start();
+  }
 
   @PluginMethod
   public void downloadAndInstall(PluginCall call) {
