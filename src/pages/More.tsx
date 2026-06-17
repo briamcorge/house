@@ -1,11 +1,9 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, Download, Smartphone } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
-import { fetchLatestVersion } from '../utils/checkUpdate'
-import type { UpdateInfo } from '../utils/checkUpdate'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 
@@ -76,7 +74,6 @@ export default function More() {
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
-  const [latestVersion, setLatestVersion] = useState<UpdateInfo | null>(null)
   const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
@@ -103,13 +100,6 @@ export default function More() {
       setIsAdmin(false)
     }
   }, [currentUser])
-
-  // 展开「关于」时检查最新版本
-  useEffect(() => {
-    if (showAbout) {
-      fetchLatestVersion().then(setLatestVersion)
-    }
-  }, [showAbout])
 
   const handleSignOut = async () => {
     // 尝试服务端退出（不等待）
@@ -480,46 +470,6 @@ export default function More() {
                       )}
                     </div>
 
-                    {/* 下载 Android 版 */}
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      {latestVersion && latestVersion.version !== APP_VERSION && (
-                        <div className="flex items-center justify-center gap-1.5 text-xs mb-2">
-                          <span className="text-gray-400">最新版本 v{latestVersion.version}</span>
-                          <span className="text-orange-500 font-medium">可更新</span>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const isCapacitor = !!(window as any).Capacitor?.isNativePlatform
-                          // 先获取最新版本信息
-                          const info = latestVersion || await fetchLatestVersion()
-
-                          if (isCapacitor) {
-                            if (info) {
-                              try {
-                                const { AppUpdate } = await import('../utils/update')
-                                await AppUpdate.downloadAndInstall({ url: info.apkUrl })
-                                return
-                              } catch {
-                                // 原生安装失败，降级
-                              }
-                            }
-                          }
-
-                          // 网页版 / Capacitor 降级：直接跳转到下载地址，触发浏览器下载
-                          if (info) {
-                            window.location.href = info.apkUrl
-                          } else {
-                            window.location.href = 'https://gitee.com/c94138228/house/releases/latest'
-                          }
-                        }}
-                        className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <Smartphone className="w-4 h-4" />
-                        <span>下载 Android 安装包</span>
-                      </button>
-                    </div>
                   </div>
                 )}
                 {isProfit && showProfitForm && (
