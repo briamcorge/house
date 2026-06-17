@@ -8,6 +8,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,7 +48,10 @@ public class AppUpdatePlugin extends Plugin {
           reader.close();
           conn.disconnect();
 
-          JSObject result = new JSObject(sb.toString());
+          JSONObject json = new JSONObject(sb.toString());
+          JSObject result = new JSObject();
+          result.put("version", json.getString("version"));
+          result.put("notes", json.optString("notes", ""));
           call.resolve(result);
         } catch (Exception e) {
           call.reject("获取版本信息失败: " + e.getMessage());
