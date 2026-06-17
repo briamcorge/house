@@ -7,7 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   base: process.env.VITE_BASE || '/house/',
   build: {
-    sourcemap: 'hidden',
+    sourcemap: process.env.VITE_BASE === './' ? false : 'hidden',
     emptyOutDir: true,
   },
   plugins: [

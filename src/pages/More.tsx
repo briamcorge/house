@@ -491,19 +491,20 @@ export default function More() {
                       <button
                         type="button"
                         onClick={async () => {
-                          const info = latestVersion || await fetchLatestVersion()
-                          if (!info) { alert('获取下载信息失败'); return }
                           const isCapacitor = !!(window as any).Capacitor?.isNativePlatform
                           if (isCapacitor) {
-                            try {
-                              const { AppUpdate } = await import('../utils/update')
-                              await AppUpdate.downloadAndInstall({ url: info.apkUrl })
-                              return
-                            } catch {
-                              // 降级到浏览器下载
+                            const info = latestVersion || await fetchLatestVersion()
+                            if (info) {
+                              try {
+                                const { AppUpdate } = await import('../utils/update')
+                                await AppUpdate.downloadAndInstall({ url: info.apkUrl })
+                                return
+                              } catch {
+                                // 原生安装失败，降级打开 Gitee
+                              }
                             }
                           }
-                          window.open(info.apkUrl, '_blank')
+                          window.open('https://gitee.com/c94138228/house/releases/latest', '_blank')
                         }}
                         className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
                       >

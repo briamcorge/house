@@ -1,5 +1,5 @@
 {
-  "version": "1.91",
-  "apkUrl": "https://gitee.com/c94138228/house/releases/download/v1.91/a%E6%88%BF%E5%B1%8B%E7%AE%A1%E7%90%86v1.91.apk",
-  "notes": "修复：网页版 CORS 问题，version.json 放入 public/ 同域取；插件注册顺序修复白屏"
+  "version": "1.94",
+  "apkUrl": "https://gitee.com/c94138228/house/releases/download/v1.92/a%E6%88%BF%E5%B1%8B%E7%AE%A1%E7%90%86v1.92.apk",
+  "notes": "修复：dist臃肿导致白屏 + APK内原生检查版本通过Java HTTP"
 }
