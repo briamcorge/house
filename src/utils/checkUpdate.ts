@@ -7,6 +7,14 @@ export interface UpdateInfo {
 }
 
 /**
+ * 用版本号拼出 APK 下载地址，不依赖 version.json 里的 apkUrl，
+ * 避免「部署时 Release 还没创建」的时序问题。
+ */
+function buildApkUrl(version: string): string {
+  return `https://gitee.com/c94138228/house/releases/download/v${version}/house.apk`
+}
+
+/**
  * 在 Capacitor App 中通过原生插件（无 CORS 限制）获取版本信息，
  * 在 Web/PWA 中通过 fetch 获取。
  */
@@ -18,7 +26,7 @@ async function fetchRemoteVersion(): Promise<UpdateInfo | null> {
       const result = await AppUpdate.checkVersion()
       return {
         version: result.version,
-        apkUrl: result.apkUrl,
+        apkUrl: buildApkUrl(result.version),
         notes: result.notes,
       }
     } catch {
@@ -26,13 +34,15 @@ async function fetchRemoteVersion(): Promise<UpdateInfo | null> {
     }
   }
 
-  // Web/PWA → 同域 version.json（部署在 GitHub Pages，无 CORS 限制）
+  // Web → 同域 version.json
   try {
     const base = import.meta.env.BASE_URL || '/'
     const url = `${base}version.json`
     const res = await fetch(url, { cache: 'no-cache' })
     if (!res.ok) return null
-    return await res.json()
+    const info: UpdateInfo = await res.json()
+    // apkUrl 用拼的，不信任 json 里写死的内容
+    return { ...info, apkUrl: buildApkUrl(info.version) }
   } catch {
     return null
   }

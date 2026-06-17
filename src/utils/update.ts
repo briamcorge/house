@@ -4,7 +4,7 @@ export interface AppUpdatePlugin {
   /**
    * Fetch version info from remote (native HTTP, no CORS).
    */
-  checkVersion(): Promise<{ version: string; apkUrl: string; notes: string }>
+  checkVersion(): Promise<{ version: string; notes: string }>
 
   /**
    * Download APK from url to cache dir and launch system package installer.
