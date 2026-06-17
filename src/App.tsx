@@ -19,6 +19,8 @@ import BottomNav from "./components/BottomNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
 import LoginPage from "./pages/LoginPage";
+import UpdateModal from "./components/UpdateModal";
+import type { UpdateInfo } from "./utils/checkUpdate";
 
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024
@@ -166,6 +168,7 @@ export default function App() {
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [deviceTokenReady, setDeviceTokenReady] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
 
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
@@ -417,6 +420,36 @@ export default function App() {
     return () => { handler?.remove() }
   }, [])
 
+  // 自动检查更新（仅 Capacitor 环境）
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      // 延迟检查，不阻塞首页渲染
+      await new Promise(r => setTimeout(r, 3000))
+      if (cancelled) return
+      const isNative = !!(window as any).Capacitor?.isNativePlatform
+      if (!isNative) return
+      const { checkForUpdate } = await import('./utils/checkUpdate')
+      const info = await checkForUpdate()
+      if (!cancelled && info) {
+        setUpdateInfo(info)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [])
+
+  const handleAppUpdate = async () => {
+    if (!updateInfo) return
+    try {
+      const { AppUpdate } = await import('./utils/update')
+      await AppUpdate.downloadAndInstall({ url: updateInfo.apkUrl })
+    } catch {
+      // 原生插件失败 → 降级：在浏览器中打开下载链接
+      window.open(updateInfo.apkUrl, '_system')
+    }
+  }
+
   return (
     <Router>
       {/* 未登录 → 显示登录页 */}
@@ -451,6 +484,13 @@ export default function App() {
             </Routes>
             <BottomNav />
             <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+            {updateInfo && (
+              <UpdateModal
+                version={updateInfo.version}
+                notes={updateInfo.notes}
+                onUpdate={handleAppUpdate}
+              />
+            )}
           </div>
         </ErrorBoundary>
       )}
