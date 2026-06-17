@@ -51,6 +51,7 @@ public class AppUpdatePlugin extends Plugin {
           JSONObject json = new JSONObject(sb.toString());
           JSObject result = new JSObject();
           result.put("version", json.getString("version"));
+          result.put("apkUrl", json.optString("apkUrl", ""));
           result.put("notes", json.optString("notes", ""));
           call.resolve(result);
         } catch (Exception e) {
