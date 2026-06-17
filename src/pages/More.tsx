@@ -507,11 +507,11 @@ export default function More() {
                             }
                           }
 
-                          // 网页版 / Capacitor 降级：直接打开 APK 下载地址
+                          // 网页版 / Capacitor 降级：直接跳转到下载地址，触发浏览器下载
                           if (info) {
-                            window.open(info.apkUrl, '_blank')
+                            window.location.href = info.apkUrl
                           } else {
-                            window.open('https://gitee.com/c94138228/house/releases/latest', '_blank')
+                            window.location.href = 'https://gitee.com/c94138228/house/releases/latest'
                           }
                         }}
                         className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
