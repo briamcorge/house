@@ -12,7 +12,7 @@ import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText } from 'lucide-reac
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, editTenantContract, createTenantContract } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, editTenantContract, createTenantContract, deleteRoom } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
@@ -135,6 +135,16 @@ export default function RoomList() {
                   room={room}
                   tenant={getTenantForRoom(room.id)}
                   onClick={() => navigate(`/properties/${propertyId}/rooms/${room.id}`)}
+                  onDelete={() => {
+                    const roomTenants = tenants.filter(t => t.roomId === room.id)
+                    if (roomTenants.length > 0) {
+                      alert('该房间存在租客记录，请先删除租客后再删除房间')
+                      return
+                    }
+                    if (confirm(`确定删除${room.label}室？`)) {
+                      deleteRoom(room.id)
+                    }
+                  }}
                   billSummary={(() => {
                     const roomBills = bills.filter(b => b.roomId === room.id)
                     const total = roomBills.reduce((s, b) => s + b.amount, 0)

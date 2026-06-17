@@ -1,6 +1,6 @@
 import { Room, Tenant } from '../types'
 import { cn } from '../lib/utils'
-import { User, Calendar, DollarSign } from 'lucide-react'
+import { User, Calendar, DollarSign, Trash2 } from 'lucide-react'
 
 interface RoomCardProps {
   room: Room
@@ -8,11 +8,12 @@ interface RoomCardProps {
   billSummary?: { paid: number; total: number }
   onClick?: () => void
   onClickBill?: () => void
+  onDelete?: () => void
 }
 
 const paymentLabels: Record<string, string> = { monthly: '月付', quarterly: '季付', 'semi-annual': '半年付', annual: '年付' }
 
-export default function RoomCard({ room, tenant, billSummary, onClick, onClickBill }: RoomCardProps) {
+export default function RoomCard({ room, tenant, billSummary, onClick, onClickBill, onDelete }: RoomCardProps) {
   return (
     <div
       className="bg-white rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
@@ -34,7 +35,17 @@ export default function RoomCard({ room, tenant, billSummary, onClick, onClickBi
             )}>
               {room.status === 'occupied' ? '在租' : '空置'}
             </span>
-            <span className="ml-auto text-[10px] text-gray-400 pr-6">{room.roomType}</span>
+            <span className="ml-auto text-[10px] text-gray-400">{room.roomType}</span>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                className="p-1 -mr-1 hover:bg-red-50 rounded-full transition-colors"
+                title="删除房间"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500" />
+              </button>
+            )}
           </div>
           {tenant ? (
             <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
