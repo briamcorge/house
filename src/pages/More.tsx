@@ -1,10 +1,11 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, Beaker } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
+import TestDataModal from '../components/TestDataModal'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -74,6 +75,7 @@ export default function More() {
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
+  const [showTestData, setShowTestData] = useState(false)
   const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
@@ -450,6 +452,21 @@ export default function More() {
                         )}
                       </div>
                     )}
+                    {/* 生成测试数据 */}
+                    <div className="border-t border-gray-100 pt-3 mt-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Beaker className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm font-medium text-gray-900">测试</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTestData(true)}
+                        className="w-full py-2.5 px-3 bg-purple-50 text-purple-700 rounded-xl font-medium hover:bg-purple-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                      >
+                        <Beaker className="w-4 h-4" />
+                        <span>生成测试数据</span>
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isAbout && showAbout && (
@@ -638,6 +655,7 @@ export default function More() {
           </div>
         </div>
       )}
+      <TestDataModal isOpen={showTestData} onClose={() => setShowTestData(false)} />
     </div>
   )
 }
