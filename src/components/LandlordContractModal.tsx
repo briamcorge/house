@@ -24,8 +24,9 @@ interface LandlordContractModalProps {
 type Step = 'info' | 'preview'
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
-  { value: 'monthly', label: '月付' },
-  { value: 'quarterly', label: '季付' },
+          { value: 'monthly', label: '月付' },
+          { value: 'bi-monthly', label: '二月付' },
+          { value: 'quarterly', label: '季付' },
   { value: 'semi-annual', label: '半年付' },
   { value: 'annual', label: '年付' },
 ]

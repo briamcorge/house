@@ -16,7 +16,7 @@ export interface Room {
   createdAt: string
 }
 
-export type PaymentMethod = 'monthly' | 'quarterly' | 'semi-annual' | 'annual'
+export type PaymentMethod = 'monthly' | 'bi-monthly' | 'quarterly' | 'semi-annual' | 'annual'
 
 export interface Tenant {
   id: string
