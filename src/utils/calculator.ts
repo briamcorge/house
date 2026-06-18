@@ -152,6 +152,10 @@ export function generateRentBills(
       periodMonths = 1
       periodLabel = '月'
       break
+    case 'bi-monthly':
+      periodMonths = 2
+      periodLabel = '二月'
+      break
     case 'quarterly':
       periodMonths = 3
       periodLabel = '季'

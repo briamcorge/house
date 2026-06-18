@@ -150,6 +150,7 @@ export function generateCycles(
   payableBills: Bill[],
 ): { cycleStart: string; cycleEnd: string; landlordPaid: number }[] {
   const periodMonths = paymentMethod === 'monthly' ? 1
+    : paymentMethod === 'bi-monthly' ? 2
     : paymentMethod === 'quarterly' ? 3
     : paymentMethod === 'semi-annual' ? 6
     : 12
