@@ -9,24 +9,48 @@ interface Date360 {
   d: number  // 日期 1-30（31号映射到30号）
 }
 
-/** 将 Date 转换为 30/360 日期（31号→30号） */
+/** 将 Date 转换为 30/360 日期（31号→30号，2月28/29→30号） */
 function toDate360(date: Date): Date360 {
-  return {
-    y: date.getFullYear(),
-    m: date.getMonth(),
-    d: Math.min(date.getDate(), 30),
+  const y = date.getFullYear()
+  const m = date.getMonth()
+  const d = date.getDate()
+  let day = Math.min(d, 30)
+  if (m === 1) {
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)
+    const febLast = isLeap ? 29 : 28
+    if (d >= febLast) day = 30
   }
+  return { y, m, d: day }
 }
 
 /** 从字符串"YYYY-MM-DD"解析 30/360 日期 */
 function parseDate360(s: string): Date360 {
   const [y, m, d] = s.split('-').map(Number)
-  return { y, m: m - 1, d: Math.min(d, 30) }
+  const month = m - 1
+  // 30/360规则：每月30天。2月28/29日视为30日，31日视为30日
+  let day = Math.min(d, 30)
+  if (month === 1) {
+    // 2月最后一天（28或29）映射为30号
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)
+    const febLast = isLeap ? 29 : 28
+    if (d >= febLast) day = 30
+  }
+  return { y, m: month, d: day }
 }
 
 /** 格式化 30/360 日期为 YYYY-MM-DD */
 function formatDate360(d: Date360): string {
   return `${d.y}-${String(d.m + 1).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`
+}
+
+/** 显示友好的日期：2月30→28/29，其余不变 */
+function formatDate360Display(d: Date360): string {
+  let displayDay = d.d
+  if (d.m === 1 && d.d === 30) {
+    const isLeap = (d.y % 4 === 0 && d.y % 100 !== 0) || (d.y % 400 === 0)
+    displayDay = isLeap ? 29 : 28
+  }
+  return `${d.y}-${String(d.m + 1).padStart(2, '0')}-${String(displayDay).padStart(2, '0')}`
 }
 
 /** 30/360 日期加法：每月=30天，一年=360天 */
@@ -142,9 +166,9 @@ export function generateRentBills(
       break
   }
 
-  // 按30/360总天数计算期数
+  // 按30/360总天数计算期数（非包含，避免整年多算）
   const periodDays = periodMonths * 30
-  const totalDays = 1 + diffDays360(start, end)  // inclusive
+  const totalDays = diffDays360(start, end)
   const nPeriods = Math.max(1, Math.ceil(totalDays / periodDays))
 
   let cursor = { ...start }
@@ -162,16 +186,16 @@ export function generateRentBills(
     const amount = Math.round(monthlyRent / 30 * actualDays * 100) / 100
     // 提前付款
     const dueDate = i === 0
-      ? formatDate360(periodStart)
-      : formatDate360(add30Days360(periodStart, -advanceDays))
+      ? formatDate360Display(periodStart)
+      : formatDate360Display(add30Days360(periodStart, -advanceDays))
 
     bills.push({
       type: 'rent',
       amount,
       dueDate,
-      periodStart: formatDate360(periodStart),
-      periodEnd: formatDate360(periodEnd),
-      description: `第${i+1}期 ${periodLabel}租 ${formatDate360(periodStart)} ~ ${formatDate360(periodEnd)}`,
+      periodStart: formatDate360Display(periodStart),
+      periodEnd: formatDate360Display(periodEnd),
+      description: `第${i+1}期 ${periodLabel}租 ${formatDate360Display(periodStart)} ~ ${formatDate360Display(periodEnd)}`,
     })
 
     cursor = periodEnd
