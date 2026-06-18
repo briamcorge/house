@@ -56,7 +56,7 @@ export default function PaymentModal({ isOpen, onClose, direction }: PaymentModa
       const payment = payments[bill.id] as { paidAmount?: string; paidDate?: string } | undefined
       if (payment?.paidDate) {
         const inputAmt = payment.paidAmount ? parseFloat(payment.paidAmount) : bill.amount
-        const isPartial = inputAmt < bill.amount
+        const isPartial = inputAmt > 0 && inputAmt < bill.amount
         if (isPartial) {
           // 拆单：原账单金额减少，新生成一笔已付账单
           const remaining = bill.amount - inputAmt

@@ -45,11 +45,11 @@ export default function Statistics() {
     return Array.from(years).sort((a, b) => b - a)
   }, [bills, currentYear])
 
-  // 该年已收 (租客已付)
+  // 该年已收 (租客已付，排除押金相关)
   const yearlyReceivablePaid = useMemo(() => {
     return bills
       .filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(selectedYear.toString()))
-      .filter(b => b.description !== '押金')
+      .filter(b => !b.description?.includes('押金'))
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
@@ -67,8 +67,8 @@ export default function Statistics() {
       .reduce((s, b) => s + Math.abs(b.amount), 0)
   }, [bills, selectedYear])
 
-  // 净收入
-  const netIncome = yearlyReceivablePaid - yearlyPayablePaid - yearlyRefund
+  // 净收入（负数账单已自然体现在 income 中，不重复扣减）
+  const netIncome = yearlyReceivablePaid - yearlyPayablePaid
 
   // 按房源统计
   const propertyStats = useMemo(() => {
@@ -85,11 +85,11 @@ export default function Statistics() {
 
       const income = propBills
         .filter(b => b.direction === 'receivable' && b.status === 'paid')
-        .filter(b => b.description !== '押金')
+        .filter(b => !b.description?.includes('押金'))
         .reduce((s, b) => s + b.amount, 0)
       const expense = propBills
         .filter(b => b.direction === 'payable' && b.status === 'paid')
-        .reduce((s, b) => s + Math.abs(b.amount), 0)
+        .reduce((s, b) => s + b.amount, 0)
       const refund = propBills
         .filter(b => b.amount < 0 && b.status === 'paid')
         .reduce((s, b) => s + Math.abs(b.amount), 0)
@@ -101,7 +101,7 @@ export default function Statistics() {
         income,
         expense,
         refund,
-        net: income - expense - refund,
+        net: income - expense,  // refund 已自然体现在 income 中，不重复扣
       }
     }).sort((a, b) => b.net - a.net)
   }, [properties, rooms, tenants, bills, selectedYear])

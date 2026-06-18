@@ -5,7 +5,7 @@ import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
-import { ChevronLeft, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles } from 'lucide-react'
 import { add30Days, formatDate } from '../utils/calculator'
 
 export default function RoomDetail() {
@@ -17,11 +17,40 @@ export default function RoomDetail() {
   const room = rooms.find(r => r.id === roomId)
   const roomTenants = tenants.filter(t => t.roomId === roomId).sort((a, b) => b.contractStart.localeCompare(a.contractStart))
 
-  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
-  const selectedTenant = roomTenants.find(t => t.id === selectedTenantId) || roomTenants[0] || null
-  const roomBills = bills
-    .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === selectedTenant?.id)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  // 每个合同的账单折叠状态
+  const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set())
+  const toggleContract = (id: string) => {
+    setExpandedContracts(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // 续约链：按 previousTenantId 串联，标记每份合同在续约链中的序号
+  const contractGenerations = new Map<string, number>()
+  roomTenants.forEach(t => {
+    if (!t.previousTenantId) {
+      contractGenerations.set(t.id, 1)
+    }
+  })
+  // 第二遍：将有 previousTenantId 的设为上一份 + 1
+  let changed = true
+  while (changed) {
+    changed = false
+    roomTenants.forEach(t => {
+      if (t.previousTenantId && contractGenerations.has(t.previousTenantId) && !contractGenerations.has(t.id)) {
+        contractGenerations.set(t.id, (contractGenerations.get(t.previousTenantId) || 0) + 1)
+        changed = true
+      }
+    })
+  }
+  // 无法追踪续约链的默认为第1代
+  roomTenants.forEach(t => {
+    if (!contractGenerations.has(t.id)) contractGenerations.set(t.id, 1)
+  })
+
   const [checkoutTenant, setCheckoutTenant] = useState<Tenant | null>(null)
   const [isRenewal, setIsRenewal] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string; value: string } | null>(null)
@@ -30,6 +59,7 @@ export default function RoomDetail() {
   const [showTenantModal, setShowTenantModal] = useState(false)
   const [showBillModal, setShowBillModal] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
+  const [billModalTenantId, setBillModalTenantId] = useState<string | null>(null)
 
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
@@ -50,7 +80,14 @@ export default function RoomDetail() {
     gas: Flame,
     internet: Wifi,
     hygiene: Sparkles,
-    other: Receipt
+    other: Receipt,
+  }
+
+  /** 获取某份合同的所有账单 */
+  function getContractBills(tenant: Tenant): Bill[] {
+    return bills
+      .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   }
 
   if (!room) {
@@ -78,8 +115,8 @@ export default function RoomDetail() {
       </div>
 
       <div className="px-4 pt-3">
-        <div className="max-w-md mx-auto space-y-6">
-          {/* 合同列表 */}
+        <div className="max-w-md mx-auto space-y-4">
+          {/* 合同列表（含可折叠账单） */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -87,13 +124,13 @@ export default function RoomDetail() {
                 合同记录
               </h2>
               {!roomTenants.some(t => t.status === 'active') && (
-              <button
-                type="button"
-                onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
-                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />新签合同
-              </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
+                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />新签合同
+                </button>
               )}
             </div>
 
@@ -103,112 +140,137 @@ export default function RoomDetail() {
               </div>
             ) : (
               <div className="space-y-2">
-                {roomTenants.map(t => (
-                  <div
-                    key={t.id}
-                    onClick={() => setSelectedTenantId(t.id)}
-                    className={`bg-white rounded-xl border p-3 cursor-pointer hover:shadow-sm transition-shadow ${
-                      selectedTenant?.id === t.id ? 'border-blue-300 shadow-sm ring-1 ring-blue-200' : 'border-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {inlineEdit?.id === t.id && inlineEdit?.field === 'name' ? (
-                          <input type="text" value={inlineValue} onChange={e => setInlineValue(e.target.value)}
-                            onBlur={() => { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}
-                            onKeyDown={e => { if (e.key === 'Enter') { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}}
-                            className="w-20 px-1 py-0.5 border border-blue-300 rounded text-sm font-medium" autoFocus />
-                        ) : (
-                          <span onClick={() => { setInlineValue(t.name); setInlineEdit({ id: t.id, field: 'name', value: t.name }) }} className="font-medium text-sm cursor-pointer hover:text-blue-600">{t.name}</span>
+                {roomTenants.map(t => {
+                  const gen = contractGenerations.get(t.id) || 1
+                  const tb = getContractBills(t)
+                  const paidCount = tb.filter(b => b.status === 'paid').length
+                  const paidTotal = tb.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                  const pendingCount = tb.filter(b => b.status !== 'paid').length
+                  const isExpanded = expandedContracts.has(t.id)
+
+                  return (
+                    <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                      {/* 合同头部 — 点击展开/折叠账单 */}
+                      <div
+                        onClick={() => toggleContract(t.id)}
+                        className="p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); toggleContract(t.id) }} className="p-0.5 hover:bg-gray-200 rounded shrink-0">
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                            </button>
+                            {inlineEdit?.id === t.id && inlineEdit?.field === 'name' ? (
+                              <input type="text" value={inlineValue} onChange={e => setInlineValue(e.target.value)}
+                                onBlur={() => { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}
+                                onKeyDown={e => { if (e.key === 'Enter') { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}}
+                                className="w-20 px-1 py-0.5 border border-blue-300 rounded text-sm font-medium" autoFocus onClick={e => e.stopPropagation()} />
+                            ) : (
+                              <span onClick={(e) => { e.stopPropagation(); setInlineValue(t.name); setInlineEdit({ id: t.id, field: 'name', value: t.name }) }} className="font-medium text-sm cursor-pointer hover:text-blue-600 truncate">{t.name}</span>
+                            )}
+                            {gen > 1 && (
+                              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded shrink-0">续{gen - 1}</span>
+                            )}
+                            <span className="text-xs text-gray-400 shrink-0">#{t.displayId}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {t.status === 'active' ? '在租' : '已退租'}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(false); setEditingTenant(t); setShowTenantModal(true) }} className="text-xs text-blue-600 hover:underline whitespace-nowrap">编辑</button>
+                            {t.status === 'active' ? (
+                              <>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline whitespace-nowrap">续约</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">退租</button>
+                              </>
+                            ) : (
+                              <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有账单？`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                          {t.phone && <span>{t.phone}</span>}
+                          <span>{t.contractStart} ~ {t.contractEnd}</span>
+                          <span className="text-gray-400">¥{t.monthlyRent}/月</span>
+                        </div>
+                        {/* 折叠时显示账单摘要 */}
+                        {!isExpanded && tb.length > 0 && (
+                          <div className="flex gap-3 mt-1.5 text-xs">
+                            <span className="text-green-600">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>
+                            {pendingCount > 0 && <span className="text-orange-600">待收 {pendingCount} 笔</span>}
+                          </div>
                         )}
-                        <span className="text-xs text-gray-400">#{t.displayId}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {t.status === 'active' ? '在租' : '已退租'}
-                        </span>
                       </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(false); setEditingTenant(t); setShowTenantModal(true) }} className="text-xs text-blue-600 hover:underline">编辑</button>
-                        {t.status === 'active' ? (
-                          <>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline">续约</button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline">退租</button>
-                          </>
-                        ) : (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有账单？`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline">删除</button>
-                        )}
-                      </div>
+
+                      {/* 展开的账单列表 */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-50">
+                          {/* 添加账单按钮 */}
+                          <div className="px-3 py-1.5 flex items-center justify-between bg-gray-50/50">
+                            <span className="text-xs text-gray-400">
+                              共 {tb.length} 条 ·
+                              <span className="text-green-600 ml-1">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>
+                              {pendingCount > 0 && <span className="text-orange-600 ml-1">待收 {pendingCount} 笔</span>}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => { setBillModalTenantId(t.id); setShowBillModal(true) }}
+                              className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                            >
+                              <Plus className="w-3 h-3" />添加账单
+                            </button>
+                          </div>
+                          <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                            {tb.length === 0 ? (
+                              <div className="p-4 text-center text-xs text-gray-400">暂无账单</div>
+                            ) : (
+                              tb.map((bill) => (
+                                <div key={bill.id} className="p-3 hover:bg-gray-50">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
+                                        {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
+                                      </div>
+                                      <span className="font-medium text-sm text-gray-900 truncate">{typeLabels[bill.type]}</span>
+                                      {bill.status !== 'pending' && (
+                                        <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium shrink-0 ${
+                                          bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                        }`}>
+                                          {bill.status === 'paid' ? '已收' : '逾期'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {bill.paidDate && bill.status === 'paid' && <span className="text-[10px] text-green-600 hidden sm:inline">{bill.paidDate}</span>}
+                                      <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(0)}</span>
+                                      {bill.status !== 'paid' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPayConfirmBill(bill)}
+                                          className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200"
+                                        >
+                                          收款
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 flex items-center gap-2">
+                                    {bill.description && <span className="truncate">{bill.description}</span>}
+                                    {bill.description && <span>·</span>}
+                                    <span className="shrink-0">应收日：{bill.dueDate}</span>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {t.phone && <span className="mr-3">{t.phone}</span>}
-                      <span>{t.contractStart} ~ {t.contractEnd}</span>
-                      <span className="ml-2 text-gray-400">¥{t.monthlyRent}/月</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
-
-          {/* 选中合同的租客账单 */}
-          {selectedTenant && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  <FileText className="w-5 h-5 inline mr-1" />
-                  {selectedTenant.name} 的账单
-                </h2>
-                <button type="button" onClick={() => setShowBillModal(true)} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                  <Plus className="w-4 h-4" />添加
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {roomBills.length === 0 ? (
-                  <div className="text-center py-8 bg-white rounded-2xl shadow-sm border border-gray-100">
-                    <p className="text-gray-500">暂无账单</p>
-                  </div>
-                ) : (
-                  roomBills.map((bill) => (
-                    <div key={bill.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
-                            {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
-                          </div>
-                          <span className="font-medium text-sm text-gray-900">{typeLabels[bill.type]}</span>
-                          {bill.status !== 'pending' && (
-                            <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                              bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                            }`}>
-                              {bill.status === 'paid' ? '已收' : '逾期'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {bill.paidDate && bill.status === 'paid' && <span className="text-xs text-green-600">实收：{bill.paidDate}</span>}
-                          <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(2)}</span>
-                          {bill.status !== 'paid' && (
-                            <button
-                              type="button"
-                              onClick={() => setPayConfirmBill(bill)}
-                              className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg hover:bg-green-200"
-                            >
-                              收款
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-400 flex items-center gap-2">
-                        {bill.description && <span>{bill.description}</span>}
-                        {bill.description && bill.dueDate && <span>·</span>}
-                        <span>应收日：{bill.dueDate}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -242,11 +304,11 @@ export default function RoomDetail() {
 
       <BillModal
         isOpen={showBillModal}
-        onClose={() => setShowBillModal(false)}
-        onSave={(data) => { addBill(data); setShowBillModal(false) }}
+        onClose={() => { setShowBillModal(false); setBillModalTenantId(null) }}
+        onSave={(data) => { addBill(data); setShowBillModal(false); setBillModalTenantId(null) }}
         properties={properties}
         rooms={rooms}
-        tenants={tenants}
+        tenants={roomTenants}
         defaultRoomId={roomId}
         defaultDirection="receivable"
       />
@@ -257,7 +319,6 @@ export default function RoomDetail() {
         deposit={checkoutTenant?.deposit}
         onConfirm={(refunds) => {
           if (!checkoutTenant) return
-          // 创建退款账单（用负数表示退还）
           if (refunds.depositRefund > 0) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'other', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退押金' })
           }
@@ -342,7 +403,7 @@ export default function RoomDetail() {
                   type="button"
                   onClick={() => {
                     const paidAmt = payAmount ? parseFloat(payAmount) : undefined
-                    const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
+                    const isPartial = paidAmt !== undefined && paidAmt > 0 && paidAmt < payConfirmBill.amount
                     if (isPartial) {
                       const remaining = payConfirmBill.amount - paidAmt
                       updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
@@ -375,7 +436,6 @@ export default function RoomDetail() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

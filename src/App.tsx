@@ -255,46 +255,26 @@ export default function App() {
         setDeviceTokenReady(true)
       }
 
-      // 登录成功后跳转首页 + 自动加载云端数据
+      // 登录成功后跳转首页 + 本地数据保存到云端
       setJustLoggedIn(true)
-      // 同步云端数据到本地
-      import('./lib/cloud-sync-context').then(m => {
-        // 加载云端数据
-        const state = useStore.getState()
-        const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
-        if (hasLocalData) {
-          // 本地有数据 → 保存到云端（覆盖）
-          import('./lib/supabase').then(({ saveCloudData }) => {
-            const state = useStore.getState()
-            saveCloudData({
-              properties: state.properties,
-              rooms: state.rooms,
-              tenants: state.tenants,
-              bills: state.bills,
-              landlordContracts: state.landlordContracts,
-              profitRecords: state.profitRecords,
-              trash: state.trash,
-            })
+      // 本地有数据 → 保存到云端（覆盖）
+      const state = useStore.getState()
+      const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
+      if (hasLocalData) {
+        import('./lib/supabase').then(({ saveCloudData }) => {
+          const state = useStore.getState()
+          saveCloudData({
+            properties: state.properties,
+            rooms: state.rooms,
+            tenants: state.tenants,
+            bills: state.bills,
+            landlordContracts: state.landlordContracts,
+            profitRecords: state.profitRecords,
+            trash: state.trash,
           })
-        } else {
-          // 本地无数据 → 从云端加载
-          import('./lib/supabase').then(({ loadCloudData }) => {
-            loadCloudData().then(cloudData => {
-              if (cloudData) {
-                useStore.setState({
-                  properties: cloudData.properties,
-                  rooms: cloudData.rooms,
-                  tenants: cloudData.tenants,
-                  bills: cloudData.bills,
-                  landlordContracts: cloudData.landlordContracts,
-                  profitRecords: cloudData.profitRecords,
-                  trash: cloudData.trash,
-                } as any)
-              }
-            })
-          })
-        }
-      })
+        })
+      }
+      // 本地无数据时，CloudSyncProvider 会自动从云端加载
       // 操作日志
       useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'create', entity: 'auth', details: `${currentUser.email} 登录`, createdAt: new Date().toISOString() }] }))
     }

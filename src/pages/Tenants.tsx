@@ -5,7 +5,7 @@ import TenantModal from '../components/TenantModal'
 import { Search, Edit2, Trash2, MoreVertical, User, Phone, Home, Calendar } from 'lucide-react'
 
 export default function Tenants() {
-  const { tenants, properties, rooms, addTenant, updateTenant, deleteTenant } = useStore()
+  const { tenants, properties, rooms, updateTenant, deleteTenant } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
   const [tenantMenu, setTenantMenu] = useState<string | null>(null)
@@ -31,9 +31,6 @@ export default function Tenants() {
         useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
         useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
       }
-    } else {
-      addTenant(data)
-      useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
     }
     setEditingTenant(undefined)
     setShowModal(false)

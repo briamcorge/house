@@ -34,6 +34,8 @@ export interface Tenant {
   otherFeeAmount?: number
   status: 'active' | 'ended'
   createdAt: string
+  /** 续约时指向上一个租客 ID，用于追踪续约链 */
+  previousTenantId?: string
 }
 
 export type BillDirection = 'payable' | 'receivable'
