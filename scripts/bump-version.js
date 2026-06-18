@@ -7,6 +7,7 @@ if (process.env.CI) process.exit(0)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const versionPath = resolve(__dirname, '../src/version.ts')
+const versionJsonPath = resolve(__dirname, '../public/version.json')
 
 const content = readFileSync(versionPath, 'utf-8')
 const match = content.match(/APP_VERSION\s*=\s*'(\d+)\.(\d+)'/)
@@ -26,4 +27,12 @@ const newContent = content.replace(
 )
 
 writeFileSync(versionPath, newContent, 'utf-8')
+
+// 同步更新 version.json
+try {
+  const vj = JSON.parse(readFileSync(versionJsonPath, 'utf-8'))
+  vj.version = newVersion
+  writeFileSync(versionJsonPath, JSON.stringify(vj, null, 2) + '\n', 'utf-8')
+} catch { /* version.json 不存在则跳过 */ }
+
 console.log(`🔖 版本号: ${match[0]} → ${newVersion}`)
