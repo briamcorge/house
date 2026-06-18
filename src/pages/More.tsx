@@ -248,10 +248,18 @@ export default function More() {
         const billList = parseSheet('账单')
 
         const state = { properties: props, rooms: roomList, landlordContracts: contractList, tenants: tenantList, bills: billList }
-        localStorage.setItem('property-manager-data', JSON.stringify({ state, version: 1 }))
-        // 操作日志
+        // 通过 Zustand 设置状态（触发云同步 + 持久化到 localStorage）
         const s2 = useStore.getState()
-        useStore.setState({ auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }] })
+        useStore.setState({
+          properties: props as any[],
+          rooms: roomList as any[],
+          landlordContracts: contractList as any[],
+          tenants: tenantList as any[],
+          bills: billList as any[],
+          profitRecords: s2.profitRecords,
+          trash: s2.trash,
+          auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
+        })
 
         // 同步保存到 Supabase（等完成再刷新）
         try {

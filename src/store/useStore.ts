@@ -73,11 +73,24 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
 let hydrated = false
 export const useStore = create<AppStore>()(
   persist(
-    (rawSet) => {
+    (rawSet, get) => {
       const set: typeof rawSet = ((fn) => {
-        (rawSet as typeof rawSet)(fn)
+        const prev = get() as AppStore
+        ;(rawSet as typeof rawSet)(fn)
         if (hydrated) {
-          triggerCloudSave() // 每次变更自动触发 Supabase 云同步（500ms debounce）
+          const next = get() as AppStore
+          // 只有业务数据变更时才触发云同步（审计日志变更不触发）
+          if (
+            prev.properties !== next.properties ||
+            prev.rooms !== next.rooms ||
+            prev.tenants !== next.tenants ||
+            prev.bills !== next.bills ||
+            prev.landlordContracts !== next.landlordContracts ||
+            prev.profitRecords !== next.profitRecords ||
+            prev.trash !== next.trash
+          ) {
+            triggerCloudSave()
+          }
         }
       }) as typeof rawSet
 
@@ -321,7 +334,7 @@ export const useStore = create<AppStore>()(
         set((state) => {
           const now = new Date().toISOString()
           const newTenantId = createId()
-          const newTenant: Tenant = { ...tenant, displayId: nextDisplayId(state, 'ZL'), id: newTenantId, status: 'active', createdAt: now }
+          const newTenant: Tenant = { ...tenant, displayId: nextDisplayId(state, 'ZL'), id: newTenantId, status: 'active', createdAt: now, previousTenantId: oldTenantId }
           const newBills: Bill[] = draftBills.map((b) => ({
             id: createId(),
             roomId,
@@ -372,11 +385,26 @@ export const useStore = create<AppStore>()(
         set((state) => {
           const contract = state.landlordContracts.find((c) => c.id === id)
           const trash: TrashItem[] = []
-          if (contract) trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) })
-          state.bills.filter((b) => b.propertyId === propertyId && b.direction === 'payable').forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          if (contract) {
+            trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) })
+            // 只删除该合同日期范围内的应付账单
+            state.bills.filter((b) =>
+              b.propertyId === propertyId &&
+              b.direction === 'payable' &&
+              b.dueDate >= contract.contractStart &&
+              b.dueDate <= contract.contractEnd
+            ).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          }
           return {
             landlordContracts: state.landlordContracts.filter((c) => c.id !== id),
-            bills: state.bills.filter((b) => !(b.propertyId === propertyId && b.direction === 'payable')),
+            bills: contract
+              ? state.bills.filter((b) =>
+                  !(b.propertyId === propertyId &&
+                    b.direction === 'payable' &&
+                    b.dueDate >= contract.contractStart &&
+                    b.dueDate <= contract.contractEnd)
+                )
+              : state.bills,
             trash: [...state.trash, ...trash],
             auditLogs: recordLog(state, 'delete', 'landlord_contract', id, `删除业主合同`),
           }
