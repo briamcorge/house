@@ -62,9 +62,9 @@ export default function RoomList() {
                 setEditingRoomId(null);
                 setShowModal(true)
               }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors shrink-0"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-900 text-white rounded-xl text-xs font-medium hover:bg-blue-800 transition-colors shrink-0"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               添加房间
             </button>
           </div>
