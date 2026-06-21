@@ -241,7 +241,6 @@ export default function RoomDetail() {
                                       )}
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
-                                      {bill.paidDate && bill.status === 'paid' && <span className="text-[10px] text-green-600 hidden sm:inline">{bill.paidDate}</span>}
                                       <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(0)}</span>
                                       {bill.status !== 'paid' && (
                                         <button
@@ -257,7 +256,11 @@ export default function RoomDetail() {
                                   <div className="text-[10px] text-gray-400 flex items-center gap-2">
                                     {bill.description && <span className="truncate">{bill.description}</span>}
                                     {bill.description && <span>·</span>}
-                                    <span className="shrink-0">应收日：{bill.dueDate}</span>
+                                    <span className="shrink-0">
+                                      {bill.status === 'paid' && bill.paidDate
+                                        ? `实收日：${bill.paidDate}`
+                                        : `应收日：${bill.dueDate}`}
+                                    </span>
                                   </div>
                                 </div>
                               ))
