@@ -1,5 +1,5 @@
 {
-  "version": "1.109",
+  "version": "1.116",
   "apkUrl": "",
-  "notes": "静默版本检查，CDN缓存自动刷新"
+  "notes": ""
 }
