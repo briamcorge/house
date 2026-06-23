@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Building2, BarChart3, Wallet, DollarSign } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Building2, BarChart3 } from 'lucide-react'
 
 export default function Statistics() {
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, profitRecords } = useStore()
+  const { properties, rooms, tenants, bills } = useStore()
 
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()
@@ -148,7 +148,7 @@ export default function Statistics() {
           {/* 年度概览 */}
           <div>
             <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <Wallet className="w-5 h-5" />
+              <BarChart3 className="w-5 h-5" />
               {selectedYear}年 财务概览
             </h2>
             <div className="grid grid-cols-2 gap-3">
@@ -368,55 +368,6 @@ export default function Statistics() {
             })()}
           </div>
 
-          {/* 利润提取汇总 */}
-          {profitRecords.length > 0 && (
-            <div>
-              <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                利润提取记录
-              </h2>
-              <div className="space-y-2">
-                {(() => {
-                  const withdrawn = profitRecords.filter(r => r.status === 'withdrawn').reduce((s, r) => s + r.profitAmount, 0)
-                  const available = profitRecords.filter(r => r.status === 'available').reduce((s, r) => s + r.profitAmount, 0)
-                  return (
-                    <>
-                      <div className="grid grid-cols-2 gap-3 mb-2">
-                        <div className="bg-blue-50 rounded-xl p-3">
-                          <p className="text-xs text-blue-600">已提取利润</p>
-                          <p className="text-lg font-bold text-blue-700">¥{withdrawn.toFixed(0)}</p>
-                        </div>
-                        <div className="bg-yellow-50 rounded-xl p-3">
-                          <p className="text-xs text-yellow-600">可提取利润</p>
-                          <p className="text-lg font-bold text-yellow-700">¥{available.toFixed(0)}</p>
-                        </div>
-                      </div>
-                      {[...profitRecords].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10).map(r => {
-                        const prop = properties.find(p => p.id === r.propertyId)
-                        return (
-                          <div key={r.id} className="bg-white rounded-xl border border-gray-100 p-3 flex items-center justify-between">
-                            <div>
-                              <p className="text-sm font-medium">
-                                {r.profitAmount >= 0 ? '+' : ''}¥{r.profitAmount.toFixed(0)}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                {prop?.address || '未知房源'}
-                                {r.cycleStart && ` · ${r.cycleStart}~${r.cycleEnd}`}
-                                {r.isManual && ' · 手动'}
-                              </p>
-                            </div>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === 'withdrawn' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                              {r.status === 'withdrawn' ? `已提取${r.withdrawnAt ? ` ${r.withdrawnAt}` : ''}` : '可提取'}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </>
-                  )
-                })()}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
