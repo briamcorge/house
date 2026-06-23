@@ -1,11 +1,12 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
+import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -68,7 +69,7 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, clearAllData, addProfitRecord } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord } = useStore()
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
@@ -83,9 +84,23 @@ export default function More() {
   const [profitBillId, setProfitBillId] = useState('')
   const [profitCycleStart, setProfitCycleStart] = useState('')
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
+  const [profitResult, setProfitResult] = useState<PeriodProfitResult | null>(null)
   const landlordPayableBills = profitPropertyId
     ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
     : []
+  const propertyProfitRecords = profitPropertyId
+    ? profitRecords.filter(r => r.propertyId === profitPropertyId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : []
+
+  const resetProfitForm = () => {
+    setShowProfitForm(false)
+    setProfitPropertyId('')
+    setProfitAmount('')
+    setProfitBillId('')
+    setProfitCycleStart('')
+    setProfitCycleEnd('')
+    setProfitResult(null)
+  }
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
@@ -489,6 +504,8 @@ export default function More() {
                         setProfitBillId('')
                         setProfitCycleStart('')
                         setProfitCycleEnd('')
+                        setProfitResult(null)
+                        setProfitAmount('')
                       }}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                     >
@@ -497,13 +514,7 @@ export default function More() {
                         <option key={p.id} value={p.id}>{p.address}</option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      value={profitAmount}
-                      onChange={(e) => setProfitAmount(e.target.value)}
-                      placeholder="利润金额（元）"
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                    />
+
                     <select
                       value={profitBillId}
                       onChange={(e) => {
@@ -514,13 +525,22 @@ export default function More() {
                           if (bill?.description) {
                             const m = bill.description.match(/第\d+期 .+? (\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
                             if (m) {
-                              setProfitCycleStart(m[1])
-                              setProfitCycleEnd(m[2])
+                              const start = m[1], end = m[2]
+                              setProfitCycleStart(start)
+                              setProfitCycleEnd(end)
+                              // 自动计算该周期利润
+                              const propRooms = rooms.filter(r => r.propertyId === profitPropertyId)
+                              const propTenants = tenants.filter(t => propRooms.some(r => r.id === t.roomId))
+                              const result = calculatePeriodProfit(start, end, bill.amount, propTenants, propRooms, bills)
+                              setProfitResult(result)
+                              setProfitAmount(String(Math.round(result.profitAmount)))
                             }
                           }
                         } else {
                           setProfitCycleStart('')
                           setProfitCycleEnd('')
+                          setProfitResult(null)
+                          setProfitAmount('')
                         }
                       }}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
@@ -528,26 +548,109 @@ export default function More() {
                       <option value="">选择业主账单期数</option>
                       {landlordPayableBills.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.description} — ¥{b.amount}
+                          {b.description} — ¥{b.amount.toFixed(0)}
                         </option>
                       ))}
                     </select>
+
                     {profitCycleStart && profitCycleEnd && (
-                      <div className="text-xs text-gray-500 text-center bg-gray-50 py-1.5 rounded-lg">
-                        周期：{profitCycleStart} ~ {profitCycleEnd}
+                      <>
+                        {/* 期间 */}
+                        <div className="text-xs text-gray-500 text-center bg-gray-50 py-1.5 rounded-lg">
+                          周期：{profitCycleStart} ~ {profitCycleEnd}
+                        </div>
+
+                        {/* 自动计算结果 */}
+                        {profitResult && (
+                          <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center gap-1">
+                                <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                                租客收入
+                              </span>
+                              <span className="font-medium text-green-600">¥{profitResult.tenantIncome.toFixed(0)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center gap-1">
+                                <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                                业主支出
+                              </span>
+                              <span className="font-medium text-red-600">-¥{profitResult.landlordExpense.toFixed(0)}</span>
+                            </div>
+                            <div className="border-t border-gray-200 pt-2 flex items-center justify-between text-sm font-bold">
+                              <span className="text-gray-700">净收益</span>
+                              <span className={profitResult.profitAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                ¥{profitResult.profitAmount.toFixed(0)}
+                              </span>
+                            </div>
+
+                            {/* 租客明细 */}
+                            {profitResult.tenants.length > 0 && (
+                              <div className="border-t border-gray-200 pt-2 mt-1 space-y-1">
+                                <p className="text-[10px] text-gray-400 font-medium">租客分摊明细</p>
+                                {profitResult.tenants.map(t => (
+                                  <div key={t.tenantId} className="flex items-center justify-between text-[11px]">
+                                    <span className="text-gray-500 truncate max-w-[120px]">
+                                      {t.roomLabel || '?'} {t.tenantName}
+                                    </span>
+                                    <span className={t.rentPaid ? 'text-green-600' : 'text-orange-600'}>
+                                      ¥{t.apportionedRent.toFixed(0)}
+                                      {!t.rentPaid && <span className="ml-1">(未齐)</span>}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {!profitResult.allPaid && (
+                              <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                <span>该周期部分租客房租未交齐，利润可能不准确</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 手动输入/确认金额 */}
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">提取金额（元）</label>
+                          <input
+                            type="number"
+                            value={profitAmount}
+                            onChange={(e) => setProfitAmount(e.target.value)}
+                            placeholder="利润金额"
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* 已有提取记录 */}
+                    {profitPropertyId && propertyProfitRecords.length > 0 && (
+                      <div className="border-t border-gray-100 pt-3">
+                        <p className="text-xs text-gray-400 font-medium mb-2">已有提取记录</p>
+                        <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                          {propertyProfitRecords.map(r => (
+                            <div key={r.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
+                              <div className="flex items-center gap-1.5 text-gray-500">
+                                {r.status === 'withdrawn' ? (
+                                  <CheckCircle className="w-3 h-3 text-green-500" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-blue-500" />
+                                )}
+                                <span>{r.cycleStart}~{r.cycleEnd}</span>
+                              </div>
+                              <span className="font-medium text-gray-700">¥{r.profitAmount.toFixed(0)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
+
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setShowProfitForm(false)
-                          setProfitPropertyId('')
-                          setProfitAmount('')
-                          setProfitBillId('')
-                          setProfitCycleStart('')
-                          setProfitCycleEnd('')
-                        }}
+                        onClick={resetProfitForm}
                         className="py-2.5 px-3 bg-gray-100 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-200 transition-colors"
                       >
                         取消
@@ -562,20 +665,15 @@ export default function More() {
                           }
                           addProfitRecord({
                             propertyId: profitPropertyId,
-                            tenantIncome: amount,
-                            landlordExpense: 0,
+                            tenantIncome: profitResult?.tenantIncome || amount,
+                            landlordExpense: profitResult?.landlordExpense || 0,
                             profitAmount: amount,
-                            cycleStart: profitCycleStart || '',
-                            cycleEnd: profitCycleEnd || '',
+                            cycleStart: profitCycleStart,
+                            cycleEnd: profitCycleEnd,
                             isManual: true,
                             status: 'available',
                           })
-                          setShowProfitForm(false)
-                          setProfitPropertyId('')
-                          setProfitAmount('')
-                          setProfitBillId('')
-                          setProfitCycleStart('')
-                          setProfitCycleEnd('')
+                          resetProfitForm()
                           alert('利润提取记录已添加')
                         }}
                         className="py-2.5 px-3 bg-purple-600 text-white rounded-xl font-medium text-sm hover:bg-purple-700 transition-colors"
