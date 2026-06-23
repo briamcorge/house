@@ -74,13 +74,13 @@ export default function Properties() {
                   })()}
                   billReceivable={(() => {
                     const propRoomIds = rooms.filter(r => r.propertyId === property.id).map(r => r.id)
-                    const propBills = bills.filter(b => b.roomId && propRoomIds.includes(b.roomId) && b.direction === 'receivable')
+                    const propBills = bills.filter(b => b.roomId && propRoomIds.includes(b.roomId) && b.direction === 'receivable' && !b.description?.includes('押金'))
                     const total = propBills.reduce((s, b) => s + b.amount, 0)
                     const paid = propBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                     return total > 0 ? { paid, total } : undefined
                   })()}
                   billPayable={(() => {
-                    const propBills = bills.filter(b => b.propertyId === property.id && b.direction === 'payable')
+                    const propBills = bills.filter(b => b.propertyId === property.id && b.direction === 'payable' && !b.description?.includes('押金'))
                     const total = propBills.reduce((s, b) => s + b.amount, 0)
                     const paid = propBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                     return total > 0 ? { paid, total } : undefined

@@ -32,14 +32,17 @@ export default function PropertyCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-900 text-sm truncate">{property.address}</span>
+          </div>
+          <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+            {(landlordName || landlordMonthlyRent) && (
+              <>
+                <User className="w-3 h-3" />
+                <span>{landlordName || '业主'} · ¥{landlordMonthlyRent?.toFixed(0) || '?'}/月</span>
+                <span className="text-gray-300 mx-0.5">·</span>
+              </>
+            )}
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 shrink-0">{roomCount}间房 {occupiedCount}间已租</span>
           </div>
-          {(landlordName || landlordMonthlyRent) && (
-            <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
-              <User className="w-3 h-3" />
-              <span>{landlordName || '业主'} · ¥{landlordMonthlyRent?.toFixed(0) || '?'}/月</span>
-            </div>
-          )}
         </div>
       </div>
 
