@@ -69,7 +69,7 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord, deleteProfitRecord } = useStore()
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
@@ -632,15 +632,29 @@ export default function More() {
                         <div className="space-y-1.5 max-h-32 overflow-y-auto">
                           {propertyProfitRecords.map(r => (
                             <div key={r.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
-                              <div className="flex items-center gap-1.5 text-gray-500">
+                              <div className="flex items-center gap-1.5 text-gray-500 min-w-0">
                                 {r.status === 'withdrawn' ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500" />
+                                  <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
                                 ) : (
-                                  <Clock className="w-3 h-3 text-blue-500" />
+                                  <Clock className="w-3 h-3 text-blue-500 shrink-0" />
                                 )}
-                                <span>{r.cycleStart}~{r.cycleEnd}</span>
+                                <span className="truncate">{r.cycleStart}~{r.cycleEnd}</span>
                               </div>
-                              <span className="font-medium text-gray-700">¥{r.profitAmount.toFixed(0)}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-medium text-gray-700">¥{r.profitAmount.toFixed(0)}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (confirm('确定删除这笔提取记录？')) {
+                                      deleteProfitRecord(r.id)
+                                    }
+                                  }}
+                                  className="text-gray-300 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -661,6 +675,16 @@ export default function More() {
                           const amount = parseFloat(profitAmount)
                           if (!profitPropertyId || isNaN(amount) || amount <= 0) {
                             alert('请选择房源并输入有效金额')
+                            return
+                          }
+                          // 检查该周期是否已提取过利润
+                          const existing = profitRecords.filter(r =>
+                            r.propertyId === profitPropertyId &&
+                            r.cycleStart === profitCycleStart &&
+                            r.cycleEnd === profitCycleEnd
+                          )
+                          if (existing.length > 0) {
+                            alert(`该周期（${profitCycleStart} ~ ${profitCycleEnd}）已提取过利润，不能重复提取`)
                             return
                           }
                           addProfitRecord({
