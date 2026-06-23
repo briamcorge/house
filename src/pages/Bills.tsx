@@ -19,7 +19,7 @@ export default function Bills() {
   const contractFilter = state?.propertyId || null
   const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'all')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
