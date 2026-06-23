@@ -53,7 +53,7 @@ export default function RoomList() {
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{property.address}</h1>
+              <h1 className="text-lg font-bold text-gray-900 truncate">{property.address}</h1>
               <p className="text-sm text-gray-500">{propertyRooms.length} 间房间</p>
             </div>
             <button
@@ -64,8 +64,8 @@ export default function RoomList() {
               }}
               className="flex items-center gap-1 px-3 py-1.5 bg-blue-900 text-white rounded-xl text-xs font-medium hover:bg-blue-800 transition-colors shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" />
-              添加房间
+               <Plus className="w-3.5 h-3.5" />
+               添加
             </button>
           </div>
         </div>
