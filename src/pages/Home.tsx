@@ -143,19 +143,19 @@ export default function Home() {
 
           {/* 待办事项汇总 */}
           <div className="grid grid-cols-2 gap-2 mb-4">
-            <div onClick={() => navigate('/bills')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills', { state: { direction: 'receivable', filterStatus: 'overdue' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-red-600">逾期账单（应收）</span>
               </div>
               <p className="text-xl font-bold text-red-700">¥{formatMoney(cardOverdueReceivableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/bills')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills', { state: { direction: 'payable', filterStatus: 'overdue' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-orange-600">逾期账单（应付）</span>
               </div>
               <p className="text-xl font-bold text-orange-700">¥{formatMoney(cardOverduePayableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/tenants', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/contracts', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-600">到期租客</span>
                 <span className="text-xs text-gray-400">30天内</span>
@@ -178,7 +178,7 @@ export default function Home() {
           <div className="mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">近期收支流水</h3>
-              <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+              <button onClick={() => navigate('/bills', { state: { direction: 'receivable' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
             </div>
             {recentTransactions.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">暂无流水</p>
