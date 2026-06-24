@@ -349,7 +349,9 @@ export const useStore = create<AppStore>()(
           }))
           return {
             tenants: [
-              ...state.tenants,
+              ...state.tenants.map((t) =>
+                t.id === oldTenantId ? { ...t, status: 'ended' as const } : t
+              ),
               newTenant,
             ],
             bills: [...state.bills, ...newBills],
