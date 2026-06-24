@@ -14,6 +14,7 @@ interface TenantModalProps {
   rooms: Room[]
   editingTenant?: Tenant
   selectedRoomId?: string
+  isRenewal?: boolean
 }
 
 type Step = 'info' | 'preview'
@@ -31,7 +32,7 @@ function showError(setter: (msg: string) => void, msg: string) {
   setTimeout(() => setter(''), 5000)
 }
 
-export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm, onContractUpdate, properties, rooms, editingTenant, selectedRoomId }: TenantModalProps) {
+export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm, onContractUpdate, properties, rooms, editingTenant, selectedRoomId, isRenewal }: TenantModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -143,16 +144,46 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     )
     // 押金和其他费用排在最前面
     const extras: DraftBill[] = []
-    const depositVal = parseFloat(deposit)
-    if (!isNaN(depositVal) && depositVal > 0) {
-      extras.push({
-        type: 'other',
-        amount: depositVal,
-        dueDate: formatDate(new Date(contractStart)),
-        periodStart: contractStart,
-        periodEnd: contractEnd,
-        description: '押金',
-      })
+    if (isRenewal) {
+      // 续约：比较新旧押金，只生成差额账单
+      const oldDeposit = editingTenant?.deposit || 0
+      const newDeposit = parseFloat(deposit) || 0
+      const diff = newDeposit - oldDeposit
+      if (diff > 0) {
+        // 押金增加：补收差额
+        extras.push({
+          type: 'other',
+          amount: diff,
+          dueDate: formatDate(new Date(contractStart)),
+          periodStart: contractStart,
+          periodEnd: contractEnd,
+          description: '押金补收',
+        })
+      } else if (diff < 0) {
+        // 押金减少：退还差额
+        extras.push({
+          type: 'other',
+          amount: diff, // negative amount = refund
+          dueDate: formatDate(new Date(contractStart)),
+          periodStart: contractStart,
+          periodEnd: contractEnd,
+          description: '退押金',
+        })
+      }
+      // diff === 0: 无变化，不生成账单
+    } else {
+      // 新合同：生成全额押金账单
+      const depositVal = parseFloat(deposit)
+      if (!isNaN(depositVal) && depositVal > 0) {
+        extras.push({
+          type: 'other',
+          amount: depositVal,
+          dueDate: formatDate(new Date(contractStart)),
+          periodStart: contractStart,
+          periodEnd: contractEnd,
+          description: '押金',
+        })
+      }
     }
     const otherFeeVal = parseFloat(otherFeeAmount)
     if (!isNaN(otherFeeVal) && otherFeeVal > 0) {
