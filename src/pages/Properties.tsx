@@ -270,6 +270,11 @@ export default function Properties() {
               description: `[续约${now}] ${bill.description}`,
             })
           })
+          // 结束旧合同
+          const oldContract = landlordContracts.find(c => c.propertyId === pid && c.status === 'active')
+          if (oldContract) {
+            updateLandlordContract(oldContract.id, { status: 'ended' })
+          }
           addLandlordContract({
             propertyId: pid,
             landlordName: name,
