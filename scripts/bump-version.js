@@ -26,4 +26,11 @@ const newContent = content.replace(
 )
 
 writeFileSync(versionPath, newContent, 'utf-8')
+
+// 同步更新 public/version.json
+const versionJsonPath = resolve(__dirname, '../public/version.json')
+const versionJson = JSON.parse(readFileSync(versionJsonPath, 'utf-8'))
+versionJson.version = newVersion
+writeFileSync(versionJsonPath, JSON.stringify(versionJson, null, 2) + '\n', 'utf-8')
+
 console.log(`🔖 版本号: ${match[0]} → ${newVersion}`)
