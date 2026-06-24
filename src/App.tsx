@@ -167,6 +167,17 @@ export default function App() {
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [deviceTokenReady, setDeviceTokenReady] = useState(false)
 
+  // 启动时注销所有旧的 Service Worker，避免缓存旧版本
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const registration of registrations) {
+          registration.unregister()
+        }
+      })
+    }
+  }, [])
+
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
     if (!isSupabaseConfigured() || !lastEvent) return
