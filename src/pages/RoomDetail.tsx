@@ -182,6 +182,7 @@ export default function RoomDetail() {
                               <>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline whitespace-nowrap">续约</button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">退租</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有关联账单？此操作不可撤销！`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
                               </>
                             ) : (
                               <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有账单？`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
@@ -303,6 +304,7 @@ export default function RoomDetail() {
         rooms={rooms}
         editingTenant={editingTenant}
         selectedRoomId={roomId}
+        isRenewal={isRenewal}
       />
 
       <BillModal
