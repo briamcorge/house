@@ -17,6 +17,7 @@ export default function RoomDetail() {
   const property = properties.find(p => p.id === propertyId)
   const room = rooms.find(r => r.id === roomId)
   const roomTenants = tenants.filter(t => t.roomId === roomId).sort((a, b) => b.contractStart.localeCompare(a.contractStart))
+  const activeTenant = roomTenants.find(t => t.status === 'active')
 
   // 每个合同的账单折叠状态
   const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set())
@@ -153,7 +154,7 @@ export default function RoomDetail() {
                 <FileText className="w-5 h-5 inline mr-1" />
                 合同记录
               </h2>
-              {!roomTenants.some(t => t.status === 'active') && (
+              {!activeTenant && (
                 <button
                   type="button"
                   onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
@@ -164,13 +165,23 @@ export default function RoomDetail() {
               )}
             </div>
 
-            {roomTenants.length === 0 ? (
-              <div className="text-center py-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-                <p className="text-gray-500 text-sm">暂无合同</p>
+            {!activeTenant ? (
+              <div className="text-center py-10 bg-white rounded-2xl shadow-sm border border-gray-100">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <User className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-sm mb-3">此房间暂无租客</p>
+                <button
+                  type="button"
+                  onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
+                  className="inline-flex items-center gap-1 text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100"
+                >
+                  <Plus className="w-4 h-4" />新签合同
+                </button>
               </div>
             ) : (
               <div className="space-y-2">
-                {roomTenants.map(t => {
+                {roomTenants.filter(t => t.status === 'active').map(t => {
                   const gen = contractGenerations.get(t.id) || 1
                   const tb = getContractBills(t)
                   const paidCount = tb.filter(b => b.status === 'paid').length
