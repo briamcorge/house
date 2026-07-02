@@ -6,8 +6,9 @@ import RoomCard from '../components/RoomCard'
 import RoomModal from '../components/RoomModal'
 import TenantModal from '../components/TenantModal'
 import BillSummaryModal from '../components/BillSummaryModal'
+import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import LandlordContractModal from '../components/LandlordContractModal'
-import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2 } from 'lucide-react'
+import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } from 'lucide-react'
 
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
@@ -29,6 +30,7 @@ export default function RoomList() {
   const [roomMenu, setRoomMenu] = useState<string | null>(null)
   const [summaryRoomId, setSummaryRoomId] = useState<string | null>(null)
   const [editContractId, setEditContractId] = useState<string | null>(null)
+  const [historyRoomId, setHistoryRoomId] = useState<string | null>(null)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: 'name' | 'phone'; value: string } | null>(null)
   const [editInlineValue, setEditInlineValue] = useState('')
 
@@ -136,7 +138,9 @@ export default function RoomList() {
                   tenant={getTenantForRoom(room.id)}
                   onClick={() => navigate(`/properties/${propertyId}/rooms/${room.id}`)}
                   billSummary={(() => {
-                    const roomBills = bills.filter(b => b.roomId === room.id)
+                    const activeTenant = getTenantForRoom(room.id)
+                    if (!activeTenant) return undefined
+                    const roomBills = bills.filter(b => b.roomId === room.id && b.tenantId === activeTenant.id && b.status !== 'cancelled')
                     const total = roomBills.reduce((s, b) => s + b.amount, 0)
                     const paid = roomBills.reduce((s, b) => {
                       const p = b.paidAmount !== undefined ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
@@ -176,6 +180,16 @@ export default function RoomList() {
                         <UserPlus className="w-4 h-4" />
                         租客合同
                       </button>
+                      {tenants.filter(t => t.roomId === room.id && t.status === 'ended').length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setHistoryRoomId(room.id); setRoomMenu(null) }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <History className="w-4 h-4" />
+                          历史租客
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -276,6 +290,12 @@ export default function RoomList() {
         existingEnd={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractEnd : undefined}
         existingName={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordName : undefined}
         existingPhone={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordPhone : undefined}
+      />
+      <HistoryTenantsModal
+        isOpen={historyRoomId !== null}
+        onClose={() => setHistoryRoomId(null)}
+        tenants={tenants.filter(t => t.roomId === historyRoomId && t.status === 'ended')}
+        roomLabel={`${rooms.find(r => r.id === historyRoomId)?.label}室`}
       />
     </div>
   )
