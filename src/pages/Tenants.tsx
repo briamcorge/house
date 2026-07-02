@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Tenant } from '../types'
 import TenantModal from '../components/TenantModal'
@@ -10,6 +11,7 @@ export default function Tenants() {
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
   const [tenantMenu, setTenantMenu] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
+  const navigate = useNavigate()
 
   const filteredTenants = tenants.filter(t => statusFilter === 'all' || t.status === statusFilter)
 
@@ -28,8 +30,8 @@ export default function Tenants() {
       const oldRoomId = editingTenant.roomId
       updateTenant(editingTenant.id, data)
       if (oldRoomId !== data.roomId) {
-        useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
-        useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
+        if (oldRoomId) useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
+        if (data.roomId) useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
       }
     }
     setEditingTenant(undefined)
@@ -73,7 +75,12 @@ export default function Tenants() {
             {filteredTenants.map((tenant) => {
               const roomInfo = getRoomInfo(tenant.roomId)
               return (
-                <div key={tenant.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div key={tenant.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer"
+                  onClick={() => {
+                    const room = rooms.find(r => r.id === tenant.roomId)
+                    if (room) navigate(`/properties/${room.propertyId}/rooms/${tenant.roomId}`)
+                  }}
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -104,7 +111,7 @@ export default function Tenants() {
                           <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
                           <button
                             type="button"
-                            onClick={() => handleEditTenant(tenant)}
+                            onClick={(e) => { e.stopPropagation(); handleEditTenant(tenant); }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -112,7 +119,7 @@ export default function Tenants() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteTenant(tenant.id, tenant.roomId)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteTenant(tenant.id, tenant.roomId); }}
                             className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                           >
                             <Trash2 className="w-4 h-4" />

@@ -6,7 +6,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   base: process.env.VITE_BASE || '/house/',
   build: {
-    sourcemap: process.env.VITE_BASE === './' ? false : 'hidden',
+    sourcemap: false,
     emptyOutDir: true,
   },
   plugins: [

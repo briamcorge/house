@@ -23,6 +23,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
 
   const filteredBills = useMemo(() => {
     return bills.filter(b => {
+      if (b.status === 'cancelled') return false
       if (roomId) return b.roomId === roomId
       if (propertyId) return b.propertyId === propertyId
       return false

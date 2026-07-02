@@ -73,6 +73,8 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       setPaidAmount('')
       setStatus('pending')
       setDescription('')
+      setRepeatMode(false)
+      setRepeatCount(3)
     }
     setError('')
   }, [isOpen, editingBill, defaultRoomId, defaultDirection])

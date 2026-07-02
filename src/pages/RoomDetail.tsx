@@ -5,7 +5,8 @@ import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
-import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History } from 'lucide-react'
+import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
 
 export default function RoomDetail() {
@@ -61,6 +62,9 @@ export default function RoomDetail() {
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
   const [billModalTenantId, setBillModalTenantId] = useState<string | null>(null)
 
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
@@ -103,12 +107,38 @@ export default function RoomDetail() {
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-3 mb-4">
-            <button type="button" onClick={() => navigate(`/properties/${propertyId}`)} className="p-1 hover:bg-gray-100 rounded-lg">
+            <button type="button" onClick={() => navigate(`/properties/${propertyId}`)} className="p-1 hover:bg-gray-100 rounded-lg shrink-0">
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{property?.address} - {room.label} 室</h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">{property?.address} - {room.label} 室</h1>
               <p className="text-sm text-gray-500">{room.roomType}</p>
+            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                className="p-1.5 hover:bg-gray-100 rounded-full"
+              >
+                <MoreVertical className="w-5 h-5 text-gray-500" />
+              </button>
+              {showHeaderMenu && (
+                <>
+                  <div className="fixed inset-0 z-[5]" onClick={() => setShowHeaderMenu(false)} />
+                  <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
+                    {roomTenants.some(t => t.status === 'ended') && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowHistoryModal(true); setShowHeaderMenu(false) }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <History className="w-4 h-4" />
+                        历史租客
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -407,7 +437,11 @@ export default function RoomDetail() {
                 <button
                   type="button"
                   onClick={() => {
-                    const paidAmt = payAmount ? parseFloat(payAmount) : undefined
+                    const paidAmt = payAmount !== '' ? parseFloat(payAmount) : undefined
+                    if (paidAmt !== undefined && paidAmt > payConfirmBill.amount) {
+                      alert('收款金额不能大于账单金额')
+                      return
+                    }
                     const isPartial = paidAmt !== undefined && paidAmt > 0 && paidAmt < payConfirmBill.amount
                     if (isPartial) {
                       const remaining = payConfirmBill.amount - paidAmt
@@ -441,6 +475,13 @@ export default function RoomDetail() {
           </div>
         </div>
       )}
+
+      <HistoryTenantsModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        tenants={roomTenants.filter(t => t.status === 'ended')}
+        roomLabel={`${room.label}室`}
+      />
     </div>
   )
 }

@@ -18,8 +18,8 @@ export default function RoomList() {
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
   const getTenantForRoom = (rid: string) => {
     const roomTenants = tenants.filter(t => t.roomId === rid)
-    // 优先返回在租的，如果没有在租的返回最新的
-    return roomTenants.find(t => t.status === 'active') || roomTenants[roomTenants.length - 1]
+    // 只返回在租的租客，空房间不展示旧租客信息（已退租的可在历史租客中查看）
+    return roomTenants.find(t => t.status === 'active')
   }
 
   const [showModal, setShowModal] = useState(false)

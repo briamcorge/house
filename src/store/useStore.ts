@@ -230,15 +230,24 @@ export const useStore = create<AppStore>()(
         }),
 
       terminateTenant: (id, roomId) =>
-        set((state) => ({
-          tenants: state.tenants.map((t) =>
-            t.id === id ? { ...t, status: 'ended' } : t
-          ),
-          rooms: state.rooms.map((r) =>
-            r.id === roomId ? { ...r, status: 'vacant' } : r
-          ),
-          auditLogs: recordLog(state, 'terminate', 'tenant', id, `退租`),
-        })),
+        set((state) => {
+          // 作废该租客所有未付账单
+          const cancelledBills = state.bills.map((b) =>
+            b.tenantId === id && b.status !== 'paid' && b.direction === 'receivable'
+              ? { ...b, status: 'cancelled' as const }
+              : b
+          )
+          return {
+            tenants: state.tenants.map((t) =>
+              t.id === id ? { ...t, status: 'ended' } : t
+            ),
+            rooms: state.rooms.map((r) =>
+              r.id === roomId ? { ...r, status: 'vacant' } : r
+            ),
+            bills: cancelledBills,
+            auditLogs: recordLog(state, 'terminate', 'tenant', id, `退租（已作废未付账单）`),
+          }
+        }),
 
       extendContract: (id, newEndDate) =>
         set((state) => ({
