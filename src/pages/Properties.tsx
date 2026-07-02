@@ -116,7 +116,7 @@ export default function Properties() {
                       </button>
                       {(() => {
                         const latestLC = landlordContracts.filter(c => c.propertyId === property.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-                        const hasPayable = bills.some(b => b.propertyId === property.id && b.direction === 'payable')
+                        const hasPayable = landlordContracts.some(c => c.propertyId === property.id && c.status === 'active')
                         return hasPayable ? (
                         <>
                           {latestLC?.landlordName && (

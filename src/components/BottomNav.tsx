@@ -45,17 +45,15 @@ export default function BottomNav() {
           )
         })}
       </div>
-      {/* 同步状态指示器 */}
+      {/* 同步状态指示器（小圆点，不碍眼） */}
       {status !== 'idle' && (
-        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg border border-gray-200 px-3 py-1 flex items-center gap-1.5 z-10">
-          {status === 'syncing' && <Cloudy className="w-3.5 h-3.5 text-blue-500 animate-pulse" />}
-          {status === 'synced' && <Cloud className="w-3.5 h-3.5 text-green-500" />}
-          {status === 'error' && <CloudOff className="w-3.5 h-3.5 text-red-500" />}
-          <span className="text-xs text-gray-500">
-            {status === 'syncing' && '同步中...'}
-            {status === 'synced' && '已同步'}
-            {status === 'error' && '同步失败'}
-          </span>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2" title={
+          status === 'syncing' ? '同步中...' :
+          status === 'synced' ? '已同步' : '同步失败'
+        }>
+          {status === 'syncing' && <Cloudy className="w-3.5 h-3.5 text-blue-400 animate-pulse" />}
+          {status === 'synced' && <Cloud className="w-3.5 h-3.5 text-green-400" />}
+          {status === 'error' && <CloudOff className="w-3.5 h-3.5 text-red-400" />}
         </div>
       )}
     </nav>

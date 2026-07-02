@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { TrashType } from '../types'
@@ -37,6 +37,9 @@ export default function Trash() {
       return true
     })
   }, [trash, typeFilter, searchQuery])
+
+  // 筛选条件变化时清空选中
+  useEffect(() => { setSelected(new Set()) }, [typeFilter, searchQuery])
 
   const toggleSelect = (id: string) => {
     const next = new Set(selected)

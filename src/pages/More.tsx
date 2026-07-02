@@ -127,7 +127,7 @@ export default function More() {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
     // 清除云同步标记，确保下次登录重新拉取云端数据
-    for (let i = 0; i < sessionStorage.length; i++) {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
       const k = sessionStorage.key(i)
       if (k?.startsWith('cloud_init_loaded_')) sessionStorage.removeItem(k)
     }
@@ -675,6 +675,10 @@ export default function More() {
                           const amount = parseFloat(profitAmount)
                           if (!profitPropertyId || isNaN(amount) || amount <= 0) {
                             alert('请选择房源并输入有效金额')
+                            return
+                          }
+                          if (!profitCycleStart || !profitCycleEnd) {
+                            alert('请选择利润提取的账单周期')
                             return
                           }
                           // 检查该周期是否已提取过利润

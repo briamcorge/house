@@ -48,7 +48,7 @@ export interface Bill {
   amount: number
   paidAmount?: number
   type: 'rent' | 'water' | 'electric' | 'gas' | 'internet' | 'hygiene' | 'other'
-  status: 'pending' | 'paid' | 'overdue'
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled'
   direction: BillDirection
   dueDate: string
   paidDate?: string

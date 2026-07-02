@@ -18,14 +18,20 @@ export default function Home() {
     setDismissedAlerts(prev => new Set(prev).add(type))
   }
 
-  // 自动标记逾期账单
+  // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    for (const bill of bills) {
-      if (bill.status === 'pending' && bill.dueDate < today) {
-        updateBill(bill.id, { status: 'overdue' })
+    const checkOverdue = () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const currentBills = useStore.getState().bills
+      for (const bill of currentBills) {
+        if (bill.status === 'pending' && bill.dueDate < today) {
+          updateBill(bill.id, { status: 'overdue' })
+        }
       }
     }
+    checkOverdue()
+    const interval = setInterval(checkOverdue, 60000)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -34,8 +40,12 @@ export default function Home() {
   const occupiedRooms = tenants.filter(t => t.status === 'active').length
 
   const cardOverdueReceivableTotal = useMemo(() =>
-    bills.filter(b => b.direction === 'receivable' && b.status === 'overdue').reduce((s, b) => s + b.amount, 0),
-    [bills]
+    bills.filter(b =>
+      b.direction === 'receivable' &&
+      b.status === 'overdue' &&
+      !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended')
+    ).reduce((s, b) => s + b.amount, 0),
+    [bills, tenants]
   )
   const cardOverduePayableTotal = useMemo(() =>
     bills.filter(b => b.direction === 'payable' && b.status === 'overdue').reduce((s, b) => s + b.amount, 0),
@@ -61,8 +71,12 @@ export default function Home() {
   )
 
   const overdueReceivable = useMemo(() =>
-    bills.filter(b => b.direction === 'receivable' && (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < new Date().toISOString().slice(0, 10)))),
-    [bills]
+    bills.filter(b =>
+      b.direction === 'receivable' &&
+      !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
+      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < new Date().toISOString().slice(0, 10)))
+    ),
+    [bills, tenants]
   )
   const overdueReceivableTotal = overdueReceivable.reduce((s, b) => s + b.amount, 0)
 
