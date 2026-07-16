@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X, Phone, Calendar, DollarSign } from 'lucide-react'
+import { X, Phone, Calendar, DollarSign, ChevronRight } from 'lucide-react'
 import { Tenant } from '../types'
 
 interface HistoryTenantsModalProps {
@@ -7,9 +7,10 @@ interface HistoryTenantsModalProps {
   onClose: () => void
   tenants: Tenant[]
   roomLabel: string
+  onViewTenant?: (tenantId: string) => void
 }
 
-export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabel }: HistoryTenantsModalProps) {
+export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabel, onViewTenant }: HistoryTenantsModalProps) {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -39,13 +40,18 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
             </div>
           ) : (
             tenants.map(t => (
-              <div key={t.id} className="bg-white rounded-xl border border-gray-100 p-3">
+              <div
+                key={t.id}
+                onClick={() => { onViewTenant?.(t.id); onClose() }}
+                className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm text-gray-900">{t.name}</span>
                     <span className="text-[10px] text-gray-400">#{t.displayId}</span>
                     <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">已退租</span>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
                 </div>
                 <div className="space-y-1 text-xs text-gray-500">
                   {t.phone && (
@@ -62,6 +68,9 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
                     <DollarSign className="w-3 h-3" />
                     <span>¥{t.monthlyRent}/月</span>
                   </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-50">
+                  <span className="text-xs text-blue-600">查看合同及交租记录 →</span>
                 </div>
               </div>
             ))

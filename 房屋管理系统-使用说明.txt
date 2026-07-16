@@ -1,0 +1,79 @@
+========================================
+          房屋管理系统 使用说明
+========================================
+
+【云端数据库】
+数据地址：https://jvpkqqnfzkkcztkbzpdx.supabase.co
+免费额度：500MB数据库 + 1GB文件存储 + 2GB带宽/月
+登录方式：手机号+验证码
+所有数据都存在云端，重装APP只要登录就能恢复
+
+【GitHub仓库】（目前不推送，但建议保留）
+地址：https://github.com/briamcorge/house
+
+【本地项目位置】
+代码文件夹：E:\新项目\house
+
+【APK签名】（装APP必需，丢失无法安装）
+密码：house123
+密钥文件：E:\新项目\house\android\app\house-management.keystore
+
+【AI模型API】（OpenCode配置）
+配置文件：C:\Users\Administrator\.config\opencode\opencode.json
+
+千问（Qwen）：
+- API Key：sk-a8e61fb313ed4aea90c51f2d0efae09b
+- 网址：https://dashscope.aliyuncs.com/compatible-mode/v1
+- 模型：qwen-vl-plus、qwen-vl-max、qwen3.7-plus
+
+DeepSeek：
+- API Key：sk-830751500a8c41d1899218e24fd87112
+- 网址：https://api.deepseek.com
+- 模型：deepseek-v4-flash
+
+========================================
+          打包APK的正确流程
+========================================
+
+1. 进入项目文件夹
+   cd E:\新项目\house
+
+2. 运行打包命令（自动完成编译、复制资源、生成APK）
+   npm run release
+
+3. 更新版本号（手动改两处）
+   - 打开 src/version.ts，改版本号
+   - 打开 android/app/build.gradle，改 versionCode 和 versionName
+
+4. 复制APK到桌面
+   APK生成位置：E:\新项目\house\android\app\build\outputs\apk\release\app-release.apk
+   桌面APK名称：房屋管理-v版本号.apk
+
+========================================
+          已知问题及解决方法
+========================================
+
+1. APK安装后白屏
+   原因：打包时忘了设置基础路径
+   解决：确保用 npm run release 打包（已自动设置）
+
+2. APK安装后显示旧版本
+   原因：资源文件没有同步
+   解决：打包命令已包含资源同步
+
+3. APK文件过大（超过2MB）
+   原因：dist文件夹有历史版本的残留文件
+   解决：打包前清理旧文件
+
+4. 版本号乱跳
+   原因：每次构建都会自动加1
+   解决：只在真正需要发布时才打包
+
+========================================
+          后续开发注意事项
+========================================
+
+- 所有修改完成后，先用 git commit 保存（本地存档）
+- 要发APK再用 npm run release
+- Supabase云端是主要数据存储，本地只是缓存
+- 建议定期把项目文件夹备份到百度网盘

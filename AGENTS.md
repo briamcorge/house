@@ -1,10 +1,86 @@
 # 房屋管理系统
 
-最后更新: 2026-06-10
+最后更新: 2026-07-02
+
+## 凭据 & API（非常重要，切勿丢失）
+
+### 云端数据库 (Supabase)
+- **URL**: `https://jvpkqqnfzkkcztkbzpdx.supabase.co`
+- **Key**: 已硬编码在 `src/lib/supabase.ts` 第 7 行（`VITE_SUPABASE_ANON_KEY`）
+- **说明**: 免费版，数据库 500MB + 文件存储 1GB + 带宽 2GB/月
+- **登录**: 通过手机号+验证码登录（app 内 AuthModal）
+
+### GitHub
+- **仓库**: `https://github.com/briamcorge/house`
+- **分支**: `master`
+- **说明**: 用户已决定不再推送 GitHub，仅本地开发。如需恢复推送，记得先改 `vite.config.ts` 的 `base` 为 `'/house/'`
+
+### Android 签名 (APK 打包必需)
+- **keystore 路径**: `E:\新项目\house\android\app\house-management.keystore`
+- **keyAlias**: `house-management`
+- **storePassword**: `house123`
+- **keyPassword**: `house123`
+- **⚠️ 重要**: 签名文件丢失后无法覆盖安装已装过的 APK，务必保留
+
+### 项目路径
+- **本地**: `E:\新项目\house`
+- **APK 输出**: 桌面 `房屋管理-v{version}.apk`
+- **Android 项目**: `E:\新项目\house\android`
+
+### AI 模型 API (OpenCode 配置)
+**配置文件位置**: `C:\Users\Administrator\.config\opencode\opencode.json`
+
+**千问 (Qwen DashScope)**
+- **API Key**: `sk-a8e61fb313ed4aea90c51f2d0efae09b`
+- **Base URL**: `https://dashscope.aliyuncs.com/compatible-mode/v1`
+- **可用模型**:
+  - `qwen-vl-plus` - 图像+文本，131k上下文
+  - `qwen-vl-max` - 图像+文本，32k上下文
+  - `qwen3.7-plus` - 图像+文本+视频，131k上下文
+
+**DeepSeek**
+- **API Key**: `sk-830751500a8c41d1899218e24fd87112`
+- **Base URL**: `https://api.deepseek.com`
+- **可用模型**:
+  - `deepseek-v4-flash` - 快速推理
+
+**Agnes AI (新加坡)**
+- **API Key**: `sk-IOLRCmgKxdrJwWknzWERE6LG1c8ogFNXM4SEz98haHKpmfw0`
+- **Base URL**: `https://apihub.agnes-ai.com/v1`
+- **平台**: https://platform.agnes-ai.com
+- **免费额度**: 无限期免费开放全模态API
+- **可用模型**:
+  - `agnes-2.0-flash` - 文本模型，100万Token上下文
+  - `agnes-image-2.0-flash` - 图像模型
+  - `agnes-video-2.0` - 视频模型
+
+## 构建 & 发布命令
+
+```bash
+npm run dev          # 开发服务器 (http://localhost:5173/house/)
+npm run build        # 构建 web (自动 bump 版本号 + --base=./ 适配 APK)
+npm run release      # 全自动打包 APK: build → cap copy → assembleRelease (一步到位)
+npx tsc --noEmit     # 类型检查
+npm run check        # 同上
+```
+
+### 发版完整流程（后续会话参考）
+```
+1. git add -A && git commit -m "改了啥"                    # 本地存档（可选）
+2. npm run release                                          # 自动 bump + build + cap copy + assemble
+3. 更新 build.gradle 的 versionCode/versionName 与 version.ts 对齐
+4. Copy APK 到桌面
+```
+
+### 之前踩过的坑（避免再犯）
+1. ~~`VITE_BASE` 忘记设 `./` → 白屏~~ ✅ 已修复：`build` 默认 `--base=./`
+2. ~~`npx cap copy` 忘记跑 → APK 里还是旧代码~~ ✅ 已修复：`release` 命令包含 cap copy
+3. ~~`dist/assets/` 旧文件堆积 → APK 膨胀到 3.3MB~~ ⚠️ 仍需注意：build 前清理旧 assets
+4. ~~build 多次导致版本号乱跳~~ ⚠️ 注意：`release` 也会 bump，避免不必要的 release
 
 ## 技术栈
 
-React 18 + TypeScript 5.8 + Vite 6 + Tailwind CSS 3.4 + Zustand 5 + react-router-dom 7 + Recharts 3.8 + Lucide React + vite-plugin-pwa
+React 18 + TypeScript 5.8 + Vite 6 + Tailwind CSS 3.4 + Zustand 5 + react-router-dom 7 + Recharts 3.8 + Lucide React + vite-plugin-pwa + Capacitor 8
 
 ## 运行命令
 

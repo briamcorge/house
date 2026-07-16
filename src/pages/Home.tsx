@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
-import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X } from 'lucide-react'
+import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText, Receipt } from 'lucide-react'
 import { formatMoney } from '../lib/utils'
 
 type AlertType = 'overdue' | 'expiring'
@@ -218,13 +218,13 @@ export default function Home() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {isRefund ? (b.description || '退款') : (b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主'))}
+                            {b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主')}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
                             {isRefund ? '退款' : (b.type === 'rent' ? '房租' : b.type === 'water' ? '水费' : b.type === 'electric' ? '电费' : b.type === 'gas' ? '燃气费' : b.type === 'internet' ? '网费' : b.type === 'hygiene' ? '卫管费' : '其他')}
                             {tenant && tenant.displayId && ` #${tenant.displayId}`}
-                            {!isRefund && room && ` · ${room.label}室`}
-                            {!isRefund && b.description && ` · ${b.description}`}
+                            {room && ` · ${room.label}室`}
+                            {b.description && ` · ${b.description}`}
                           </p>
                         </div>
                       </div>
@@ -243,44 +243,159 @@ export default function Home() {
 
           {/* 搜索结果 */}
           {searchQuery.trim() && (
-            <div className="mb-4 space-y-2">
+            <div className="mb-4 space-y-3">
+              <p className="text-xs text-gray-400">搜索 "{searchQuery}" 结果</p>
               {(() => {
                 const q = searchQuery.toLowerCase()
-                const matchedProps = properties.filter(p => p.address.toLowerCase().includes(q))
+                // 账单类型标签映射
+                const typeLabelMap: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他' }
+
+                // 1. 搜索房源
+                const matchedProps = properties.filter(p =>
+                  p.address.toLowerCase().includes(q) ||
+                  (p.description && p.description.toLowerCase().includes(q))
+                )
+
+                // 2. 搜索租客
                 const matchedTenants = tenants.filter(t =>
                   t.name.toLowerCase().includes(q) ||
                   (t.phone && t.phone.includes(q)) ||
                   (t.displayId && t.displayId.toLowerCase().includes(q))
                 )
-                // 搜索房间标签（如A/B/C）
-                const matchedRoomLabels = rooms.filter(r => r.label.toLowerCase() === q)
-                for (const mr of matchedRoomLabels) {
+
+                // 3. 搜索房间（标签或户型）
+                const matchedRooms = rooms.filter(r =>
+                  r.label.toLowerCase().includes(q) ||
+                  r.roomType.toLowerCase().includes(q)
+                )
+                // 通过匹配的房间找到租客
+                for (const mr of matchedRooms) {
                   const ts = tenants.filter(t => t.roomId === mr.id)
                   for (const t of ts) {
                     if (!matchedTenants.find(mt => mt.id === t.id)) matchedTenants.push(t)
                   }
                 }
-                if (matchedProps.length === 0 && matchedTenants.length === 0) {
+
+                // 4. 搜索账单（描述、金额、类型）
+                const matchedBills = bills.filter(b =>
+                  (b.description && b.description.toLowerCase().includes(q)) ||
+                  b.amount.toString().includes(q) ||
+                  (typeLabelMap[b.type] && typeLabelMap[b.type].includes(q))
+                ).slice(0, 5)
+
+                // 5. 搜索业主合同
+                const matchedLandlords = landlordContracts.filter(c =>
+                  (c.landlordName && c.landlordName.toLowerCase().includes(q)) ||
+                  (c.landlordPhone && c.landlordPhone.includes(q)) ||
+                  (c.displayId && c.displayId.toLowerCase().includes(q))
+                )
+
+                const hasResults = matchedProps.length > 0 || matchedTenants.length > 0 || matchedBills.length > 0 || matchedLandlords.length > 0
+                if (!hasResults) {
                   return <div className="text-center py-6 text-sm text-gray-400">未找到匹配结果</div>
                 }
+
                 return (
                   <>
-                    {matchedProps.map(p => (
-                      <div key={p.id} onClick={() => navigate(`/properties/${p.id}`)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><Building2 className="w-4 h-4 text-blue-600" /></div>
-                        <div><p className="text-sm font-medium text-gray-900">{p.address}</p><p className="text-xs text-gray-400">{rooms.filter(r => r.propertyId === p.id).length} 间房</p></div>
-                      </div>
-                    ))}
-                    {matchedTenants.map(t => {
-                      const room = rooms.find(r => r.id === t.roomId)
-                      const prop = room ? properties.find(p => p.id === room.propertyId) : null
-                      return (
-                        <div key={t.id} onClick={() => room && navigate(`/properties/${prop?.id}/rooms/${room.id}`)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
-                          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center"><Users className="w-4 h-4 text-green-600" /></div>
-                          <div><p className="text-sm font-medium text-gray-900">{t.name}</p><p className="text-xs text-gray-400">{prop?.address}{room ? ` - ${room.label}室` : ''}</p></div>
+                    {/* 房源结果 */}
+                    {matchedProps.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-gray-500">房源 ({matchedProps.length})</span>
+                          <button onClick={() => navigate('/properties')} className="text-xs text-blue-600 hover:underline">查看全部</button>
                         </div>
-                      )
-                    })}
+                        <div className="space-y-1.5">
+                          {matchedProps.map(p => (
+                            <div key={p.id} onClick={() => navigate(`/properties/${p.id}`)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><Building2 className="w-4 h-4 text-blue-600" /></div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-gray-900 truncate">{p.address}</p>
+                                <p className="text-xs text-gray-400">{rooms.filter(r => r.propertyId === p.id).length} 间房</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 租客结果 */}
+                    {matchedTenants.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-gray-500">租客 ({matchedTenants.length})</span>
+                          <button onClick={() => navigate('/tenants')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+                        </div>
+                        <div className="space-y-1.5">
+                          {matchedTenants.slice(0, 5).map(t => {
+                            const room = rooms.find(r => r.id === t.roomId)
+                            const prop = room ? properties.find(p => p.id === room.propertyId) : null
+                            return (
+                              <div key={t.id} onClick={() => room && navigate(`/properties/${prop?.id}/rooms/${room.id}`)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
+                                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center"><Users className="w-4 h-4 text-green-600" /></div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                                  <p className="text-xs text-gray-400 truncate">{prop?.address}{room ? ` - ${room.label}室` : ''}</p>
+                                </div>
+                                <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {t.status === 'active' ? '在租' : '已退租'}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 账单结果 */}
+                    {matchedBills.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-gray-500">账单 ({matchedBills.length})</span>
+                          <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+                        </div>
+                        <div className="space-y-1.5">
+                          {matchedBills.map(b => {
+                            const t = b.tenantId ? tenants.find(t => t.id === b.tenantId) : null
+                            return (
+                              <div key={b.id} onClick={() => { const r = b.roomId ? rooms.find(r => r.id === b.roomId) : null; const p = r ? properties.find(p => p.id === r.propertyId) : null; if (r) navigate(`/properties/${p?.id}/rooms/${r.id}`) }} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
+                                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center"><Receipt className="w-4 h-4 text-purple-600" /></div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{typeLabelMap[b.type] || b.type}{b.description ? ` - ${b.description}` : ''}</p>
+                                  <p className="text-xs text-gray-400 truncate">¥{b.amount.toFixed(0)} · {t?.name || ''} · {b.dueDate}</p>
+                                </div>
+                                <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${b.status === 'paid' ? 'bg-green-100 text-green-700' : b.status === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                                  {b.status === 'paid' ? '已收' : b.status === 'overdue' ? '逾期' : '待收'}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 业主合同结果 */}
+                    {matchedLandlords.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-gray-500">业主合同 ({matchedLandlords.length})</span>
+                          <button onClick={() => navigate('/contracts')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+                        </div>
+                        <div className="space-y-1.5">
+                          {matchedLandlords.slice(0, 5).map(c => {
+                            const prop = properties.find(p => p.id === c.propertyId)
+                            return (
+                              <div key={c.id} onClick={() => navigate('/contracts')} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow">
+                                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center"><FileText className="w-4 h-4 text-orange-600" /></div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{c.landlordName || '业主'} #{c.displayId}</p>
+                                  <p className="text-xs text-gray-400 truncate">{prop?.address || '未知房源'} · ¥{c.monthlyRent}/月</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )
               })()}
