@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/bump-version.js && tsc -b && vite build --base=./",
+    "build": "node scripts/bump-version.js && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -b && vite build --base=./",
     "release": "npm run build && npx cap copy android && cd android && gradlew assembleRelease",
     "lint": "eslint .",
     "preview": "vite preview",
