@@ -78,7 +78,7 @@ export default function Tenants() {
                 <div key={tenant.id} className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer"
                   onClick={() => {
                     const room = rooms.find(r => r.id === tenant.roomId)
-                    if (room) navigate(`/properties/${room.propertyId}/rooms/${tenant.roomId}`)
+                    if (room) navigate(`/properties/${room.propertyId}/rooms/${tenant.roomId}`, { state: { selectedTenantId: tenant.id } })
                   }}
                 >
                   <div className="flex justify-between items-start mb-3">

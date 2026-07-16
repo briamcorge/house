@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
@@ -12,12 +12,20 @@ import { add30Days, formatDate } from '../utils/calculator'
 export default function RoomDetail() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const selectedTenantId = (location.state as { selectedTenantId?: string } | null)?.selectedTenantId
   const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const room = rooms.find(r => r.id === roomId)
   const roomTenants = tenants.filter(t => t.roomId === roomId).sort((a, b) => b.contractStart.localeCompare(a.contractStart))
   const activeTenant = roomTenants.find(t => t.status === 'active')
+  const selectedTenant = selectedTenantId ? roomTenants.find(t => t.id === selectedTenantId) : undefined
+  // 显示租客列表：在租租客 + 如果有选中的已退租租客也一起显示
+  const displayTenants = selectedTenant && selectedTenant.status === 'ended'
+    ? [...roomTenants.filter(t => t.status === 'active'), selectedTenant]
+    : roomTenants.filter(t => t.status === 'active')
+  const hasDisplayTenants = displayTenants.length > 0
 
   // 每个合同的账单折叠状态
   const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set())
@@ -154,7 +162,7 @@ export default function RoomDetail() {
                 <FileText className="w-5 h-5 inline mr-1" />
                 合同记录
               </h2>
-              {!activeTenant && (
+              {!hasDisplayTenants && (
                 <button
                   type="button"
                   onClick={() => { setEditingTenant(undefined); setShowTenantModal(true) }}
@@ -165,7 +173,7 @@ export default function RoomDetail() {
               )}
             </div>
 
-            {!activeTenant ? (
+            {!hasDisplayTenants ? (
               <div className="text-center py-10 bg-white rounded-2xl shadow-sm border border-gray-100">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <User className="w-8 h-8 text-gray-400" />
@@ -181,7 +189,7 @@ export default function RoomDetail() {
               </div>
             ) : (
               <div className="space-y-2">
-                {roomTenants.filter(t => t.status === 'active').map(t => {
+                {displayTenants.map(t => {
                   const gen = contractGenerations.get(t.id) || 1
                   const tb = getContractBills(t)
                   const paidCount = tb.filter(b => b.status === 'paid').length
@@ -492,6 +500,7 @@ export default function RoomDetail() {
         onClose={() => setShowHistoryModal(false)}
         tenants={roomTenants.filter(t => t.status === 'ended')}
         roomLabel={`${room.label}室`}
+        onViewTenant={(tenantId) => navigate(`/properties/${propertyId}/rooms/${roomId}`, { state: { selectedTenantId: tenantId } })}
       />
     </div>
   )
