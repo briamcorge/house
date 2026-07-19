@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
 import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText, Receipt } from 'lucide-react'
 import { formatMoney } from '../lib/utils'
+import { Property, Room, Tenant, Bill, LandlordContract } from '../types'
 
 type AlertType = 'overdue' | 'expiring'
 
@@ -13,6 +14,8 @@ export default function Home() {
   const { properties, rooms, tenants, bills, landlordContracts, updateBill } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<AlertType>>(new Set())
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { requestAnimationFrame(() => setLoading(false)) }, [])
 
   const dismissAlert = (type: AlertType) => {
     setDismissedAlerts(prev => new Set(prev).add(type))
@@ -88,6 +91,10 @@ export default function Home() {
       .slice(0, 6),
     [bills]
   )
+
+  if (loading) {
+    return <SkeletonHome />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -264,13 +271,45 @@ export default function Home() {
   )
 }
 
+function SkeletonHome() {
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24 animate-pulse">
+      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-4 pb-8">
+        <div className="max-w-md mx-auto">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="h-7 w-28 bg-white/20 rounded" />
+              <div className="h-4 w-36 bg-white/20 rounded" />
+            </div>
+            <div className="h-9 w-[180px] bg-white/15 rounded-lg" />
+          </div>
+        </div>
+      </div>
+      <div className="px-4 -mt-7">
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="h-24 bg-white rounded-2xl shadow-sm border border-gray-100" />
+            <div className="h-24 bg-white rounded-2xl shadow-sm border border-gray-100" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="h-24 bg-white rounded-2xl shadow-sm border border-gray-100" />
+            <div className="h-24 bg-white rounded-2xl shadow-sm border border-gray-100" />
+          </div>
+          <div className="h-48 bg-white rounded-2xl shadow-sm border border-gray-100" />
+          <div className="h-52 bg-white rounded-2xl shadow-sm border border-gray-100" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface SearchResultsProps {
   query: string
-  properties: any[]
-  rooms: any[]
-  tenants: any[]
-  bills: any[]
-  landlordContracts: any[]
+  properties: Property[]
+  rooms: Room[]
+  tenants: Tenant[]
+  bills: Bill[]
+  landlordContracts: LandlordContract[]
   navigate: ReturnType<typeof useNavigate>
 }
 
@@ -278,35 +317,35 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
   const q = query.toLowerCase()
   const typeLabelMap: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他' }
 
-  const matchedProps = properties.filter((p: any) =>
+  const matchedProps = properties.filter((p: Property) =>
     p.address.toLowerCase().includes(q) ||
     (p.description && p.description.toLowerCase().includes(q))
   )
 
-  const matchedTenants = tenants.filter((t: any) =>
+  const matchedTenants = tenants.filter((t: Tenant) =>
     t.name.toLowerCase().includes(q) ||
     (t.phone && t.phone.includes(q)) ||
     (t.displayId && t.displayId.toLowerCase().includes(q))
   )
 
-  const matchedRooms = rooms.filter((r: any) =>
+  const matchedRooms = rooms.filter((r: Room) =>
     r.label.toLowerCase().includes(q) ||
     r.roomType.toLowerCase().includes(q)
   )
   for (const mr of matchedRooms) {
-    const ts = tenants.filter((t: any) => t.roomId === mr.id)
+    const ts = tenants.filter((t: Tenant) => t.roomId === mr.id)
     for (const t of ts) {
-      if (!matchedTenants.find((mt: any) => mt.id === t.id)) matchedTenants.push(t)
+      if (!matchedTenants.find((mt: Tenant) => mt.id === t.id)) matchedTenants.push(t)
     }
   }
 
-  const matchedBills = bills.filter((b: any) =>
+  const matchedBills = bills.filter((b: Bill) =>
     (b.description && b.description.toLowerCase().includes(q)) ||
     b.amount.toString().includes(q) ||
     (typeLabelMap[b.type] && typeLabelMap[b.type].includes(q))
   ).slice(0, 5)
 
-  const matchedLandlords = landlordContracts.filter((c: any) =>
+  const matchedLandlords = landlordContracts.filter((c: LandlordContract) =>
     (c.landlordName && c.landlordName.toLowerCase().includes(q)) ||
     (c.landlordPhone && c.landlordPhone.includes(q)) ||
     (c.displayId && c.displayId.toLowerCase().includes(q))
@@ -326,12 +365,12 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
             <button onClick={() => navigate('/properties')} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
-            {matchedProps.map((p: any) => (
+            {matchedProps.map((p: Property) => (
               <div key={p.id} onClick={() => navigate(`/properties/${p.id}`)} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                 <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center shrink-0"><Building2 className="w-3 h-3 text-blue-600" /></div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-gray-900 truncate">{p.address}</p>
-                  <p className="text-[10px] text-gray-400">{rooms.filter((r: any) => r.propertyId === p.id).length} 间房</p>
+                  <p className="text-[10px] text-gray-400">{rooms.filter((r: Room) => r.propertyId === p.id).length} 间房</p>
                 </div>
               </div>
             ))}
@@ -346,9 +385,9 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
             <button onClick={() => navigate('/tenants')} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
-            {matchedTenants.slice(0, 5).map((t: any) => {
-              const room = rooms.find((r: any) => r.id === t.roomId)
-              const prop = room ? properties.find((p: any) => p.id === room.propertyId) : null
+            {matchedTenants.slice(0, 5).map((t: Tenant) => {
+              const room = rooms.find((r: Room) => r.id === t.roomId)
+              const prop = room ? properties.find((p: Property) => p.id === room.propertyId) : null
               return (
                 <div key={t.id} onClick={() => room && navigate(`/properties/${prop?.id}/rooms/${room.id}`)} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <div className="w-6 h-6 bg-green-100 rounded flex items-center justify-center shrink-0"><Users className="w-3 h-3 text-green-600" /></div>
@@ -373,10 +412,10 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
             <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
-            {matchedBills.map((b: any) => {
-              const t = b.tenantId ? tenants.find((t: any) => t.id === b.tenantId) : null
+            {matchedBills.map((b: Bill) => {
+              const t = b.tenantId ? tenants.find((t: Tenant) => t.id === b.tenantId) : null
               return (
-                <div key={b.id} onClick={() => { const r = b.roomId ? rooms.find((r: any) => r.id === b.roomId) : null; const p = r ? properties.find((p: any) => p.id === r.propertyId) : null; if (r) navigate(`/properties/${p?.id}/rooms/${r.id}`) }} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <div key={b.id} onClick={() => { const r = b.roomId ? rooms.find((r: Room) => r.id === b.roomId) : null; const p = r ? properties.find((p: Property) => p.id === r.propertyId) : null; if (r) navigate(`/properties/${p?.id}/rooms/${r.id}`) }} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center shrink-0"><Receipt className="w-3 h-3 text-purple-600" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-900 truncate">{typeLabelMap[b.type] || b.type}{b.description ? ` - ${b.description}` : ''}</p>
@@ -399,8 +438,8 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
             <button onClick={() => navigate('/contracts')} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
-            {matchedLandlords.slice(0, 5).map((c: any) => {
-              const prop = properties.find((p: any) => p.id === c.propertyId)
+            {matchedLandlords.slice(0, 5).map((c: LandlordContract) => {
+              const prop = properties.find((p: Property) => p.id === c.propertyId)
               return (
                 <div key={c.id} onClick={() => navigate('/contracts')} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <div className="w-6 h-6 bg-orange-100 rounded flex items-center justify-center shrink-0"><FileText className="w-3 h-3 text-orange-600" /></div>
