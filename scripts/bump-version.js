@@ -26,4 +26,28 @@ const newContent = content.replace(
 )
 
 writeFileSync(versionPath, newContent, 'utf-8')
-console.log(`🔖 版本号: ${match[0]} → ${newVersion}`)
+console.log(`🔖 version.ts: ${match[0]} → ${newVersion}`)
+
+// ─── 同步更新 android/app/build.gradle ───
+const gradlePath = resolve(__dirname, '../android/app/build.gradle')
+const gradleContent = readFileSync(gradlePath, 'utf-8')
+
+const vcMatch = gradleContent.match(/(versionCode\s+)(\d+)/)
+const vnMatch = gradleContent.match(/(versionName\s+)"(\d+\.\d+)"/)
+
+if (vcMatch && vnMatch) {
+  const newVersionCode = parseInt(vcMatch[2]) + 1
+  let updated = gradleContent.replace(
+    /(versionCode\s+)\d+/,
+    `$1${newVersionCode}`
+  )
+  updated = updated.replace(
+    /(versionName\s+)"\d+\.\d+"/,
+    `$1"${newVersion}"`
+  )
+  writeFileSync(gradlePath, updated, 'utf-8')
+  console.log(`🔖 build.gradle: versionCode ${vcMatch[2]} → ${newVersionCode}, versionName → "${newVersion}"`)
+} else {
+  console.error('❌ 无法解析 build.gradle 中的版本号')
+  process.exit(1)
+}

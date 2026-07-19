@@ -238,6 +238,42 @@ export default function More() {
         // 需要转换为数字的字段
         const numericFields = new Set(['amount', 'paidAmount', 'monthlyRent', 'deposit', 'otherFeeAmount', 'advanceDays'])
 
+        const validBillTypes = new Set(['rent', 'water', 'electric', 'gas', 'internet', 'hygiene', 'other'])
+
+        function validateImportRow(sheetName: string, row: Record<string, unknown>, index: number): string[] {
+          const errors: string[] = []
+          const prefix = `[${sheetName} 第${index + 1}行]`
+          switch (sheetName) {
+            case '房源':
+              if (!row.address || String(row.address).trim() === '') errors.push(`${prefix} 地址不能为空`)
+              break
+            case '房间':
+              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
+              if (!row.label || String(row.label).trim() === '') errors.push(`${prefix} 编号不能为空`)
+              if (!row.roomType || String(row.roomType).trim() === '') errors.push(`${prefix} 类型不能为空`)
+              break
+            case '代理合同':
+              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
+              if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
+              if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
+              if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
+              break
+            case '租客':
+              if (!row.name || String(row.name).trim() === '') errors.push(`${prefix} 姓名不能为空`)
+              if (!row.roomId || String(row.roomId).trim() === '') errors.push(`${prefix} 房间ID不能为空`)
+              if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
+              if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
+              if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
+              break
+            case '账单':
+              if (row.amount === undefined || isNaN(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
+              if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/water/electric/gas/internet/hygiene/other 之一`)
+              if (!row.dueDate || String(row.dueDate).trim() === '') errors.push(`${prefix} 到期日不能为空`)
+              break
+          }
+          return errors
+        }
+
         const parseSheet = (sheetName: string): Record<string, unknown>[] => {
           const sheet = wb.Sheets[sheetName]
           if (!sheet) return []
@@ -256,14 +292,45 @@ export default function More() {
           })
         }
 
-        const props = parseSheet('房源')
-        const roomList = parseSheet('房间')
-        const contractList = parseSheet('代理合同')
-        const tenantList = parseSheet('租客')
-        const billList = parseSheet('账单')
+        const rawProps = parseSheet('房源')
+        const rawRooms = parseSheet('房间')
+        const rawContracts = parseSheet('代理合同')
+        const rawTenants = parseSheet('租客')
+        const rawBills = parseSheet('账单')
 
-        const state = { properties: props, rooms: roomList, landlordContracts: contractList, tenants: tenantList, bills: billList }
-        // 通过 Zustand 设置状态（触发云同步 + 持久化到 localStorage）
+        // ─── 行级校验 ───
+        const allErrors: string[] = []
+        const validProps = rawProps.filter((row, i) => { const e = validateImportRow('房源', row, i); allErrors.push(...e); return e.length === 0 })
+        const validRooms = rawRooms.filter((row, i) => { const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
+        const validContracts = rawContracts.filter((row, i) => { const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
+        const validTenants = rawTenants.filter((row, i) => { const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
+        const validBills = rawBills.filter((row, i) => { const e = validateImportRow('账单', row, i); allErrors.push(...e); return e.length === 0 })
+
+        const totalInvalid = allErrors.length
+        if (totalInvalid > 0) {
+          const summary = [
+            `📋 导入校验结果：`,
+            `  房源: ${validProps.length}/${rawProps.length}`,
+            `  房间: ${validRooms.length}/${rawRooms.length}`,
+            `  代理合同: ${validContracts.length}/${rawContracts.length}`,
+            `  租客: ${validTenants.length}/${rawTenants.length}`,
+            `  账单: ${validBills.length}/${rawBills.length}`,
+            `  共 ${totalInvalid} 条错误（仅显示前10条）：`,
+            ...allErrors.slice(0, 10),
+          ].join('\n')
+          console.warn(summary)
+          if (!confirm(`共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`)) {
+            e.target.value = ''
+            return
+          }
+        }
+
+        const props = validProps
+        const roomList = validRooms
+        const contractList = validContracts
+        const tenantList = validTenants
+        const billList = validBills
+
         const s2 = useStore.getState()
         useStore.setState({
           properties: props as any[],

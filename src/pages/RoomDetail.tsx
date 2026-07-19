@@ -5,6 +5,7 @@ import { Tenant, Bill } from '../types'
 import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
+import ConfirmModal from '../components/ConfirmModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
@@ -21,6 +22,7 @@ export default function RoomDetail() {
   const roomTenants = tenants.filter(t => t.roomId === roomId).sort((a, b) => b.contractStart.localeCompare(a.contractStart))
   const activeTenant = roomTenants.find(t => t.status === 'active')
   const selectedTenant = selectedTenantId ? roomTenants.find(t => t.id === selectedTenantId) : undefined
+  const [deleteConfirm, setDeleteConfirm] = useState<{ tenantId: string; isEnded: boolean } | null>(null)
   // 显示租客列表：在租租客 + 如果有选中的已退租租客也一起显示
   const displayTenants = selectedTenant && selectedTenant.status === 'ended'
     ? [...roomTenants.filter(t => t.status === 'active'), selectedTenant]
@@ -231,10 +233,10 @@ export default function RoomDetail() {
                               <>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline whitespace-nowrap">续约</button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">退租</button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有关联账单？此操作不可撤销！`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: false }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
                               </>
                             ) : (
-                              <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除该合同及所有账单？`)) { deleteTenantAndBills(t.id, roomId!) } }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
                             )}
                           </div>
                         </div>
@@ -501,6 +503,16 @@ export default function RoomDetail() {
         tenants={roomTenants.filter(t => t.status === 'ended')}
         roomLabel={`${room.label}室`}
         onViewTenant={(tenantId) => navigate(`/properties/${propertyId}/rooms/${roomId}`, { state: { selectedTenantId: tenantId } })}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirm !== null}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => { if (deleteConfirm) deleteTenantAndBills(deleteConfirm.tenantId, roomId!) }}
+        title="删除合同"
+        message={deleteConfirm?.isEnded ? '确定删除该合同及所有账单？' : '确定删除该合同及所有关联账单？此操作不可撤销！'}
+        confirmText="删除"
+        variant="danger"
       />
     </div>
   )
