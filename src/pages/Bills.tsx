@@ -223,18 +223,20 @@ export default function Bills() {
           <div className={contractFilter ? 'hidden' : ''}>
           <div className="grid grid-cols-4 gap-2 mb-3">
             {(() => {
-              const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+              const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && !b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
               const receivableUnpaid = bills.filter(b =>
                 b.direction === 'receivable' &&
                 b.status !== 'paid' &&
                 b.status !== 'cancelled' &&
-                !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended')
+                !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
+                !b.description?.includes('押金')
               ).reduce((s, b) => s + b.amount, 0)
-              const payablePaid = bills.filter(b => b.direction === 'payable' && b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+              const payablePaid = bills.filter(b => b.direction === 'payable' && b.status === 'paid' && !b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
               const payableUnpaid = bills.filter(b =>
                 b.direction === 'payable' &&
                 b.status !== 'paid' &&
-                b.status !== 'cancelled'
+                b.status !== 'cancelled' &&
+                !b.description?.includes('押金')
               ).reduce((s, b) => s + b.amount, 0)
               return (
                 <>
