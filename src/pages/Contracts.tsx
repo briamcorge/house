@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, BarChart3 } from 'lucide-react'
 
-type Filter = 'all' | 'active' | 'ended' | 'expiring' | 'expired'
+type Filter = 'all' | 'active' | 'ended' | 'expiring' | 'expired' | 'attention'
 
 export default function Contracts() {
   const navigate = useNavigate()
@@ -44,6 +44,7 @@ export default function Contracts() {
     if (filter === 'ended') return status === 'ended'
     if (filter === 'expiring') return status === 'active' && isExpiringSoon(endDate)
     if (filter === 'expired') return status === 'active' && isExpired(endDate)
+    if (filter === 'attention') return status === 'active' && (isExpiringSoon(endDate) || isExpired(endDate))
     return true
   }
 
@@ -133,6 +134,7 @@ export default function Contracts() {
                 active: landlordContracts.filter(c => c.status === 'active').length,
                 expiring: landlordContracts.filter(c => c.status === 'active' && isExpiringSoon(c.contractEnd)).length,
                 expired: landlordContracts.filter(c => c.status === 'active' && isExpired(c.contractEnd)).length,
+                attention: landlordContracts.filter(c => c.status === 'active' && (isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd))).length,
                 ended: landlordContracts.filter(c => c.status === 'ended').length,
               }}
             />
@@ -196,6 +198,7 @@ export default function Contracts() {
                 active: tenants.filter(t => t.status === 'active').length,
                 expiring: tenants.filter(t => t.status === 'active' && isExpiringSoon(t.contractEnd)).length,
                 expired: tenants.filter(t => t.status === 'active' && isExpired(t.contractEnd)).length,
+                attention: tenants.filter(t => t.status === 'active' && (isExpiringSoon(t.contractEnd) || isExpired(t.contractEnd))).length,
                 ended: tenants.filter(t => t.status === 'ended').length,
               }}
             />

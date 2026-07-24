@@ -101,7 +101,7 @@ export default function RoomDetail() {
   /** 获取某份合同的所有账单 */
   function getContractBills(tenant: Tenant): Bill[] {
     return bills
-      .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id)
+      .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id && !b.description?.includes('押金'))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   }
 
