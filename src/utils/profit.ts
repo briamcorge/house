@@ -79,8 +79,7 @@ export function calculatePeriodProfit(
     // 卫管费：找该周期内已付的other类型账单（排除押金相关）
     const otherFeeBills = periodBills.filter(b =>
       b.type === 'other' &&
-      b.status === 'paid' &&
-      !b.description?.includes('押金')
+      b.status === 'paid'
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
 
@@ -168,7 +167,7 @@ export function generateCycles(
 
     const paid = payableBills
       .filter(b => b.dueDate >= cs && b.dueDate <= ce && b.status === 'paid')
-      .filter(b => !b.description?.includes('押金'))
+      .filter(b => b.type !== 'deposit')
       .reduce((s, b) => s + b.amount, 0)
 
     cycles.push({ cycleStart: cs, cycleEnd: ce, landlordPaid: paid })
