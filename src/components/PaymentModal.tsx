@@ -35,9 +35,10 @@ export default function PaymentModal({ isOpen, onClose, direction }: PaymentModa
     if (!tid) return ''
     return tenants.find(t => t.id === tid)?.name || ''
   }
-
   const typeLabels: Record<string, string> = {
-    rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他'
+    rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费',
+    hygiene: '卫管费', internet: '网费', utilities: '水电燃气费',
+    other: '其他费用'
   }
 
   const title = direction === 'receivable' ? '收款' : '付款'

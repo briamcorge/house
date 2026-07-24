@@ -6,7 +6,7 @@ import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
 import ConfirmModal from '../components/ConfirmModal'
-import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
 
@@ -87,21 +87,22 @@ export default function RoomDetail() {
     }
   }, [payConfirmBill])
 
-  const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他' }
+  const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
   const typeIcons: Record<string, typeof FileText> = {
     rent: FileText,
-    water: Droplets,
-    electric: Zap,
-    gas: Flame,
-    internet: Wifi,
+    deposit: Banknote,
+    agency: Handshake,
+    sublease: ArrowLeftRight,
     hygiene: Sparkles,
+    internet: Wifi,
+    utilities: Zap,
     other: Receipt,
   }
 
   /** 获取某份合同的所有账单 */
   function getContractBills(tenant: Tenant): Bill[] {
     return bills
-      .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id && !b.description?.includes('押金'))
+      .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   }
 
@@ -194,9 +195,10 @@ export default function RoomDetail() {
                 {displayTenants.map(t => {
                   const gen = contractGenerations.get(t.id) || 1
                   const tb = getContractBills(t)
-                  const paidCount = tb.filter(b => b.status === 'paid').length
-                  const paidTotal = tb.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
-                  const pendingCount = tb.filter(b => b.status !== 'paid').length
+                  const incomeBills = tb.filter(b => b.type !== 'deposit')
+                  const paidCount = incomeBills.filter(b => b.status === 'paid').length
+                  const paidTotal = incomeBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                  const pendingCount = incomeBills.filter(b => b.status !== 'paid').length
                   const isExpanded = expandedContracts.has(t.id)
 
                   return (
@@ -246,10 +248,11 @@ export default function RoomDetail() {
                           <span className="text-gray-400">¥{t.monthlyRent}/月</span>
                         </div>
                         {/* 折叠时显示账单摘要 */}
-                        {!isExpanded && tb.length > 0 && (
+                        {!isExpanded && (
                           <div className="flex gap-3 mt-1.5 text-xs">
-                            <span className="text-green-600">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>
+                            {tb.length > 0 && <span className="text-green-600">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>}
                             {pendingCount > 0 && <span className="text-orange-600">待收 {pendingCount} 笔</span>}
+                            {t.deposit ? <span className="text-blue-600">押金 ¥{t.deposit}</span> : null}
                           </div>
                         )}
                       </div>
@@ -263,6 +266,7 @@ export default function RoomDetail() {
                               共 {tb.length} 条 ·
                               <span className="text-green-600 ml-1">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>
                               {pendingCount > 0 && <span className="text-orange-600 ml-1">待收 {pendingCount} 笔</span>}
+                              {t.deposit ? <span className="text-blue-600 ml-1">押金 ¥{t.deposit}</span> : null}
                             </span>
                             <button
                               type="button"
@@ -280,7 +284,7 @@ export default function RoomDetail() {
                                 <div key={bill.id} className="p-3 hover:bg-gray-50">
                                   <div className="flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
+                                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : bill.type === 'agency' ? 'bg-amber-100 text-amber-600' : bill.type === 'sublease' ? 'bg-violet-100 text-violet-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'utilities' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600'}`}>
                                         {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                                       </div>
                                       <span className="font-medium text-sm text-gray-900 truncate">{typeLabels[bill.type]}</span>
@@ -376,7 +380,7 @@ export default function RoomDetail() {
         onConfirm={(refunds) => {
           if (!checkoutTenant) return
           if (refunds.depositRefund > 0) {
-            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'other', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退押金' })
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'deposit', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退押金' })
           }
           if (refunds.rentRefund > 0) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退租金' })

@@ -120,7 +120,7 @@ export function add30Days(date: Date, days: number): Date {
 }
 
 export interface DraftBill {
-  type: 'rent' | 'other'
+  type: 'rent' | 'other' | 'deposit'
   amount: number
   dueDate: string
   periodStart: string

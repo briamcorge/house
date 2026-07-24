@@ -140,10 +140,10 @@ export default function RoomList() {
                   billSummary={(() => {
                     const activeTenant = getTenantForRoom(room.id)
                     if (!activeTenant) return undefined
-                    const roomBills = bills.filter(b => b.roomId === room.id && b.tenantId === activeTenant.id && b.status !== 'cancelled')
+                    const roomBills = bills.filter(b => b.roomId === room.id && b.tenantId === activeTenant.id && b.status !== 'cancelled' && !b.description?.includes('押金'))
                     const total = roomBills.reduce((s, b) => s + b.amount, 0)
                     const paid = roomBills.reduce((s, b) => {
-                      const p = b.paidAmount !== undefined ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
+                      const p = (b.paidAmount !== undefined && b.paidAmount > 0) ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
                       return s + p
                     }, 0)
                     return total > 0 ? { paid, total } : undefined

@@ -525,9 +525,10 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 1,
+    version: 2,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
+      let state = persistedState as Record<string, unknown>
       if (version === 0) {
         return {
           properties: [],
@@ -538,7 +539,22 @@ export const useStore = create<AppStore>()(
           profitRecords: [],
           trash: [],
           auditLogs: [],
-        }
+        } as AppStore
+      }
+      if (version === 1) {
+        const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
+          let type = b.type as string
+          // 水电气合并为 utilities
+          if (type === 'water' || type === 'electric' || type === 'gas') {
+            type = 'utilities'
+          }
+          // 押金从 other 独立
+          if (type === 'other' && (b.description as string)?.includes('押金')) {
+            type = 'deposit'
+          }
+          return { ...b, type }
+        })
+        return { ...state, bills } as AppStore
       }
       return persistedState as AppStore
     },

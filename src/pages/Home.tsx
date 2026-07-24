@@ -59,7 +59,7 @@ export default function Home() {
     tenants.filter(t => {
       if (t.status !== 'active') return false
       const daysLeft = Math.ceil((new Date(t.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      return daysLeft <= 30
+      return daysLeft >= 0 && daysLeft <= 30
     }),
     [tenants]
   )
@@ -282,7 +282,7 @@ export default function Home() {
                             {b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主')}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
-                            {isRefund ? '退款' : (b.type === 'rent' ? '房租' : b.type === 'water' ? '水费' : b.type === 'electric' ? '电费' : b.type === 'gas' ? '燃气费' : b.type === 'internet' ? '网费' : b.type === 'hygiene' ? '卫管费' : '其他')}
+                            {isRefund ? '退款' : ({ rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' } as Record<string, string>)[b.type] || '其他费用'}
                             {tenant && tenant.displayId && ` #${tenant.displayId}`}
                             {room && ` · ${room.label}室`}
                             {b.description && ` · ${b.description}`}
@@ -352,7 +352,7 @@ interface SearchResultsProps {
 
 function SearchResults({ query, properties, rooms, tenants, bills, landlordContracts, navigate }: SearchResultsProps) {
   const q = query.toLowerCase()
-  const typeLabelMap: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他' }
+  const typeLabelMap: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
   const matchedProps = properties.filter((p: Property) =>
     p.address.toLowerCase().includes(q) ||

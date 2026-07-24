@@ -176,7 +176,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       const depositVal = parseFloat(deposit)
       if (!isNaN(depositVal) && depositVal > 0) {
         extras.push({
-          type: 'other',
+          type: 'deposit',
           amount: depositVal,
           dueDate: formatDate(new Date(contractStart)),
           periodStart: contractStart,
