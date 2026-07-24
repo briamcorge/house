@@ -49,7 +49,7 @@ export default function Statistics() {
   const yearlyReceivablePaid = useMemo(() => {
     return bills
       .filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(selectedYear.toString()))
-      .filter(b => !b.description?.includes('押金'))
+      .filter(b => b.type !== 'deposit')
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
@@ -85,7 +85,7 @@ export default function Statistics() {
 
       const income = propBills
         .filter(b => b.direction === 'receivable' && b.status === 'paid')
-        .filter(b => !b.description?.includes('押金'))
+        .filter(b => b.type !== 'deposit')
         .reduce((s, b) => s + b.amount, 0)
       const expense = propBills
         .filter(b => b.direction === 'payable' && b.status === 'paid')
@@ -110,7 +110,7 @@ export default function Statistics() {
   const prevYear = selectedYear - 1
   const prevYearIncome = useMemo(() =>
     bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(prevYear.toString()))
-      .filter(b => !b.description?.includes('押金'))
+      .filter(b => b.type !== 'deposit')
       .reduce((s, b) => s + b.amount, 0), [bills, prevYear])
   const prevYearExpense = useMemo(() =>
     bills.filter(b => b.direction === 'payable' && b.status === 'paid' && b.paidDate?.startsWith(prevYear.toString()))
@@ -339,7 +339,7 @@ export default function Statistics() {
 
               const income = monthBills
                 .filter(b => b.direction === 'receivable')
-                .filter(b => !b.description?.includes('押金'))
+      .filter(b => b.type !== 'deposit')
                 .filter(b => b.amount >= 0)
                 .reduce((s, b) => s + b.amount, 0)
               const expense = monthBills
