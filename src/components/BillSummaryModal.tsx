@@ -57,13 +57,13 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
     return properties.find(p => p.id === pid)?.address || ''
   }
 
-  const totalAmount = filteredBills.reduce((s, b) => s + b.amount, 0)
-  const paidAmount = filteredBills.reduce((s, b) => {
+  const totalAmount = filteredBills.filter(b => !b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
+  const paidAmount = filteredBills.filter(b => !b.description?.includes('押金')).reduce((s, b) => {
     const paid = b.paidAmount !== undefined ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
     return s + paid
   }, 0)
-  const unpaidCount = filteredBills.filter(b => b.status === 'pending' || b.status === 'overdue').length
-  const paidCount = filteredBills.filter(b => b.status === 'paid').length
+  const unpaidCount = filteredBills.filter(b => !b.description?.includes('押金') && (b.status === 'pending' || b.status === 'overdue')).length
+  const paidCount = filteredBills.filter(b => !b.description?.includes('押金') && b.status === 'paid').length
 
   if (!isOpen) return null
 
