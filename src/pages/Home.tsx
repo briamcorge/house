@@ -230,19 +230,19 @@ export default function Home() {
               </div>
               <p className="text-xl font-bold text-orange-700">¥{formatMoney(cardOverduePayableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/contracts')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/contracts', { state: { filter: 'attention' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-600">到期租客</span>
                 <span className="text-xs text-gray-400">{expiredTenants.length > 0 ? '含已过期' : '30天内'}</span>
               </div>
-              <p className="text-xl font-bold text-yellow-700">{expiringTenants.length} 人</p>
+              <p className="text-xl font-bold text-yellow-700">{expiringTenants.length + expiredTenants.length} 人</p>
             </div>
-            <div onClick={() => navigate('/contracts')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/contracts', { state: { filter: 'attention' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-600">到期业主</span>
                 <span className="text-xs text-gray-400">{expiredLandlords.length > 0 ? '含已过期' : '30天内'}</span>
               </div>
-              <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length} 人</p>
+              <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length + expiredLandlords.length} 人</p>
             </div>
           </div>
 
