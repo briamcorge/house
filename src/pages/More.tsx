@@ -238,7 +238,7 @@ export default function More() {
         // 需要转换为数字的字段
         const numericFields = new Set(['amount', 'paidAmount', 'monthlyRent', 'deposit', 'otherFeeAmount', 'advanceDays'])
 
-        const validBillTypes = new Set(['rent', 'water', 'electric', 'gas', 'internet', 'hygiene', 'other'])
+        const validBillTypes = new Set(['rent', 'deposit', 'agency', 'sublease', 'hygiene', 'internet', 'utilities', 'other'])
 
         function validateImportRow(sheetName: string, row: Record<string, unknown>, index: number): string[] {
           const errors: string[] = []
@@ -267,7 +267,7 @@ export default function More() {
               break
             case '账单':
               if (row.amount === undefined || isNaN(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
-              if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/water/electric/gas/internet/hygiene/other 之一`)
+              if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/deposit/agency/sublease/hygiene/internet/utilities/other 之一`)
               if (!row.dueDate || String(row.dueDate).trim() === '') errors.push(`${prefix} 到期日不能为空`)
               break
           }

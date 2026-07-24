@@ -39,7 +39,7 @@
   - `qwen3.7-plus` - 图像+文本+视频，131k上下文
 
 **DeepSeek**
-- **API Key**: `sk-830751500a8c41d1899218e24fd87112`
+- **API Key**: `sk-5ea769f8f322471aa15983d61e281471`
 - **Base URL**: `https://api.deepseek.com`
 - **可用模型**:
   - `deepseek-v4-flash` - 快速推理

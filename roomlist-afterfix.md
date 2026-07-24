@@ -1,0 +1,79 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e304]:
+      - generic [ref=f2e307]:
+        - button [ref=f2e308] [cursor=pointer]
+        - generic [ref=f2e311]:
+          - heading "安华里五区1号楼3-402" [level=1] [ref=f2e312]
+          - paragraph [ref=f2e313]: 2 间房间
+        - button "添加" [ref=f2e314] [cursor=pointer]
+      - generic [ref=f2e317]:
+        - generic [ref=f2e318]:
+          - heading "业主合同记录" [level=2] [ref=f2e320]
+          - generic [ref=f2e325]:
+            - generic [ref=f2e326]:
+              - generic [ref=f2e327]: 相寓 · ¥5425/月
+              - generic [ref=f2e328]:
+                - button "编辑" [ref=f2e329] [cursor=pointer]
+                - button "退租" [ref=f2e330] [cursor=pointer]
+                - button "删除" [ref=f2e331] [cursor=pointer]
+                - generic [ref=f2e332]: 执行中
+            - paragraph [ref=f2e333]: 2026-03-02 ~ 2027-03-01
+        - generic [ref=f2e334]:
+          - generic [ref=f2e335]:
+            - generic [ref=f2e336] [cursor=pointer]:
+              - generic [ref=f2e337]:
+                - generic [ref=f2e338]: A
+                - generic [ref=f2e339]:
+                  - generic [ref=f2e340]:
+                    - generic [ref=f2e341]: A 室
+                    - generic [ref=f2e342]: 在租
+                    - generic [ref=f2e343]: 主卧
+                  - generic [ref=f2e344]:
+                    - generic [ref=f2e345]: 徐和英
+                    - generic [ref=f2e349]: ¥2750/月
+                    - generic [ref=f2e352]: 月付
+                    - generic [ref=f2e353]: 2026-04-20~2027-03-01
+              - generic [ref=f2e356]:
+                - generic [ref=f2e357]: 账单
+                - generic [ref=f2e358]:
+                  - generic [ref=f2e359]: ¥0
+                  - text: /
+                  - generic [ref=f2e360]: ¥32250
+                  - generic [ref=f2e361]: 未收 ¥32250
+            - button [ref=f2e363] [cursor=pointer]
+          - generic [ref=f2e368]:
+            - generic [ref=f2e369] [cursor=pointer]:
+              - generic [ref=f2e370]:
+                - generic [ref=f2e371]: C
+                - generic [ref=f2e372]:
+                  - generic [ref=f2e373]:
+                    - generic [ref=f2e374]: C 室
+                    - generic [ref=f2e375]: 在租
+                    - generic [ref=f2e376]: 暗间
+                  - generic [ref=f2e377]:
+                    - generic [ref=f2e378]: 刘秋红
+                    - generic [ref=f2e382]: ¥1500/月
+                    - generic [ref=f2e385]: 季付
+                    - generic [ref=f2e386]: 2026-04-01~2027-03-01
+              - generic [ref=f2e389]:
+                - generic [ref=f2e390]: 账单
+                - generic [ref=f2e391]:
+                  - generic [ref=f2e392]: ¥0
+                  - text: /
+                  - generic [ref=f2e393]: ¥24980
+                  - generic [ref=f2e394]: 未收 ¥24980
+            - button [ref=f2e396] [cursor=pointer]
+    - navigation [ref=f2e148]:
+      - generic [ref=f2e149]:
+        - link "首页" [ref=f2e150] [cursor=pointer]:
+          - /url: "#/"
+        - link "房屋" [ref=f2e155] [cursor=pointer]:
+          - /url: "#/properties"
+        - link "账单" [ref=f2e161] [cursor=pointer]:
+          - /url: "#/bills"
+        - link "统计" [ref=f2e166] [cursor=pointer]:
+          - /url: "#/statistics"
+        - link "更多" [ref=f2e170] [cursor=pointer]:
+          - /url: "#/more"
+  - generic [ref=f2e241]: "-20000"

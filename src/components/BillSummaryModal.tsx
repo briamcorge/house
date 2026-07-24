@@ -30,7 +30,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
     })
   }, [bills, propertyId, roomId])
 
-  const typeLabels: Record<string, string> = { rent: '房租', water: '水费', electric: '电费', gas: '燃气费', internet: '网费', hygiene: '卫管费', other: '其他' }
+  const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
   const getStatusStyle = (status: string) => {
     if (status === 'paid') return 'bg-green-100 text-green-700'
@@ -59,7 +59,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
 
   const totalAmount = filteredBills.filter(b => !b.description?.includes('押金')).reduce((s, b) => s + b.amount, 0)
   const paidAmount = filteredBills.filter(b => !b.description?.includes('押金')).reduce((s, b) => {
-    const paid = b.paidAmount !== undefined ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
+    const paid = (b.paidAmount !== undefined && b.paidAmount > 0) ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
     return s + paid
   }, 0)
   const unpaidCount = filteredBills.filter(b => !b.description?.includes('押金') && (b.status === 'pending' || b.status === 'overdue')).length
@@ -129,7 +129,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
                       {getStatusLabel(bill)}
                     </span>
                   </div>
-                  <span className="font-bold text-sm">{bill.paidAmount !== undefined && Number(bill.paidAmount) < Number(bill.amount)
+                  <span className="font-bold text-sm">{bill.paidAmount !== undefined && Number(bill.paidAmount) > 0 && Number(bill.paidAmount) < Number(bill.amount)
                     ? `¥${Number(bill.paidAmount).toFixed(2)}/¥${Number(bill.amount).toFixed(2)}`
                     : `¥${Number(bill.amount).toFixed(2)}`}</span>
                 </div>
@@ -138,7 +138,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
                   <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
                   {bill.paidDate && <span className="ml-1">已{roomId ? '收' : '付'}：{bill.paidDate}</span>}
                 </div>
-                {bill.description && bill.type === 'rent' && (
+                {bill.description && (
                   <div className="text-xs text-gray-400 mt-0.5">{bill.description}</div>
                 )}
               </div>

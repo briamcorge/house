@@ -1,0 +1,55 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e40]:
+    - generic [ref=f1e293]:
+      - generic [ref=f1e295]:
+        - generic [ref=f1e296]:
+          - button [ref=f1e297] [cursor=pointer]
+          - heading "合同管理" [level=1] [ref=f1e300]
+        - textbox "搜索合同编号、姓名、地址..." [ref=f1e305]
+      - generic [ref=f1e307]:
+        - generic [ref=f1e308]:
+          - heading "房屋代理合同" [level=2] [ref=f1e309]
+          - generic [ref=f1e313]:
+            - button "全部 (3)" [ref=f1e314] [cursor=pointer]
+            - button "执行中 (3)" [ref=f1e315] [cursor=pointer]
+            - button "30天内到期 (0)" [ref=f1e316] [cursor=pointer]
+            - button "已过期 (0)" [ref=f1e317] [cursor=pointer]
+            - button "已结束 (0)" [ref=f1e318] [cursor=pointer]
+          - paragraph [ref=f1e320]: 暂无房屋代理合同
+        - generic [ref=f1e321]:
+          - heading "房屋租赁合同" [level=2] [ref=f1e322]
+          - generic [ref=f1e326]:
+            - button "全部 (12)" [ref=f1e327] [cursor=pointer]
+            - button "执行中 (10)" [ref=f1e328] [cursor=pointer]
+            - button "30天内到期 (0)" [ref=f1e329] [cursor=pointer]
+            - button "已过期 (1)" [ref=f1e330] [cursor=pointer]
+            - button "已结束 (2)" [ref=f1e331] [cursor=pointer]
+          - generic [ref=f1e333] [cursor=pointer]:
+            - generic [ref=f1e334]:
+              - generic [ref=f1e335]: 王楠
+              - generic [ref=f1e336]: "#ZL-0010"
+              - generic [ref=f1e337]:
+                - generic [ref=f1e338]: 已过期2天
+                - generic [ref=f1e339]: 在租
+            - generic [ref=f1e340]:
+              - generic [ref=f1e341]: 安华西里一区19号楼6-603 - C室
+              - generic [ref=f1e345]: 2026-04-23 ~ 2026-07-22
+              - generic [ref=f1e348]: ¥2200/月
+            - generic [ref=f1e349]:
+              - generic [ref=f1e350]: 5笔
+              - generic [ref=f1e353]: 未收 ¥0
+              - generic [ref=f1e354]: 已收 ¥8980
+    - navigation [ref=f1e261]:
+      - generic [ref=f1e262]:
+        - link "首页" [ref=f1e263] [cursor=pointer]:
+          - /url: "#/"
+        - link "房屋" [ref=f1e268] [cursor=pointer]:
+          - /url: "#/properties"
+        - link "账单" [ref=f1e274] [cursor=pointer]:
+          - /url: "#/bills"
+        - link "统计" [ref=f1e279] [cursor=pointer]:
+          - /url: "#/statistics"
+        - link "更多" [ref=f1e283] [cursor=pointer]:
+          - /url: "#/more"
+      - generic "已同步" [ref=f1e289]
+  - generic [ref=f1e292]: "-20000"

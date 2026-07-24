@@ -1,0 +1,22 @@
+- generic [ref=e39]:
+  - generic [ref=e40]:
+    - heading "房屋管理系统" [level=1] [ref=e46]
+    - paragraph [ref=e47]: 轻松管理您的房源与租客
+  - generic [ref=e48]:
+    - heading "登录" [level=2] [ref=e49]
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]: 邮箱
+        - textbox "your@email.com" [ref=e57]: c94138228@163.com
+      - generic [ref=e58]:
+        - generic [ref=e59]: 密码
+        - generic [ref=e60]:
+          - textbox "至少8位密码" [ref=e64]: ztzd12345
+          - button [ref=e65] [cursor=pointer]
+      - button "登录" [ref=e69] [cursor=pointer]
+      - paragraph [ref=e70]:
+        - text: 还没有账号？
+        - button "注册" [ref=e71] [cursor=pointer]
+      - paragraph [ref=e72]:
+        - button "忘记密码？" [ref=e73] [cursor=pointer]
+  - paragraph [ref=e74]: v1.147

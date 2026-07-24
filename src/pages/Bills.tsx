@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 
 function get30DaysAgo(): string {
   const d = new Date()
@@ -79,21 +79,13 @@ export default function Bills() {
   }
 
   const typeLabels: Record<string, string> = {
-    rent: '房租',
-    water: '水费',
-    electric: '电费',
-    gas: '燃气费',
-    internet: '网费',
-    hygiene: '卫管费',
-    other: '其他'
+    rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费',
+    hygiene: '卫管费', internet: '网费', utilities: '水电燃气费',
+    other: '其他费用'
   }
   const typeIcons: Record<string, typeof Home> = {
-    rent: FileText,
-    water: Droplets,
-    electric: Zap,
-    gas: Flame,
-    internet: Wifi,
-    hygiene: Sparkles,
+    rent: FileText, deposit: Banknote, agency: Handshake, sublease: ArrowLeftRight,
+    hygiene: Sparkles, internet: Wifi, utilities: Zap,
     other: Receipt
   }
 
@@ -382,7 +374,7 @@ export default function Bills() {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'water' ? 'bg-cyan-100 text-cyan-600' : bill.type === 'electric' ? 'bg-yellow-100 text-yellow-600' : bill.type === 'gas' ? 'bg-orange-100 text-orange-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'}`}>
+                              <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : bill.type === 'agency' ? 'bg-amber-100 text-amber-600' : bill.type === 'sublease' ? 'bg-violet-100 text-violet-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'utilities' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600'}`}>
                                 {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                               </div>
                               <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
