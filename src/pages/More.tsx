@@ -104,8 +104,8 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
-  const depositBalance = bills.filter(b => b.description?.includes('押金') && b.status === 'paid').reduce((s, b) => s + Number(b.amount), 0)
-  const depositBills = bills.filter(b => b.description?.includes('押金') && b.status === 'paid')
+  const depositBalance = bills.filter(b => b.type === 'deposit' && b.status === 'paid').reduce((s, b) => s + Number(b.amount), 0)
+  const depositBills = bills.filter(b => b.type === 'deposit' && b.status === 'paid')
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
