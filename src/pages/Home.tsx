@@ -64,11 +64,29 @@ export default function Home() {
     [tenants]
   )
 
+  const expiredTenants = useMemo(() =>
+    tenants.filter(t => {
+      if (t.status !== 'active') return false
+      const daysLeft = Math.ceil((new Date(t.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft < 0
+    }),
+    [tenants]
+  )
+
   const expiringLandlords = useMemo(() =>
     landlordContracts.filter(c => {
       if (c.status !== 'active') return false
       const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       return daysLeft <= 30
+    }),
+    [landlordContracts]
+  )
+
+  const expiredLandlords = useMemo(() =>
+    landlordContracts.filter(c => {
+      if (c.status !== 'active') return false
+      const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      return daysLeft < 0
     }),
     [landlordContracts]
   )
@@ -84,6 +102,7 @@ export default function Home() {
   const overdueReceivableTotal = overdueReceivable.reduce((s, b) => s + b.amount, 0)
 
   const expiringSoon = (expiringTenants.length + expiringLandlords.length) > 0
+  const hasExpired = (expiredTenants.length + expiredLandlords.length) > 0
 
   const recentTransactions = useMemo(() =>
     bills.filter(b => b.status === 'paid')
@@ -155,21 +174,39 @@ export default function Home() {
                 </button>
               </div>
             )}
-            {!dismissedAlerts.has('expiring') && expiringSoon && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                <Bell className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-yellow-800">
-                    {expiringTenants.length > 0 && `${expiringTenants.length} 位租客`}
-                    {expiringTenants.length > 0 && expiringLandlords.length > 0 && '、'}
-                    {expiringLandlords.length > 0 && `${expiringLandlords.length} 份业主合同`}
-                    {' '}30天内到期
-                  </p>
-                  <p className="text-xs text-yellow-600 mt-0.5">请提前准备续约或退租</p>
-                </div>
-                <button type="button" onClick={() => dismissAlert('expiring')} className="text-yellow-400 hover:text-yellow-600 shrink-0">
-                  <X className="w-4 h-4" />
-                </button>
+            {!dismissedAlerts.has('expiring') && (expiringSoon || hasExpired) && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 space-y-2">
+                {expiringSoon && (
+                  <div className="flex items-start gap-3">
+                    <Bell className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-yellow-800">
+                        {expiringTenants.length > 0 && `${expiringTenants.length} 位租客`}
+                        {expiringTenants.length > 0 && expiringLandlords.length > 0 && '、'}
+                        {expiringLandlords.length > 0 && `${expiringLandlords.length} 份业主合同`}
+                        {' '}30天内到期
+                      </p>
+                      <p className="text-xs text-yellow-600 mt-0.5">请提前准备续约或退租</p>
+                    </div>
+                    <button type="button" onClick={() => dismissAlert('expiring')} className="text-yellow-400 hover:text-yellow-600 shrink-0">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {hasExpired && (
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-red-800">
+                        {expiredTenants.length > 0 && `${expiredTenants.length} 位租客`}
+                        {expiredTenants.length > 0 && expiredLandlords.length > 0 && '、'}
+                        {expiredLandlords.length > 0 && `${expiredLandlords.length} 份业主合同`}
+                        {' '}已过期未处理
+                      </p>
+                      <p className="text-xs text-red-600 mt-0.5">合同已到期，请尽快办理续约或退租</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -193,17 +230,17 @@ export default function Home() {
               </div>
               <p className="text-xl font-bold text-orange-700">¥{formatMoney(cardOverduePayableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/contracts', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/contracts')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-600">到期租客</span>
-                <span className="text-xs text-gray-400">30天内</span>
+                <span className="text-xs text-gray-400">{expiredTenants.length > 0 ? '含已过期' : '30天内'}</span>
               </div>
               <p className="text-xl font-bold text-yellow-700">{expiringTenants.length} 人</p>
             </div>
-            <div onClick={() => navigate('/contracts', { state: { filter: 'expiring' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/contracts')} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-yellow-600">到期业主</span>
-                <span className="text-xs text-gray-400">30天内</span>
+                <span className="text-xs text-gray-400">{expiredLandlords.length > 0 ? '含已过期' : '30天内'}</span>
               </div>
               <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length} 人</p>
             </div>

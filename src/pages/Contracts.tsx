@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, BarChart3 } from 'lucide-react'
 
-type Filter = 'all' | 'active' | 'ended' | 'expiring'
+type Filter = 'all' | 'active' | 'ended' | 'expiring' | 'expired'
 
 export default function Contracts() {
   const navigate = useNavigate()
@@ -25,6 +25,10 @@ export default function Contracts() {
     const daysLeft = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     return daysLeft >= 0 && daysLeft <= 30
   }
+  const isExpired = (endDate: string) => {
+    const daysLeft = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    return daysLeft < 0
+  }
 
   const getBillsForContract = (contract: { id: string; propertyId: string }, direction: 'payable' | 'receivable') => {
     return bills.filter(b => b.propertyId === contract.propertyId && b.direction === direction)
@@ -39,6 +43,7 @@ export default function Contracts() {
     if (filter === 'active') return status === 'active'
     if (filter === 'ended') return status === 'ended'
     if (filter === 'expiring') return status === 'active' && isExpiringSoon(endDate)
+    if (filter === 'expired') return status === 'active' && isExpired(endDate)
     return true
   }
 
@@ -74,6 +79,7 @@ export default function Contracts() {
         { key: 'all' as const, label: '全部' },
         { key: 'active' as const, label: '执行中' },
         { key: 'expiring' as const, label: '30天内到期' },
+        { key: 'expired' as const, label: '已过期' },
         { key: 'ended' as const, label: '已结束' },
       ] as const).map(f => (
         <button key={f.key} onClick={() => onChange(f.key)}
@@ -126,6 +132,7 @@ export default function Contracts() {
                 all: landlordContracts.length,
                 active: landlordContracts.filter(c => c.status === 'active').length,
                 expiring: landlordContracts.filter(c => c.status === 'active' && isExpiringSoon(c.contractEnd)).length,
+                expired: landlordContracts.filter(c => c.status === 'active' && isExpired(c.contractEnd)).length,
                 ended: landlordContracts.filter(c => c.status === 'ended').length,
               }}
             />
@@ -146,8 +153,11 @@ export default function Contracts() {
                         <span className="font-medium text-sm">{c.landlordName || '业主'}</span>
                         <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-mono ml-1">#{c.displayId}</span>
                         <div className="flex items-center gap-1">
-                          {c.status === 'active' && daysLeft <= 30 && daysLeft >= 0 && (
+                          {c.status === 'active' && daysLeft >= 0 && daysLeft <= 30 && (
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">{daysLeft}天</span>
+                          )}
+                          {c.status === 'active' && daysLeft < 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">已过期{Math.abs(daysLeft)}天</span>
                           )}
                           <span className={`text-xs px-1.5 py-0.5 rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{c.status === 'active' ? '执行中' : '已结束'}</span>
                         </div>
@@ -185,6 +195,7 @@ export default function Contracts() {
                 all: tenants.length,
                 active: tenants.filter(t => t.status === 'active').length,
                 expiring: tenants.filter(t => t.status === 'active' && isExpiringSoon(t.contractEnd)).length,
+                expired: tenants.filter(t => t.status === 'active' && isExpired(t.contractEnd)).length,
                 ended: tenants.filter(t => t.status === 'ended').length,
               }}
             />
@@ -206,8 +217,11 @@ export default function Contracts() {
                         <span className="font-medium text-sm">{t.name}</span>
                         <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono ml-1">#{t.displayId}</span>
                         <div className="flex items-center gap-1">
-                          {t.status === 'active' && daysLeft <= 30 && daysLeft >= 0 && (
+                          {t.status === 'active' && daysLeft >= 0 && daysLeft <= 30 && (
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">{daysLeft}天</span>
+                          )}
+                          {t.status === 'active' && daysLeft < 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">已过期{Math.abs(daysLeft)}天</span>
                           )}
                           <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{t.status === 'active' ? '在租' : '已退租'}</span>
                         </div>
