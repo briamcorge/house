@@ -152,7 +152,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       if (diff > 0) {
         // 押金增加：补收差额
         extras.push({
-          type: 'other',
+          type: 'deposit',
           amount: diff,
           dueDate: formatDate(new Date(contractStart)),
           periodStart: contractStart,
@@ -162,7 +162,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       } else if (diff < 0) {
         // 押金减少：退还差额
         extras.push({
-          type: 'other',
+          type: 'deposit',
           amount: diff, // negative amount = refund
           dueDate: formatDate(new Date(contractStart)),
           periodStart: contractStart,
