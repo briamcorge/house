@@ -77,6 +77,7 @@ export default function More() {
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
+  const [showPaidDepositList, setShowPaidDepositList] = useState(false)
   const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
@@ -117,9 +118,10 @@ export default function More() {
 
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
-  const depositBalance = bills.filter(b => b.type === 'deposit' || (b.description as string)?.includes('押金')).reduce((s, b) => s + Number(b.amount), 0)
+  const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable').reduce((s, b) => s + Number(b.amount), 0)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable').reduce((s, b) => s + Number(b.amount), 0)
-  const depositBills = bills.filter(b => b.type === 'deposit' || (b.description as string)?.includes('押金'))
+  const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable')
+  const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable')
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
@@ -561,11 +563,11 @@ export default function More() {
             <div className="mt-2 pt-2 border-t border-white/20 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
                 <p className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">押金余额</p>
+                <p className="text-blue-200 text-xs">租户押金余额</p>
               </button>
-              <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
+              <button type="button" onClick={() => setShowPaidDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
                 <p className="text-lg font-bold text-white">¥{paidDeposit.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">已付押金</p>
+                <p className="text-blue-200 text-xs">已付业主押金</p>
               </button>
             </div>
           </div>
@@ -955,6 +957,42 @@ export default function More() {
               })}
               {depositBills.length === 0 && (
                 <p className="text-center text-gray-400 py-8">暂无押金记录</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 已付押金明细弹窗 */}
+      {showPaidDepositList && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPaidDepositList(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">已付押金明细</h3>
+              <button type="button" onClick={() => setShowPaidDepositList(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              <div className="flex items-center justify-between bg-blue-50 rounded-xl p-3 mb-3">
+                <span className="text-sm font-medium text-blue-700">合计</span>
+                <span className="text-lg font-bold text-blue-700">¥{paidDeposit.toFixed(0)}</span>
+              </div>
+              {paidDepositBills.map((b) => {
+                const room = rooms.find(r => r.id === b.roomId)
+                const prop = room ? properties.find(p => p.id === room.propertyId) : (b.propertyId ? properties.find(p => p.id === b.propertyId) : null)
+                return (
+                  <div key={b.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} {room ? `- ${room.label}` : ''}</p>
+                      <p className="text-xs text-gray-500">业主押金</p>
+                    </div>
+                    <span className="text-sm font-bold ml-2 text-gray-900">¥{Math.abs(b.amount).toFixed(0)}</span>
+                  </div>
+                )
+              })}
+              {depositBills.filter(b => b.direction === 'payable').length === 0 && (
+                <p className="text-center text-gray-400 py-8">暂无已付押金记录</p>
               )}
             </div>
           </div>
