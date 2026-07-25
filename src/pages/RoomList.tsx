@@ -8,6 +8,8 @@ import TenantModal from '../components/TenantModal'
 import BillSummaryModal from '../components/BillSummaryModal'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import LandlordContractModal from '../components/LandlordContractModal'
+import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } from 'lucide-react'
 
 export default function RoomList() {
@@ -33,6 +35,9 @@ export default function RoomList() {
   const [historyRoomId, setHistoryRoomId] = useState<string | null>(null)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: 'name' | 'phone'; value: string } | null>(null)
   const [editInlineValue, setEditInlineValue] = useState('')
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+  const [contractConfirm, setContractConfirm] = useState<{ id: string; action: 'terminate' | 'delete' } | null>(null)
+  const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
 
   if (!property) {
     return (
@@ -106,9 +111,9 @@ export default function RoomList() {
                         <div className="flex items-center gap-2">
                           <button type="button" onClick={() => setEditContractId(c.id)} className="text-xs text-blue-600 hover:underline">编辑</button>
                           {c.status === 'active' ? (
-                            <button type="button" onClick={() => { if (confirm('确定退租？合同标记为已结束，账单保留。')) { terminateLandlordContract(c.id) } }} className="text-xs text-orange-600 hover:underline">退租</button>
+                            <button type="button" onClick={() => setContractConfirm({ id: c.id, action: 'terminate' })} className="text-xs text-orange-600 hover:underline">退租</button>
                           ) : null}
-                          <button type="button" onClick={() => { if (confirm('确定删除该合同及所有应付账单？')) { deleteLandlordContract(c.id, propertyId!) } }} className="text-xs text-red-600 hover:underline">删除</button>
+                          <button type="button" onClick={() => setContractConfirm({ id: c.id, action: 'delete' })} className="text-xs text-red-600 hover:underline">删除</button>
                           <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">{c.status === 'active' ? '执行中' : '已结束'}</span>
                         </div>
                       </div>
@@ -196,12 +201,10 @@ export default function RoomList() {
                           setRoomMenu(null)
                           const roomTenants = tenants.filter(t => t.roomId === room.id)
                           if (roomTenants.length > 0) {
-                            alert('该房间存在租客记录，请先删除租客后再删除房间')
+                            setAlertState({ title: '提示', message: '该房间存在租客记录，请先删除租客后再删除房间' })
                             return
                           }
-                          if (confirm(`确定删除${room.label}室？`)) {
-                            deleteRoom(room.id)
-                          }
+                          setRoomDeleteConfirm({ roomId: room.id, label: room.label })
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                       >
@@ -296,6 +299,40 @@ export default function RoomList() {
         onClose={() => setHistoryRoomId(null)}
         tenants={tenants.filter(t => t.roomId === historyRoomId && t.status === 'ended')}
         roomLabel={`${rooms.find(r => r.id === historyRoomId)?.label}室`}
+      />
+
+      <ConfirmModal
+        isOpen={contractConfirm !== null}
+        onClose={() => setContractConfirm(null)}
+        onConfirm={() => {
+          if (contractConfirm?.action === 'terminate') {
+            terminateLandlordContract(contractConfirm.id)
+          } else if (contractConfirm?.action === 'delete') {
+            deleteLandlordContract(contractConfirm.id, propertyId!)
+          }
+        }}
+        title={contractConfirm?.action === 'terminate' ? '退租确认' : '删除确认'}
+        message={contractConfirm?.action === 'terminate' ? '确定退租？合同标记为已结束，账单保留。' : '确定删除该合同及所有应付账单？'}
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={roomDeleteConfirm !== null}
+        onClose={() => setRoomDeleteConfirm(null)}
+        onConfirm={() => {
+          if (roomDeleteConfirm) deleteRoom(roomDeleteConfirm.roomId)
+        }}
+        title="删除确认"
+        message={roomDeleteConfirm ? `确定删除${roomDeleteConfirm.label}室？` : ''}
+        variant="danger"
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant="error"
       />
     </div>
   )

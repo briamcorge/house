@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { TrashType } from '../types'
+import ConfirmModal from '../components/ConfirmModal'
 import { Trash2, RotateCcw, ChevronLeft, AlertTriangle, Search } from 'lucide-react'
 
 const typeLabels: Record<TrashType, string> = {
@@ -27,6 +28,8 @@ export default function Trash() {
   const { trash, restoreFromTrash, permanentlyDelete, emptyTrash } = useStore()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false)
+  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TrashType | 'all'>('all')
 
@@ -59,9 +62,7 @@ export default function Trash() {
   }
 
   const handleBatchDelete = () => {
-    if (!confirm('确定永久删除选中的项目？此操作不可恢复！')) return
-    selected.forEach(id => permanentlyDelete(id))
-    setSelected(new Set())
+    setBatchDeleteConfirm(true)
   }
 
   const typeCounts = useMemo(() => {
@@ -177,7 +178,7 @@ export default function Trash() {
                       <RotateCcw className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => { if (confirm('确定永久删除？')) permanentlyDelete(item.id) }}
+                      onClick={() => setSingleDeleteId(item.id)}
                       className="p-1.5 hover:bg-red-50 rounded-lg text-red-600"
                       title="永久删除"
                     >
@@ -203,6 +204,29 @@ export default function Trash() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={batchDeleteConfirm}
+        onClose={() => setBatchDeleteConfirm(false)}
+        onConfirm={() => {
+          selected.forEach(id => permanentlyDelete(id))
+          setSelected(new Set())
+        }}
+        title="批量删除确认"
+        message="确定永久删除选中的项目？此操作不可恢复！"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={singleDeleteId !== null}
+        onClose={() => setSingleDeleteId(null)}
+        onConfirm={() => {
+          if (singleDeleteId) permanentlyDelete(singleDeleteId)
+        }}
+        title="永久删除确认"
+        message="确定永久删除？"
+        variant="danger"
+      />
     </div>
   )
 }

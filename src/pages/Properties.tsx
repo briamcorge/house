@@ -6,6 +6,8 @@ import PropertyCard from '../components/PropertyCard'
 import PropertyModal from '../components/PropertyModal'
 import LandlordContractModal from '../components/LandlordContractModal'
 import BillSummaryModal from '../components/BillSummaryModal'
+import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { add30Days, formatDate } from '../utils/calculator'
 import { Edit2, Trash2, MoreVertical, Plus, Search, FileText, User } from 'lucide-react'
 
@@ -19,6 +21,9 @@ export default function Properties() {
   const [summaryPropertyId, setSummaryPropertyId] = useState<string | null>(null)
   const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string } | null>(null)
   const [simpleEdit, setSimpleEdit] = useState<{ pid: string; name?: string; phone?: string } | null>(null)
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+  const [deleteStep1, setDeleteStep1] = useState<string | null>(null)
+  const [deleteStep2, setDeleteStep2] = useState<string | null>(null)
 
   const getRoomCount = (propertyId: string) =>
     rooms.filter(r => r.propertyId === propertyId).length
@@ -185,15 +190,11 @@ export default function Properties() {
                           if (activeTenants > 0) warnings.push(`${activeTenants} 份活跃租客合同`)
                           if (activeContracts > 0) warnings.push(`${activeContracts} 份活跃业主合同`)
                           if (warnings.length > 0) {
-                            alert(`该房源下有 ${warnings.join(' / ')}，请先处理后再删除`)
+                            setAlertState({ title: '提示', message: `该房源下有 ${warnings.join(' / ')}，请先处理后再删除` })
                             setPropertyMenu(null)
                             return
                           }
-                          // 第一步确认
-                          if (!confirm('确定要删除这个房源吗？')) { setPropertyMenu(null); return }
-                          // 第二步确认：是否保留已付账单
-                          const keepPaid = confirm('是否保留已付清的账单及流水？\n\n选择"确定"= 保留已付账单\n选择"取消"= 删除所有关联账单')
-                          deleteProperty(property.id, keepPaid)
+                          setDeleteStep1(property.id)
                           setPropertyMenu(null)
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
@@ -309,6 +310,45 @@ export default function Properties() {
         isOpen={summaryPropertyId !== null}
         onClose={() => setSummaryPropertyId(null)}
         propertyId={summaryPropertyId || undefined}
+      />
+
+      <ConfirmModal
+        isOpen={deleteStep1 !== null}
+        onClose={() => setDeleteStep1(null)}
+        onConfirm={() => {
+          if (deleteStep1) {
+            setDeleteStep2(deleteStep1)
+            setDeleteStep1(null)
+          }
+        }}
+        title="删除确认"
+        message="确定要删除这个房源吗？"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={deleteStep2 !== null}
+        onClose={() => {
+          if (deleteStep2) deleteProperty(deleteStep2, false)
+          setDeleteStep2(null)
+        }}
+        onConfirm={() => {
+          if (deleteStep2) deleteProperty(deleteStep2, true)
+          setDeleteStep2(null)
+        }}
+        title="确认操作"
+        message={'是否保留已付清的账单及流水？\n\n选择"确定"= 保留已付账单\n选择"取消"= 删除所有关联账单'}
+        variant="default"
+        confirmText="保留已付账单"
+        cancelText="全部删除"
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant="error"
       />
     </div>
   )

@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
+import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 
 function get30DaysAgo(): string {
@@ -27,6 +29,8 @@ export default function Bills() {
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
   const [showAllBills, setShowAllBills] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
 
   // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
@@ -162,8 +166,10 @@ export default function Bills() {
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
-    return relevantBills.some(b => b.dueDate < thirtyDaysAgo)
-  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo])
+    if (filterStatus !== 'paid') return false
+    const paidOlder = relevantBills.filter(b => b.status === 'paid' && b.dueDate < thirtyDaysAgo)
+    return paidOlder.length > 0
+  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo, filterStatus])
 
   // Sorting: 全部按 dueDate 升序（从前往后）
   const displayBills = useMemo(() => {
@@ -187,10 +193,7 @@ export default function Bills() {
   }
 
   const handleDeleteBill = (id: string) => {
-    if (confirm('确定要删除这个账单吗？')) {
-      deleteBill(id)
-      setBillMenu(null)
-    }
+    setDeleteConfirmId(id)
   }
 
   return (
@@ -595,7 +598,7 @@ export default function Bills() {
                 <button type="button" onClick={() => {
                   const paidAmt = payAmount !== '' ? parseFloat(payAmount) : undefined
                   if (paidAmt !== undefined && paidAmt > payConfirmBill.amount) {
-                    alert('收款金额不能大于账单金额')
+                    setAlertState({ title: '提示', message: '收款金额不能大于账单金额' })
                     return
                   }
                   const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
@@ -630,6 +633,25 @@ export default function Bills() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => { setDeleteConfirmId(null); setBillMenu(null) }}
+        onConfirm={() => {
+          if (deleteConfirmId) deleteBill(deleteConfirmId)
+        }}
+        title="删除确认"
+        message="确定要删除这个账单吗？"
+        variant="danger"
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant="error"
+      />
     </div>
   )
 }
