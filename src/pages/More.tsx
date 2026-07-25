@@ -194,15 +194,24 @@ export default function More() {
     }
 
     // 降级：Blob URL 下载（桌面浏览器 / 备用）
-    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    try {
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      // 延迟释放 URL，确保浏览器有时间启动下载（尤其手机浏览器/PWA）
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 5000)
+    } catch (e) {
+      console.error('Excel 导出失败:', e)
+      alert('导出失败，请重试。如果问题持续，请查看控制台错误信息。')
+      return
+    }
     // 操作日志
     const s = useStore.getState()
     useStore.setState({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'export', entity: 'excel', details: `导出Excel (${sheets.length}个表)`, createdAt: new Date().toISOString() }] })
