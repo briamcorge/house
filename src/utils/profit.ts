@@ -1,6 +1,19 @@
 import { Tenant, Bill, Room } from '../types'
 import { calculateDays30_360, add30Days, formatDate } from './calculator'
 
+/** 判断账单是否与某业主周期重叠 — 按账单 description 中的实际起止日匹配（而非应收日） */
+function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
+  // 优先从 description 提取账单覆盖期（格式：... YYYY-MM-DD ~ YYYY-MM-DD）
+  const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+  if (m) {
+    const bs = m[1], be = m[2]
+    // 账单覆盖期与业主周期有重叠：账单开始 ≤ 周期结束 AND 账单结束 ≥ 周期开始
+    return bs <= cycleEnd && be >= cycleStart
+  }
+  // 没有描述信息的账单，回退到用应收日判断
+  return bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd
+}
+
 export interface TenantPeriodResult {
   tenantId: string
   tenantName: string
@@ -55,13 +68,12 @@ export function calculatePeriodProfit(
     const overlapDays = 1 + calculateDays30_360(new Date(overlapStart), new Date(overlapEnd))
     const apportionedRent = Math.round(tenant.monthlyRent / 30 * overlapDays * 100) / 100
 
-    // 找该周期内的应收账单
+    // 找该周期内的应收账单 — 按账单实际覆盖期匹配（description 中的起止日），而非应收日
     const periodBills = allBills.filter(b =>
       b.tenantId === tenant.id &&
       b.roomId === tenant.roomId &&
       b.direction === 'receivable' &&
-      b.dueDate >= periodStart &&
-      b.dueDate <= periodEnd
+      billOverlapsCycle(b, periodStart, periodEnd)
     )
 
     // 已收房租
@@ -166,8 +178,9 @@ export function generateCycles(
     const ce = formatDate(add30Days(cursor, periodDays - 1))
 
     const paid = payableBills
-      .filter(b => b.dueDate >= cs && b.dueDate <= ce && b.status === 'paid')
+      .filter(b => b.status === 'paid')
       .filter(b => b.type !== 'deposit')
+      .filter(b => billOverlapsCycle(b, cs, ce))
       .reduce((s, b) => s + b.amount, 0)
 
     cycles.push({ cycleStart: cs, cycleEnd: ce, landlordPaid: paid })
