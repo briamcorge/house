@@ -276,9 +276,9 @@ export default function RoomList() {
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, amount: bill.amount, type: 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description })
           })
-          // 有押金则单独生成押金账单
+          // 有押金则单独生成押金账单（待付）
           if (deposit && deposit > 0) {
-            addBill({ propertyId: propertyId!, amount: deposit, type: 'deposit', status: 'paid', direction: 'payable', dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10), description: '押金' })
+            addBill({ propertyId: propertyId!, amount: deposit, type: 'deposit', status: 'pending', direction: 'payable', dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10), description: '押金' })
           }
           addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
@@ -287,9 +287,9 @@ export default function RoomList() {
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, amount: bill.amount, type: 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}` })
           })
-          // 续约：有押金则单独生成押金账单
+          // 续约：有押金则单独生成押金账单（待付）
           if (deposit && deposit > 0) {
-            addBill({ propertyId: propertyId!, amount: deposit, type: 'deposit', status: 'paid', direction: 'payable', dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10), description: '押金' })
+            addBill({ propertyId: propertyId!, amount: deposit, type: 'deposit', status: 'pending', direction: 'payable', dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10), description: '押金' })
           }
           addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
