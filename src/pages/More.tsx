@@ -563,7 +563,7 @@ export default function More() {
             <div className="mt-2 pt-2 border-t border-white/20 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
                 <p className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">租户押金余额</p>
+                <p className="text-blue-200 text-xs">已收租户押金</p>
               </button>
               <button type="button" onClick={() => setShowPaidDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
                 <p className="text-lg font-bold text-white">¥{paidDeposit.toFixed(0)}</p>
