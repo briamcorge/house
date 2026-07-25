@@ -94,14 +94,39 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
     // 有押金则加入账单列表（放在首位，但不占用期数编号）
     const depositVal = parseFloat(deposit)
     if (!isNaN(depositVal) && depositVal > 0) {
-      bills.unshift({
-        type: 'deposit',
-        amount: depositVal,
-        dueDate: contractStart,
-        periodStart: contractStart,
-        periodEnd: contractStart,
-        description: '押金',
-      })
+      if (isRenewal && existingDeposit !== undefined) {
+        const diff = depositVal - existingDeposit
+        if (diff > 0) {
+          bills.unshift({
+            type: 'deposit',
+            amount: diff,
+            dueDate: contractStart,
+            periodStart: contractStart,
+            periodEnd: contractEnd,
+            description: '押金补收',
+          })
+        } else if (diff < 0) {
+          bills.unshift({
+            type: 'deposit',
+            amount: diff,
+            dueDate: contractStart,
+            periodStart: contractStart,
+            periodEnd: contractEnd,
+            description: '退押金',
+          })
+        }
+        // diff === 0: 无变化，不生成账单
+      } else {
+        // 新合同：生成全额押金账单
+        bills.unshift({
+          type: 'deposit',
+          amount: depositVal,
+          dueDate: contractStart,
+          periodStart: contractStart,
+          periodEnd: contractEnd,
+          description: '押金',
+        })
+      }
     }
     setDraftBills(bills)
     setBillKey(k => k + 1)

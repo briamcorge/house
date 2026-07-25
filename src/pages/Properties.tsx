@@ -297,6 +297,7 @@ export default function Properties() {
         existingName={landlordEdit?.name || simpleEdit?.name}
         existingPhone={landlordEdit?.phone || simpleEdit?.phone}
         isSimpleEdit={simpleEdit !== null}
+        isRenewal={landlordEdit !== null}
         onSaveEdit={(name, phone) => {
           if (!simpleEdit?.pid) return
           const existing = landlordContracts.filter(c => c.propertyId === simpleEdit.pid).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
