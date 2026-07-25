@@ -7,14 +7,14 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 
-function get30DaysAgo(): string {
+function getDaysAgo(days: number): string {
   const d = new Date()
-  d.setDate(d.getDate() - 30)
+  d.setDate(d.getDate() - days)
   return d.toISOString().slice(0, 10)
 }
-function get30DaysLater(): string {
+function getDaysLater(days: number): string {
   const d = new Date()
-  d.setDate(d.getDate() + 30)
+  d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
 }
 
@@ -34,6 +34,7 @@ export default function Bills() {
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
   const [showAllBills, setShowAllBills] = useState(false)
+  const [dayRange, setDayRange] = useState(30)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
 
@@ -127,8 +128,8 @@ export default function Bills() {
     ? bills.filter(b => b.propertyId === contractFilter && b.direction === 'payable')
     : bills
 
-  const thirtyDaysAgo = get30DaysAgo()
-  const thirtyDaysLater = get30DaysLater()
+  const daysAgo = getDaysAgo(dayRange)
+  const daysLater = getDaysLater(dayRange)
   const today = new Date().toISOString().slice(0, 10)
 
   const filteredBills = useMemo(() => {
@@ -158,25 +159,25 @@ export default function Bills() {
         const tenant = tenants.find(t => t.id === b.tenantId)
         if (tenant?.status === 'ended') return false
       }
-      // 30天窗口
+      // 天數窗口
       if (!showAllBills) {
         if (filterStatus === 'pending') {
-          // 未收/未付：逾期全部显示，未来只显示30天内
-          if (b.dueDate >= today && b.dueDate > thirtyDaysLater) return false
+          // 未收/未付：逾期全部显示，未来只显示选定天数内
+          if (b.dueDate >= today && b.dueDate > daysLater) return false
         } else {
-          // 已收/已付：只显示最近30天内
-          if (b.dueDate < thirtyDaysAgo) return false
+          // 已收/已付：只显示最近选定天数内
+          if (b.dueDate < daysAgo) return false
         }
       }
       return true
     })
     return list
-  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo, thirtyDaysLater, today, tenants])
+  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, daysAgo, daysLater, today, tenants])
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
-    return relevantBills.some(b => b.status !== 'cancelled' && (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater))
-  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo, thirtyDaysLater])
+    return relevantBills.some(b => b.status !== 'cancelled' && (b.dueDate < daysAgo || b.dueDate > daysLater))
+  }, [relevantBills, showAllBills, contractFilter, daysAgo, daysLater])
 
   // Sorting: 全部按 dueDate 升序（从前往后）
   const displayBills = useMemo(() => {
@@ -304,6 +305,26 @@ export default function Bills() {
               </button>
             ))}
           </div>
+
+          {/* 天数筛选（仅未收/未付显示） */}
+          {filterStatus === 'pending' && (
+            <div className="flex items-center gap-1 mt-2 ml-1">
+              <span className="text-xs text-gray-400 mr-1">显示</span>
+              {[7, 15, 30].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDayRange(d)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    dayRange === d
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  逾期+未来{d}天
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -497,6 +518,16 @@ export default function Bills() {
                   加载更多（显示所有历史账单）
                 </button>
               )}
+            </div>
+
+            {/* 总金额 */}
+            <div className="mt-4 bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+              <span className="text-sm text-gray-500">
+                {displayBills.length} 笔
+              </span>
+              <span className={`text-lg font-bold ${filterStatus === 'paid' ? 'text-green-700' : 'text-orange-700'}`}>
+                ¥{displayBills.reduce((s, b) => s + b.amount, 0).toFixed(0)}
+              </span>
             </div>
 
           <button
