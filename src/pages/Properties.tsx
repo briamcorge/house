@@ -232,30 +232,17 @@ export default function Properties() {
         isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
         onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
         onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
-          // 先生成租金账单
           draftBills.forEach((bill) => {
             addBill({
               propertyId: landlordPropertyId!,
               amount: bill.amount,
-              type: 'rent',
-              status: 'pending',
+              type: bill.type,
+              status: bill.type === 'deposit' ? 'paid' : 'pending',
               direction: 'payable',
               dueDate: bill.dueDate,
-              description: bill.description,
+              description: bill.description || (bill.type === 'deposit' ? '押金' : ''),
             })
           })
-          // 有押金则生成押金账单
-          if (deposit && deposit > 0) {
-            addBill({
-              propertyId: landlordPropertyId!,
-              amount: deposit,
-              type: 'deposit',
-              status: 'paid',
-              direction: 'payable',
-              dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10),
-              description: '押金',
-            })
-          }
           addLandlordContract({
             propertyId: landlordPropertyId!,
             landlordName: name,
@@ -277,25 +264,13 @@ export default function Properties() {
             addBill({
               propertyId: pid,
               amount: bill.amount,
-              type: 'rent',
-              status: 'pending',
+              type: bill.type,
+              status: bill.type === 'deposit' ? 'paid' : 'pending',
               direction: 'payable',
               dueDate: bill.dueDate,
-              description: `[续约${now}] ${bill.description}`,
+              description: bill.type === 'deposit' ? '押金' : `[续约${now}] ${bill.description}`,
             })
           })
-          // 续约：有押金则生成押金账单
-          if (deposit && deposit > 0) {
-            addBill({
-              propertyId: pid,
-              amount: deposit,
-              type: 'deposit',
-              status: 'paid',
-              direction: 'payable',
-              dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10),
-              description: '押金',
-            })
-          }
           // 结束旧合同
           const oldContract = landlordContracts.find(c => c.propertyId === pid && c.status === 'active')
           if (oldContract) {
