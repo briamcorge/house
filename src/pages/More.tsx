@@ -118,6 +118,7 @@ export default function More() {
   const activeTenants = tenants.filter(t => t.status === 'active')
   const pendingBills = bills.filter(b => b.status !== 'paid')
   const depositBalance = bills.filter(b => b.type === 'deposit' && b.status === 'paid').reduce((s, b) => s + Number(b.amount), 0)
+  const paidDeposit = bills.filter(b => b.type === 'deposit' && b.status === 'paid' && b.direction === 'payable').reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => b.type === 'deposit' && b.status === 'paid')
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
@@ -557,10 +558,16 @@ export default function More() {
                 <p className="text-blue-200 text-xs">待处理账单</p>
               </button>
             </div>
-            <button type="button" onClick={() => setShowDepositList(true)} className="mt-2 pt-2 border-t border-white/20 flex items-center justify-between w-full hover:bg-white/5 rounded-lg px-1 transition-colors">
-              <span className="text-blue-200 text-sm">押金余额</span>
-              <span className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</span>
-            </button>
+            <div className="mt-2 pt-2 border-t border-white/20 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
+                <p className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</p>
+                <p className="text-blue-200 text-xs">押金余额</p>
+              </button>
+              <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
+                <p className="text-lg font-bold text-white">¥{paidDeposit.toFixed(0)}</p>
+                <p className="text-blue-200 text-xs">已付押金</p>
+              </button>
+            </div>
           </div>
         </div>
       </div>
