@@ -12,6 +12,11 @@ function get30DaysAgo(): string {
   d.setDate(d.getDate() - 30)
   return d.toISOString().slice(0, 10)
 }
+function get30DaysLater(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function Bills() {
   const { bills, properties, rooms, tenants, landlordContracts, addBill, updateBill, deleteBill } = useStore()
@@ -123,6 +128,7 @@ export default function Bills() {
     : bills
 
   const thirtyDaysAgo = get30DaysAgo()
+  const thirtyDaysLater = get30DaysLater()
 
   const filteredBills = useMemo(() => {
     // 全局过滤：排除已作废的账单
@@ -155,17 +161,17 @@ export default function Bills() {
         const tenant = tenants.find(t => t.id === b.tenantId)
         if (tenant?.status === 'ended') return false
       }
-      // 30天窗口（未点"显示全部"时只显示最近30天的账单）
-      if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
+      // 30天窗口：只显示应收日在今天前后30天内的账单
+      if (!showAllBills && (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater)) return false
       return true
     })
     return list
-  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo, tenants])
+  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo, thirtyDaysLater, tenants])
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
-    return relevantBills.some(b => b.status !== 'cancelled' && b.dueDate < thirtyDaysAgo)
-  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo])
+    return relevantBills.some(b => b.status !== 'cancelled' && (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater))
+  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo, thirtyDaysLater])
 
   // Sorting: 全部按 dueDate 升序（从前往后）
   const displayBills = useMemo(() => {
