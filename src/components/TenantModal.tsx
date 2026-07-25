@@ -307,7 +307,15 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const updateDraftBill = (index: number, field: 'amount' | 'dueDate' | 'periodStart' | 'periodEnd', value: string) => {
     setDraftBills(prev => {
       const next = [...prev]
-      next[index] = { ...next[index], [field]: field === 'amount' ? parseFloat(value) || 0 : value }
+      const bill = { ...next[index], [field]: field === 'amount' ? parseFloat(value) || 0 : value }
+      // 修改周期起止日时，同步更新 description 中的日期
+      if ((field === 'periodStart' || field === 'periodEnd') && bill.type === 'rent' && bill.description) {
+        bill.description = bill.description.replace(
+          /\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/,
+          `${bill.periodStart} ~ ${bill.periodEnd}`
+        )
+      }
+      next[index] = bill
       return next
     })
   }
