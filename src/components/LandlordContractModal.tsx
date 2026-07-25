@@ -91,6 +91,18 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       paymentMethod,
       0 // 业主合同无提前付款
     )
+    // 有押金则加入账单列表（放在首位，但不占用期数编号）
+    const depositVal = parseFloat(deposit)
+    if (!isNaN(depositVal) && depositVal > 0) {
+      bills.unshift({
+        type: 'deposit',
+        amount: depositVal,
+        dueDate: contractStart,
+        periodStart: contractStart,
+        periodEnd: contractStart,
+        description: '押金',
+      })
+    }
     setDraftBills(bills)
     setBillKey(k => k + 1)
   }
@@ -339,11 +351,14 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
               <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
               {draftBills.map((bill, i) => (
                 <div key={`${billKey}-${i}`} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                  <div className="flex items-center justify-end mb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${bill.type === 'deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {bill.type === 'deposit' ? '押金' : '房租'}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">第{i+1}期 应付日</label>
+                      <label className="block text-xs text-gray-400 mb-1">应付日</label>
                       <input
                         type="date"
                         defaultValue={bill.dueDate}
@@ -362,6 +377,8 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         step="0.01"
                       />
                     </div>
+                    {bill.type !== 'deposit' && (
+                      <>
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">周期开始</label>
                       <input
@@ -382,24 +399,17 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                       />
                     </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {parseFloat(deposit) > 0 && (
-              <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">押金</span>
-                  <span className="text-sm font-bold text-gray-700">¥{(parseFloat(deposit) || 0).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
             <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center">
               <span className="text-sm text-gray-600">合计</span>
               <span className="text-xl font-bold text-orange-700">
-                ¥{(draftBills.reduce((s, b) => s + b.amount, 0) + (parseFloat(deposit) || 0)).toFixed(2)}
+                ¥{draftBills.reduce((s, b) => s + b.amount, 0).toFixed(2)}
               </span>
             </div>
 

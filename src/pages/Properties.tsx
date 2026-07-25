@@ -243,13 +243,13 @@ export default function Properties() {
               description: bill.description,
             })
           })
-          // 有押金则单独生成押金账单
+          // 有押金则单独生成押金账单（待付）
           if (deposit && deposit > 0) {
             addBill({
               propertyId: landlordPropertyId!,
               amount: deposit,
               type: 'deposit',
-              status: 'paid',
+              status: 'pending',
               direction: 'payable',
               dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10),
               description: '押金',
@@ -283,13 +283,13 @@ export default function Properties() {
               description: `[续约${now}] ${bill.description}`,
             })
           })
-          // 续约：有押金则单独生成押金账单
+          // 续约：有押金则单独生成押金账单（待付）
           if (deposit && deposit > 0) {
             addBill({
               propertyId: pid,
               amount: deposit,
               type: 'deposit',
-              status: 'paid',
+              status: 'pending',
               direction: 'payable',
               dueDate: cs || draftBills[0]?.dueDate || new Date().toISOString().slice(0, 10),
               description: '押金',
