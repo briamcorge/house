@@ -91,6 +91,18 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       paymentMethod,
       0 // 业主合同无提前付款
     )
+    // 有押金则加入账单列表
+    const depositVal = parseFloat(deposit)
+    if (!isNaN(depositVal) && depositVal > 0) {
+      bills.unshift({
+        type: 'deposit',
+        amount: depositVal,
+        dueDate: contractStart,
+        periodStart: contractStart,
+        periodEnd: contractStart,
+        description: '押金',
+      })
+    }
     setDraftBills(bills)
     setBillKey(k => k + 1)
   }
@@ -338,7 +350,19 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
 
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
-              {draftBills.map((bill, i) => (
+              {draftBills.map((bill, i) => {
+                if (bill.type === 'deposit') {
+                  return (
+                  <div key={`${billKey}-${i}`} className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-500">押金</span>
+                      <span className="text-sm font-bold text-gray-700">¥{bill.amount.toFixed(2)}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{bill.dueDate}</p>
+                  </div>
+                  )
+                }
+                return (
                 <div key={`${billKey}-${i}`} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
                   <div className="flex items-center justify-end mb-2">
                   </div>
@@ -385,7 +409,8 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center">
