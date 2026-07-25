@@ -218,13 +218,13 @@ export default function Home() {
 
           {/* 待办事项汇总 */}
           <div className="grid grid-cols-2 gap-2 mb-4">
-            <div onClick={() => navigate('/bills', { state: { direction: 'receivable', filterStatus: 'overdue' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills', { state: { direction: 'receivable', filterStatus: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-red-600">逾期账单（应收）</span>
               </div>
               <p className="text-xl font-bold text-red-700">¥{formatMoney(cardOverdueReceivableTotal)}</p>
             </div>
-            <div onClick={() => navigate('/bills', { state: { direction: 'payable', filterStatus: 'overdue' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
+            <div onClick={() => navigate('/bills', { state: { direction: 'payable', filterStatus: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-orange-600">逾期账单（应付）</span>
               </div>
