@@ -63,10 +63,16 @@ function createId(): string {
 }
 
 function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
-  const count = prefix === 'DL'
-    ? state.landlordContracts.length
-    : state.tenants.length
-  return `${prefix}-${String(count + 1).padStart(4, '0')}`
+  const items = prefix === 'DL' ? state.landlordContracts : state.tenants
+  let maxNum = 0
+  for (const item of items) {
+    const match = item.displayId.match(new RegExp(`^${prefix}-(\\d+)$`))
+    if (match) {
+      const num = parseInt(match[1], 10)
+      if (num > maxNum) maxNum = num
+    }
+  }
+  return `${prefix}-${String(maxNum + 1).padStart(4, '0')}`
 }
 
 // Sync outer: wraps set() to auto-upload after every mutation
@@ -268,12 +274,15 @@ export const useStore = create<AppStore>()(
         }),
 
       updateBill: (id, bill) =>
-        set((state) => ({
-          bills: state.bills.map((b) =>
-            b.id === id ? { ...b, ...bill } : b
-          ),
-          auditLogs: recordLog(state, 'update', 'bill', id, `¥${bill.amount}`),
-        })),
+        set((state) => {
+          const current = state.bills.find(b => b.id === id)
+          return {
+            bills: state.bills.map((b) =>
+              b.id === id ? { ...b, ...bill } : b
+            ),
+            auditLogs: recordLog(state, 'update', 'bill', id, current ? `¥${current.amount}` : ''),
+          }
+        }),
 
       deleteBill: (id) =>
         set((state) => {

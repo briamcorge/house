@@ -2,6 +2,8 @@ import { useStore } from '../store/useStore'
 import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
@@ -91,6 +93,17 @@ export default function More() {
   const propertyProfitRecords = profitPropertyId
     ? profitRecords.filter(r => r.propertyId === profitPropertyId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     : []
+
+  interface ConfirmAction {
+    title: string
+    message: string
+    variant?: 'danger' | 'default'
+    confirmText?: string
+    cancelText?: string
+    onAction: () => void
+  }
+  const [alertState, setAlertState] = useState<{ title: string; message: string; variant?: 'info' | 'success' | 'error' } | null>(null)
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
   const resetProfitForm = () => {
     setShowProfitForm(false)
@@ -241,7 +254,7 @@ export default function More() {
       }, 5000)
     } catch (e) {
       console.error('Excel 导出失败:', e)
-      alert('导出失败，请重试。如果问题持续，请查看控制台错误信息。')
+      setAlertState({ title: '导出失败', message: '导出失败，请重试。如果问题持续，请查看控制台错误信息。', variant: 'error' })
       return
     }
     // 操作日志
@@ -255,7 +268,7 @@ export default function More() {
     
     // 检查是否已登录
     if (!currentUser) {
-      alert('请先登录，再导入 Excel 数据，否则数据无法同步到云端。')
+      setAlertState({ title: '提示', message: '请先登录，再导入 Excel 数据，否则数据无法同步到云端。', variant: 'info' })
       window.dispatchEvent(new CustomEvent('open-auth'))
       e.target.value = ''
       return
@@ -360,32 +373,87 @@ export default function More() {
             ...allErrors.slice(0, 10),
           ].join('\n')
           console.warn(summary)
-          if (!confirm(`共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`)) {
-            e.target.value = ''
-            return
+          const doImportAll = async () => {
+            const props = validProps
+            const roomList = validRooms
+            const contractList = validContracts
+            const tenantList = validTenants
+            const billList = validBills
+
+            const s2 = useStore.getState()
+            useStore.setState({
+              properties: props as any[],
+              rooms: roomList as any[],
+              landlordContracts: contractList as any[],
+              tenants: tenantList as any[],
+              bills: billList as any[],
+              profitRecords: s2.profitRecords,
+              trash: s2.trash,
+              auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
+            })
+
+            try {
+              const saved = await saveCloudData({
+                properties: props as any[],
+                rooms: roomList as any[],
+                tenants: tenantList as any[],
+                bills: billList as any[],
+                landlordContracts: contractList as any[],
+                profitRecords: [],
+                trash: [],
+              })
+              console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
+              if (!saved) {
+                console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
+                setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+              } else {
+                console.log('✅ Excel 数据已成功保存到云端')
+                if (currentUser?.id) {
+                  const flagKey = `cloud_init_loaded_${currentUser.id}`
+                  sessionStorage.setItem(flagKey, '1')
+                  console.log('✅ 已设置 sessionStorage 标记:', flagKey)
+                }
+              }
+            } catch (err) {
+              console.error('云端保存异常', err)
+              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败：' + (err as Error).message, variant: 'error' })
+            }
+
+            window.location.reload()
           }
+          setConfirmAction({
+            title: '导入数据',
+            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`,
+            variant: 'default',
+            confirmText: '导入',
+            cancelText: '取消',
+            onAction: doImportAll,
+          })
+          e.target.value = ''
+          return
         }
 
-        const props = validProps
-        const roomList = validRooms
-        const contractList = validContracts
-        const tenantList = validTenants
-        const billList = validBills
+        // 无校验错误，直接导入
+        (async () => {
+          const props = validProps
+          const roomList = validRooms
+          const contractList = validContracts
+          const tenantList = validTenants
+          const billList = validBills
 
-        const s2 = useStore.getState()
-        useStore.setState({
-          properties: props as any[],
-          rooms: roomList as any[],
-          landlordContracts: contractList as any[],
-          tenants: tenantList as any[],
-          bills: billList as any[],
-          profitRecords: s2.profitRecords,
-          trash: s2.trash,
-          auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
-        })
+          const s2 = useStore.getState()
+          useStore.setState({
+            properties: props as any[],
+            rooms: roomList as any[],
+            landlordContracts: contractList as any[],
+            tenants: tenantList as any[],
+            bills: billList as any[],
+            profitRecords: s2.profitRecords,
+            trash: s2.trash,
+            auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
+          })
 
-        // 同步保存到 Supabase（等完成再刷新）
-        try {
+          try {
             const saved = await saveCloudData({
               properties: props as any[],
               rooms: roomList as any[],
@@ -393,30 +461,29 @@ export default function More() {
               bills: billList as any[],
               landlordContracts: contractList as any[],
               profitRecords: [],
-            trash: [],
-          })
-          console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
-          if (!saved) {
-            // 打开控制台查看详细错误日志
-            console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
-            alert('Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。')
-          } else {
-            console.log('✅ Excel 数据已成功保存到云端')
-            // 关键修复：设置 sessionStorage 标记，防止刷新后 loadNow() 覆盖刚导入的数据
-            if (currentUser?.id) {
-              const flagKey = `cloud_init_loaded_${currentUser.id}`
-              sessionStorage.setItem(flagKey, '1')
-              console.log('✅ 已设置 sessionStorage 标记:', flagKey)
+              trash: [],
+            })
+            console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
+            if (!saved) {
+              console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
+              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+            } else {
+              console.log('✅ Excel 数据已成功保存到云端')
+              if (currentUser?.id) {
+                const flagKey = `cloud_init_loaded_${currentUser.id}`
+                sessionStorage.setItem(flagKey, '1')
+                console.log('✅ 已设置 sessionStorage 标记:', flagKey)
+              }
             }
+          } catch (err) {
+            console.error('云端保存异常', err)
+            setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败：' + (err as Error).message, variant: 'error' })
           }
-        } catch (e) {
-          console.error('云端保存异常', e)
-          alert('Excel 数据已保存到本地，但云端同步失败：' + (e as Error).message)
-        }
 
-        window.location.reload()
+          window.location.reload()
+        })()
       } catch (err) {
-        alert('Excel 格式错误，请检查文件')
+        setAlertState({ title: '格式错误', message: 'Excel 格式错误，请检查文件', variant: 'error' })
         console.error(err)
       }
     }
@@ -517,7 +584,7 @@ export default function More() {
                     else if (isBackup) setShowBackup(!showBackup)
                     else if (isProfit) setShowProfitForm(!showProfitForm)
                     else if (isAbout) setShowAbout(!showAbout)
-                    else alert(`${item.label}功能开发中...`)
+                    else setAlertState({ title: '提示', message: `${item.label}功能开发中...`, variant: 'info' })
                   }}
                   className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout ? 'rounded-b-none border-b-0' : ''}`}
                 >
@@ -754,9 +821,12 @@ export default function More() {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    if (confirm('确定删除这笔提取记录？')) {
-                                      deleteProfitRecord(r.id)
-                                    }
+                                    setConfirmAction({
+                                      title: '删除确认',
+                                      message: '确定删除这笔提取记录？',
+                                      variant: 'danger',
+                                      onAction: () => deleteProfitRecord(r.id),
+                                    })
                                   }}
                                   className="text-gray-300 hover:text-red-500 transition-colors"
                                 >
@@ -782,11 +852,11 @@ export default function More() {
                         onClick={() => {
                           const amount = parseFloat(profitAmount)
                           if (!profitPropertyId || isNaN(amount) || amount <= 0) {
-                            alert('请选择房源并输入有效金额')
+                            setAlertState({ title: '提示', message: '请选择房源并输入有效金额', variant: 'error' })
                             return
                           }
                           if (!profitCycleStart || !profitCycleEnd) {
-                            alert('请选择利润提取的账单周期')
+                            setAlertState({ title: '提示', message: '请选择利润提取的账单周期', variant: 'error' })
                             return
                           }
                           // 检查该周期是否已提取过利润
@@ -796,7 +866,7 @@ export default function More() {
                             r.cycleEnd === profitCycleEnd
                           )
                           if (existing.length > 0) {
-                            alert(`该周期（${profitCycleStart} ~ ${profitCycleEnd}）已提取过利润，不能重复提取`)
+                            setAlertState({ title: '提示', message: `该周期（${profitCycleStart} ~ ${profitCycleEnd}）已提取过利润，不能重复提取`, variant: 'error' })
                             return
                           }
                           addProfitRecord({
@@ -810,7 +880,7 @@ export default function More() {
                             status: 'available',
                           })
                           resetProfitForm()
-                          alert('利润提取记录已添加')
+                          setAlertState({ title: '成功', message: '利润提取记录已添加', variant: 'success' })
                         }}
                         className="py-2.5 px-3 bg-purple-600 text-white rounded-xl font-medium text-sm hover:bg-purple-700 transition-colors"
                       >
@@ -832,9 +902,12 @@ export default function More() {
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              if (confirm('确定要清除本机数据吗？此操作不可恢复！')) {
-                clearAllData()
-              }
+              setConfirmAction({
+                title: '清除数据',
+                message: '确定要清除本机数据吗？此操作不可恢复！',
+                variant: 'danger',
+                onAction: () => clearAllData(),
+              })
             }}
             className="w-full bg-white rounded-2xl shadow-sm border border-red-100 p-4 flex items-center justify-center gap-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
           >
@@ -880,6 +953,27 @@ export default function More() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (confirmAction) confirmAction.onAction()
+        }}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        variant={confirmAction?.variant || 'danger'}
+        confirmText={confirmAction?.confirmText}
+        cancelText={confirmAction?.cancelText}
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant={alertState?.variant || 'info'}
+      />
     </div>
   )
 }

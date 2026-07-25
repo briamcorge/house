@@ -6,6 +6,7 @@ import TenantModal from '../components/TenantModal'
 import BillModal from '../components/BillModal'
 import CheckoutModal from '../components/CheckoutModal'
 import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
@@ -79,6 +80,7 @@ export default function RoomDetail() {
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
 
   useEffect(() => {
     if (payConfirmBill) {
@@ -464,7 +466,7 @@ export default function RoomDetail() {
                   onClick={() => {
                     const paidAmt = payAmount !== '' ? parseFloat(payAmount) : undefined
                     if (paidAmt !== undefined && paidAmt > payConfirmBill.amount) {
-                      alert('收款金额不能大于账单金额')
+                      setAlertState({ title: '提示', message: '收款金额不能大于账单金额' })
                       return
                     }
                     const isPartial = paidAmt !== undefined && paidAmt > 0 && paidAmt < payConfirmBill.amount
@@ -517,6 +519,14 @@ export default function RoomDetail() {
         message={deleteConfirm?.isEnded ? '确定删除该合同及所有账单？' : '确定删除该合同及所有关联账单？此操作不可撤销！'}
         confirmText="删除"
         variant="danger"
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant="error"
       />
     </div>
   )

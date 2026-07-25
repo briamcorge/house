@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Tenant } from '../types'
 import TenantModal from '../components/TenantModal'
+import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { Search, Edit2, Trash2, MoreVertical, User, Phone, Home, Calendar } from 'lucide-react'
 
 export default function Tenants() {
@@ -11,6 +13,8 @@ export default function Tenants() {
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
   const [tenantMenu, setTenantMenu] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ tenantId: string; roomId: string } | null>(null)
   const navigate = useNavigate()
 
   const filteredTenants = tenants.filter(t => statusFilter === 'all' || t.status === statusFilter)
@@ -28,6 +32,15 @@ export default function Tenants() {
   const handleSaveTenant = (data: Omit<Tenant, 'id' | 'createdAt'>) => {
     if (editingTenant) {
       const oldRoomId = editingTenant.roomId
+      // 检查新房间是否已被占用
+      if (oldRoomId !== data.roomId && data.roomId) {
+        const { rooms, tenants: allTenants } = useStore.getState()
+        const targetRoom = rooms.find(r => r.id === data.roomId)
+        if (targetRoom?.status === 'occupied' || allTenants.some(t => t.roomId === data.roomId && t.status === 'active' && t.id !== editingTenant.id)) {
+          setAlertState({ title: '提示', message: '该房间已有在租租客，不能将租客移入' })
+          return
+        }
+      }
       updateTenant(editingTenant.id, data)
       if (oldRoomId !== data.roomId) {
         if (oldRoomId) useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
@@ -45,11 +58,7 @@ export default function Tenants() {
   }
 
   const handleDeleteTenant = (id: string, roomId: string) => {
-    if (confirm('确定要删除这个租客吗？')) {
-      deleteTenant(id)
-      useStore.getState().updateRoom(roomId, { status: 'vacant' })
-      setTenantMenu(null)
-    }
+    setDeleteConfirmState({ tenantId: id, roomId })
   }
 
   return (
@@ -164,6 +173,28 @@ export default function Tenants() {
         properties={properties}
         rooms={rooms}
         editingTenant={editingTenant}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirmState !== null}
+        onClose={() => setDeleteConfirmState(null)}
+        onConfirm={() => {
+          if (deleteConfirmState) {
+            deleteTenant(deleteConfirmState.tenantId)
+            useStore.getState().updateRoom(deleteConfirmState.roomId, { status: 'vacant' })
+          }
+        }}
+        title="删除确认"
+        message="确定要删除这个租客吗？"
+        variant="danger"
+      />
+
+      <AlertModal
+        isOpen={alertState !== null}
+        onClose={() => setAlertState(null)}
+        title={alertState?.title || ''}
+        message={alertState?.message || ''}
+        variant="error"
       />
     </div>
   )
