@@ -10,8 +10,10 @@ function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): bo
     // 账单覆盖期与业主周期有重叠：账单开始 ≤ 周期结束 AND 账单结束 ≥ 周期开始
     return bs <= cycleEnd && be >= cycleStart
   }
-  // 没有描述信息的账单，回退到用应收日判断
-  return bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd
+  // 没有描述信息的账单，用应收日或实收日判断（适用违约金/减免/返费等无日期段的账单）
+  if (bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd) return true
+  if (bill.paidDate && bill.paidDate >= cycleStart && bill.paidDate <= cycleEnd) return true
+  return false
 }
 
 export interface TenantPeriodResult {
