@@ -88,9 +88,9 @@ export function calculatePeriodProfit(
       unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
     }
 
-    // 卫管费：找该周期内已付的other类型账单（排除押金相关）
+    // 卫管费及其他收入：找该周期内已付的other/sublease/hygiene类型账单
     const otherFeeBills = periodBills.filter(b =>
-      b.type === 'other' &&
+      (b.type === 'other' || b.type === 'sublease' || b.type === 'hygiene') &&
       b.status === 'paid'
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)

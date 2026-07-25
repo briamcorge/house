@@ -384,6 +384,9 @@ export default function RoomDetail() {
           if (refunds.depositRefund > 0) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'deposit', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退押金' })
           }
+          if (refunds.penalty > 0) {
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '违约金' })
+          }
           if (refunds.rentRefund > 0) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'paid', direction: 'receivable', paidDate: new Date().toISOString().slice(0, 10), dueDate: new Date().toISOString().slice(0, 10), description: '退租金' })
           }
