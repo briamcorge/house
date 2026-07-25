@@ -6,7 +6,7 @@ interface CheckoutModalProps {
   onClose: () => void
   tenantName: string
   deposit?: number
-  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string }) => void
+  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number }) => void
 }
 
 export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, onConfirm }: CheckoutModalProps) {
@@ -14,6 +14,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
   const [rentRefund, setRentRefund] = useState('0')
   const [otherName, setOtherName] = useState('')
   const [otherRefund, setOtherRefund] = useState('0')
+  const [penalty, setPenalty] = useState('0')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -61,6 +62,15 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <DollarSign className="w-4 h-4 inline mr-1" />
+              违约金
+            </label>
+            <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <p className="text-xs text-gray-400 mt-1">违约不退还的押金、转租费</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <DollarSign className="w-4 h-4 inline mr-1" />
               退还租金
             </label>
             <input type="number" value={rentRefund} onChange={e => setRentRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
@@ -81,6 +91,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
             <div className="flex justify-between"><span>押金退还</span><span>¥{parseFloat(depositRefund) || 0}</span></div>
             <div className="flex justify-between"><span>租金退还</span><span>¥{parseFloat(rentRefund) || 0}</span></div>
             {otherName && <div className="flex justify-between"><span>{otherName}</span><span>¥{parseFloat(otherRefund) || 0}</span></div>}
+            {parseFloat(penalty) > 0 && <div className="flex justify-between text-orange-700"><span>违约金</span><span>¥{parseFloat(penalty)}</span></div>}
             <div className="flex justify-between font-bold border-t pt-1 mt-1">
               <span>合计退还</span>
               <span>¥{((parseFloat(depositRefund) || 0) + (parseFloat(rentRefund) || 0) + (parseFloat(otherRefund) || 0)).toFixed(2)}</span>
@@ -93,7 +104,8 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               const d = parseFloat(depositRefund)
               const r = parseFloat(rentRefund)
               const o = parseFloat(otherRefund)
-              if (isNaN(d) || isNaN(r) || isNaN(o)) {
+              const p = parseFloat(penalty)
+              if (isNaN(d) || isNaN(r) || isNaN(o) || isNaN(p)) {
                 showError('请输入有效的数字金额')
                 return
               }
@@ -101,7 +113,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
                 showError('押金退还不能超过 ¥' + deposit)
                 return
               }
-              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName })
+              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p })
             }} className="flex-[2] py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700">确认退租并退款</button>
           </div>
         </div>
