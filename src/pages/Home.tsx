@@ -77,7 +77,7 @@ export default function Home() {
     landlordContracts.filter(c => {
       if (c.status !== 'active') return false
       const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      return daysLeft <= 30
+      return daysLeft >= 0 && daysLeft <= 30
     }),
     [landlordContracts]
   )
