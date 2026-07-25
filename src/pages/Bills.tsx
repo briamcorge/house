@@ -155,10 +155,8 @@ export default function Bills() {
         const tenant = tenants.find(t => t.id === b.tenantId)
         if (tenant?.status === 'ended') return false
       }
-      // 30天窗口（仅对"已收/已付"筛选时生效，未收/逾期全部显示）
-      if (filterStatus === 'paid') {
-        if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
-      }
+      // 30天窗口（未点"显示全部"时只显示最近30天的账单）
+      if (!showAllBills && b.dueDate < thirtyDaysAgo) return false
       return true
     })
     return list
@@ -166,10 +164,8 @@ export default function Bills() {
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
-    if (filterStatus !== 'paid') return false
-    const paidOlder = relevantBills.filter(b => b.status === 'paid' && b.dueDate < thirtyDaysAgo)
-    return paidOlder.length > 0
-  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo, filterStatus])
+    return relevantBills.some(b => b.status !== 'cancelled' && b.dueDate < thirtyDaysAgo)
+  }, [relevantBills, showAllBills, contractFilter, thirtyDaysAgo])
 
   // Sorting: 全部按 dueDate 升序（从前往后）
   const displayBills = useMemo(() => {
