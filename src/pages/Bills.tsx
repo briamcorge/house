@@ -26,7 +26,7 @@ export default function Bills() {
   const contractFilter = state?.propertyId || null
   const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'all'>((state?.filterStatus as any) || state?.status || 'pending')
+  const [filterStatus, setFilterStatus] = useState<Bill['status']>((state?.filterStatus as any) || state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
@@ -138,11 +138,9 @@ export default function Bills() {
     // 合同模式：显示全部，不限制月份
     if (contractFilter) {
       const list = activeBills.filter(b => {
-        const matchesStatus = filterStatus === 'all'
-          ? true
-          : filterStatus === 'pending'
-            ? (b.status === 'pending' || b.status === 'overdue')
-            : b.status === filterStatus
+        const matchesStatus = filterStatus === 'pending'
+          ? (b.status === 'pending' || b.status === 'overdue')
+          : b.status === filterStatus
         return matchesStatus
       })
       return list
@@ -151,11 +149,9 @@ export default function Bills() {
     // 非合同模式：应用方向 + 状态 + 30天筛选
     const list = activeBills.filter(b => {
       if (direction !== 'all' && b.direction !== direction) return false
-      const matchesStatus = filterStatus === 'all'
-        ? true
-        : filterStatus === 'pending'
-          ? (b.status === 'pending' || b.status === 'overdue')
-          : b.status === filterStatus
+      const matchesStatus = filterStatus === 'pending'
+        ? (b.status === 'pending' || b.status === 'overdue')
+        : b.status === filterStatus
       if (!matchesStatus) return false
       // 对于"未收"筛选，排除已退租租客的应收账单
       if (filterStatus === 'pending' && b.direction === 'receivable' && b.tenantId) {
@@ -167,12 +163,9 @@ export default function Bills() {
         if (filterStatus === 'pending') {
           // 未收/未付：逾期全部显示，未来只显示30天内
           if (b.dueDate >= today && b.dueDate > thirtyDaysLater) return false
-        } else if (filterStatus === 'paid') {
+        } else {
           // 已收/已付：只显示最近30天内
           if (b.dueDate < thirtyDaysAgo) return false
-        } else {
-          // 全部：前后30天
-          if (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater) return false
         }
       }
       return true
@@ -295,9 +288,8 @@ export default function Bills() {
           {/* 状态筛选 */}
           <div className="flex gap-2">
             {([
-              { key: 'all' as const, label: '全部' },
-              { key: 'pending' as const, label: direction === 'all' ? '待处理' : (direction === 'payable' ? '未付' : '未收') },
-              { key: 'paid' as const, label: direction === 'all' ? '已完成' : (direction === 'payable' ? '已付' : '已收') },
+              { key: 'pending' as const, label: direction === 'payable' ? '未付' : '未收' },
+              { key: 'paid' as const, label: direction === 'payable' ? '已付' : '已收' },
             ] as const).map((f) => (
               <button
                 key={f.key}
