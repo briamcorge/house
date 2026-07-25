@@ -135,6 +135,14 @@ export default function More() {
     window.location.href = import.meta.env.BASE_URL
   }
 
+  // 从描述中提取账单起止日（格式：第N期 xxx YYYY-MM-DD ~ YYYY-MM-DD）
+  const extractPeriod = (desc?: string): { startDate: string; endDate: string } => {
+    if (!desc) return { startDate: '', endDate: '' }
+    const match = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+    if (match) return { startDate: match[1], endDate: match[2] }
+    return { startDate: '', endDate: '' }
+  }
+
   const handleExportExcel = async () => {
     const wb = XLSX.utils.book_new()
 
@@ -143,7 +151,31 @@ export default function More() {
       ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
       ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', createdAt: '创建时间' }],
       ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', createdAt: '创建时间' }],
-      ['账单', bills.map(b => ({ ...b, paidAmount: b.paidAmount ?? '', propertyId: b.propertyId ?? '', roomId: b.roomId ?? '', tenantId: b.tenantId ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', roomId: '房间ID', tenantId: '租客ID', amount: '金额', paidAmount: '已付金额', type: '类型', status: '状态', direction: '方向', dueDate: '到期日', paidDate: '实付日', description: '描述', createdAt: '创建时间' }],
+      ['账单', bills.map(b => {
+        const { startDate, endDate } = extractPeriod(b.description)
+        return {
+          ...b,
+          paidAmount: b.paidAmount ?? '',
+          propertyId: b.propertyId ?? '',
+          roomId: b.roomId ?? '',
+          tenantId: b.tenantId ?? '',
+          // 方向特定列
+          收款日: b.direction === 'receivable' ? b.dueDate : '',
+          付款日: b.direction === 'payable' ? b.dueDate : '',
+          实收日: b.direction === 'receivable' && b.paidDate ? b.paidDate : '',
+          实付日: b.direction === 'payable' && b.paidDate ? b.paidDate : '',
+          startDate,
+          endDate,
+        }
+      }) as unknown as Record<string, unknown>[], {
+        id: 'ID', propertyId: '房源ID', roomId: '房间ID', tenantId: '租客ID',
+        amount: '金额', paidAmount: '已付金额', type: '类型', status: '状态',
+        direction: '方向',
+        收款日: '收款日', 付款日: '付款日',
+        startDate: '开始日', endDate: '结束日',
+        实收日: '实收日', 实付日: '实付日',
+        description: '期间描述', createdAt: '创建时间',
+      }],
     ]
 
     for (const [name, data, headers] of sheets) {
