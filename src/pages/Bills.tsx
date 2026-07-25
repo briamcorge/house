@@ -129,6 +129,7 @@ export default function Bills() {
 
   const thirtyDaysAgo = get30DaysAgo()
   const thirtyDaysLater = get30DaysLater()
+  const today = new Date().toISOString().slice(0, 10)
 
   const filteredBills = useMemo(() => {
     // 全局过滤：排除已作废的账单
@@ -161,12 +162,23 @@ export default function Bills() {
         const tenant = tenants.find(t => t.id === b.tenantId)
         if (tenant?.status === 'ended') return false
       }
-      // 30天窗口：只显示应收日在今天前后30天内的账单
-      if (!showAllBills && (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater)) return false
+      // 30天窗口
+      if (!showAllBills) {
+        if (filterStatus === 'pending') {
+          // 未收/未付：逾期全部显示，未来只显示30天内
+          if (b.dueDate >= today && b.dueDate > thirtyDaysLater) return false
+        } else if (filterStatus === 'paid') {
+          // 已收/已付：只显示最近30天内
+          if (b.dueDate < thirtyDaysAgo) return false
+        } else {
+          // 全部：前后30天
+          if (b.dueDate < thirtyDaysAgo || b.dueDate > thirtyDaysLater) return false
+        }
+      }
       return true
     })
     return list
-  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo, thirtyDaysLater, tenants])
+  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, thirtyDaysAgo, thirtyDaysLater, today, tenants])
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
