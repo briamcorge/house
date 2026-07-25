@@ -210,8 +210,8 @@ export default function More() {
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
     const fileName = `房屋管理数据_${new Date().toISOString().slice(0, 10)}.xlsx`
 
-    // 检测是否在 Capacitor 环境
-    const isCapacitor = !!(window as any).Capacitor?.isNativePlatform
+    // 检测是否在 Capacitor 原生环境
+    const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
 
     if (isCapacitor) {
       try {
