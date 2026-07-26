@@ -8,6 +8,7 @@ import TenantModal from '../components/TenantModal'
 import BillSummaryModal from '../components/BillSummaryModal'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import LandlordContractModal from '../components/LandlordContractModal'
+import LandlordCheckoutModal from '../components/LandlordCheckoutModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } from 'lucide-react'
@@ -37,6 +38,7 @@ export default function RoomList() {
   const [editInlineValue, setEditInlineValue] = useState('')
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [contractConfirm, setContractConfirm] = useState<{ id: string; action: 'terminate' | 'delete' } | null>(null)
+  const [landlordCheckout, setLandlordCheckout] = useState<{ id: string; name: string; deposit: number } | null>(null)
   const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
 
   if (!property) {
@@ -96,7 +98,7 @@ export default function RoomList() {
               return (
                 <div className="space-y-2">
                   {propContracts.map(c => (
-                    <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-3">
+                    <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer" onClick={() => { if (c.status === 'active') setEditContractId(c.id); }}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
                           {inlineEdit?.id === c.id && inlineEdit?.field === 'name' ? (
@@ -105,15 +107,15 @@ export default function RoomList() {
                               onKeyDown={e => { if (e.key === 'Enter') { if (editInlineValue.trim()) updateLandlordContract(c.id, { landlordName: editInlineValue.trim() }); setInlineEdit(null) }}}
                               className="w-24 px-1 py-0.5 border border-blue-300 rounded text-sm" autoFocus />
                           ) : (
-                            <span onClick={() => { setEditInlineValue(c.landlordName || ''); setInlineEdit({ id: c.id, field: 'name', value: c.landlordName || '' }) }} className="cursor-pointer hover:text-blue-600" title="点击修改">{c.landlordName || '业主'}</span>
+                            <span onClick={e => { e.stopPropagation(); setEditInlineValue(c.landlordName || ''); setInlineEdit({ id: c.id, field: 'name', value: c.landlordName || '' }) }} className="cursor-pointer hover:text-blue-600" title="点击修改">{c.landlordName || '业主'}</span>
                           )} · ¥{c.monthlyRent}/月
                         </span>
                         <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setEditContractId(c.id)} className="text-xs text-blue-600 hover:underline">编辑</button>
+                          <button type="button" onClick={e => { e.stopPropagation(); setEditContractId(c.id) }} className="text-xs text-blue-600 hover:underline">编辑</button>
                           {c.status === 'active' ? (
-                            <button type="button" onClick={() => setContractConfirm({ id: c.id, action: 'terminate' })} className="text-xs text-orange-600 hover:underline">退租</button>
+                            <button type="button" onClick={e => { e.stopPropagation(); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="text-xs text-orange-600 hover:underline">退租</button>
                           ) : null}
-                          <button type="button" onClick={() => setContractConfirm({ id: c.id, action: 'delete' })} className="text-xs text-red-600 hover:underline">删除</button>
+                          <button type="button" onClick={e => { e.stopPropagation(); setContractConfirm({ id: c.id, action: 'delete' }) }} className="text-xs text-red-600 hover:underline">删除</button>
                           <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">{c.status === 'active' ? '执行中' : '已结束'}</span>
                         </div>
                       </div>
@@ -124,7 +126,7 @@ export default function RoomList() {
                             onKeyDown={e => { if (e.key === 'Enter') { updateLandlordContract(c.id, { landlordPhone: editInlineValue || undefined }); setInlineEdit(null) }}}
                             className="w-28 px-1 py-0.5 border border-blue-300 rounded text-xs mr-2" autoFocus />
                         ) : c.landlordPhone ? (
-                          <span onClick={() => { setEditInlineValue(c.landlordPhone || ''); setInlineEdit({ id: c.id, field: 'phone', value: c.landlordPhone || '' }) }} className="cursor-pointer hover:text-blue-600 mr-2" title="点击修改">{c.landlordPhone}</span>
+                          <span onClick={e => { e.stopPropagation(); setEditInlineValue(c.landlordPhone || ''); setInlineEdit({ id: c.id, field: 'phone', value: c.landlordPhone || '' }) }} className="cursor-pointer hover:text-blue-600 mr-2" title="点击修改">{c.landlordPhone}</span>
                         ) : null}
                         {c.contractStart} ~ {c.contractEnd}
                       </p>
@@ -300,6 +302,25 @@ export default function RoomList() {
         onClose={() => setHistoryRoomId(null)}
         tenants={tenants.filter(t => t.roomId === historyRoomId && t.status === 'ended')}
         roomLabel={`${rooms.find(r => r.id === historyRoomId)?.label}室`}
+      />
+
+      <LandlordCheckoutModal
+        isOpen={landlordCheckout !== null}
+        onClose={() => setLandlordCheckout(null)}
+        landlordName={landlordCheckout?.name || ''}
+        deposit={landlordCheckout?.deposit}
+        onConfirm={(refunds) => {
+          if (!landlordCheckout) return
+          const dt = refunds.checkoutDate
+          if (refunds.depositRefund > 0) {
+            addBill({ propertyId: propertyId!, amount: -refunds.depositRefund, type: 'deposit', status: 'paid', direction: 'payable', paidDate: dt, dueDate: dt, description: '退押金' })
+          }
+          if (refunds.penalty > 0) {
+            addBill({ propertyId: propertyId!, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: dt, dueDate: dt, description: '业主违约金' })
+          }
+          terminateLandlordContract(landlordCheckout.id)
+          setLandlordCheckout(null)
+        }}
       />
 
       <ConfirmModal
