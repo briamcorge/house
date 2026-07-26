@@ -1,12 +1,17 @@
 import { useState , useEffect } from 'react'
-import { X, DollarSign } from 'lucide-react'
+import { X, DollarSign, Calendar } from 'lucide-react'
 
 interface CheckoutModalProps {
   isOpen: boolean
   onClose: () => void
   tenantName: string
   deposit?: number
-  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number }) => void
+  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number; checkoutDate: string }) => void
+}
+
+function todayStr() {
+  const d = new Date()
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
 }
 
 export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, onConfirm }: CheckoutModalProps) {
@@ -15,6 +20,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
   const [otherName, setOtherName] = useState('')
   const [otherRefund, setOtherRefund] = useState('0')
   const [penalty, setPenalty] = useState('0')
+  const [checkoutDate, setCheckoutDate] = useState(todayStr())
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -49,6 +55,15 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
           {error && (
             <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              退租日期
+            </label>
+            <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <p className="text-xs text-gray-400 mt-1">实际退租日期，即账单的应收日/实付日</p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -113,7 +128,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
                 showError('押金退还不能超过 ¥' + deposit)
                 return
               }
-              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p })
+              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p, checkoutDate })
             }} className="flex-[2] py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700">确认退租并退款</button>
           </div>
         </div>
