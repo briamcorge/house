@@ -19,7 +19,7 @@ export default function Properties() {
   const [propertyMenu, setPropertyMenu] = useState<string | null>(null)
   const [landlordPropertyId, setLandlordPropertyId] = useState<string | null>(null)
   const [summaryPropertyId, setSummaryPropertyId] = useState<string | null>(null)
-  const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string } | null>(null)
+  const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string; deposit?: number } | null>(null)
   const [simpleEdit, setSimpleEdit] = useState<{ pid: string; name?: string; phone?: string } | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [deleteStep1, setDeleteStep1] = useState<string | null>(null)
@@ -159,6 +159,7 @@ export default function Properties() {
                                 end: formatDate(add30Days(new Date(newStart), 359)),
                                 name: lc?.landlordName || undefined,
                                 phone: lc?.landlordPhone || undefined,
+                                deposit: lc?.deposit,
                               })
                               setPropertyMenu(null)
                             }}
@@ -296,6 +297,7 @@ export default function Properties() {
         existingEnd={landlordEdit?.end}
         existingName={landlordEdit?.name || simpleEdit?.name}
         existingPhone={landlordEdit?.phone || simpleEdit?.phone}
+        existingDeposit={landlordEdit?.deposit}
         isSimpleEdit={simpleEdit !== null}
         isRenewal={landlordEdit !== null}
         onSaveEdit={(name, phone) => {

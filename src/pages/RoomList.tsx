@@ -291,6 +291,7 @@ export default function RoomList() {
         existingPaymentMethod={editContractId ? landlordContracts.find(c => c.id === editContractId)?.paymentMethod : undefined}
         existingStart={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractStart : undefined}
         existingEnd={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractEnd : undefined}
+        existingDeposit={editContractId ? landlordContracts.find(c => c.id === editContractId)?.deposit : undefined}
         existingName={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordName : undefined}
         existingPhone={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordPhone : undefined}
       />
