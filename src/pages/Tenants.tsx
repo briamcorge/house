@@ -117,7 +117,7 @@ export default function Tenants() {
                       {tenantMenu === tenant.id && (
                         <>
                           <div className="fixed inset-0 z-[5]" onClick={() => setTenantMenu(null)} />
-                          <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-10">
+                          <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-[60]">
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleEditTenant(tenant); }}
