@@ -9,6 +9,7 @@ import BillSummaryModal from '../components/BillSummaryModal'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import LandlordContractModal from '../components/LandlordContractModal'
 import LandlordCheckoutModal from '../components/LandlordCheckoutModal'
+import LandlordContractDetailModal from '../components/LandlordContractDetailModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } from 'lucide-react'
@@ -39,6 +40,7 @@ export default function RoomList() {
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [contractConfirm, setContractConfirm] = useState<{ id: string; action: 'terminate' | 'delete' } | null>(null)
   const [landlordCheckout, setLandlordCheckout] = useState<{ id: string; name: string; deposit: number } | null>(null)
+  const [detailContractId, setDetailContractId] = useState<string | null>(null)
   const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
 
   if (!property) {
@@ -98,7 +100,7 @@ export default function RoomList() {
               return (
                 <div className="space-y-2">
                   {propContracts.map(c => (
-                    <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer" onClick={() => { if (c.status === 'active') setEditContractId(c.id); }}>
+                    <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setDetailContractId(c.id)}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
                           {inlineEdit?.id === c.id && inlineEdit?.field === 'name' ? (
@@ -321,6 +323,24 @@ export default function RoomList() {
           terminateLandlordContract(landlordCheckout.id)
           setLandlordCheckout(null)
         }}
+      />
+
+      <LandlordContractDetailModal
+        isOpen={detailContractId !== null}
+        onClose={() => setDetailContractId(null)}
+        contract={landlordContracts.find(c => c.id === detailContractId)!}
+        bills={bills}
+        onEdit={() => { if (detailContractId) setEditContractId(detailContractId) }}
+        onCheckout={() => {
+          const c = landlordContracts.find(c => c.id === detailContractId)
+          if (!c) return
+          if (c.deposit) {
+            setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit })
+          } else {
+            setContractConfirm({ id: c.id, action: 'terminate' })
+          }
+        }}
+        onDelete={() => { if (detailContractId) setContractConfirm({ id: detailContractId, action: 'delete' }) }}
       />
 
       <ConfirmModal
