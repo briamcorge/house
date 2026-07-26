@@ -94,8 +94,10 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
     // 有押金则加入账单列表（放在首位，但不占用期数编号）
     const depositVal = parseFloat(deposit)
     if (!isNaN(depositVal) && depositVal > 0) {
-      if (isRenewal && existingDeposit !== undefined) {
-        const diff = depositVal - existingDeposit
+      if (isRenewal) {
+        // 续约：比较新旧押金，只生成差额账单（跟租客逻辑一致）
+        const oldDeposit = existingDeposit || 0
+        const diff = depositVal - oldDeposit
         if (diff > 0) {
           bills.unshift({
             type: 'deposit',
@@ -374,7 +376,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   <p className="text-xs text-orange-500 mt-1">{contractStart} 至 {contractEnd}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-orange-900">月付房东 ¥{parseFloat(monthlyRent) || 0}</p>
+                  <p className="text-sm font-medium text-orange-900">{paymentMethods.find(p => p.value === paymentMethod)?.label}房东 ¥{parseFloat(monthlyRent) || 0}</p>
                   <p className="text-xs text-orange-500">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
                 </div>
               </div>
@@ -410,8 +412,6 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         step="0.01"
                       />
                     </div>
-                    {bill.type !== 'deposit' && (
-                      <>
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">周期开始</label>
                       <input
@@ -432,8 +432,6 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                       />
                     </div>
-                      </>
-                    )}
                   </div>
                 </div>
               ))}
