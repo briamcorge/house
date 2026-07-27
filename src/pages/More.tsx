@@ -783,17 +783,41 @@ export default function More() {
 
                             {/* 租客明细 */}
                             {profitResult.tenants.length > 0 && (
-                              <div className="border-t border-gray-200 pt-2 mt-1 space-y-1">
+                              <div className="border-t border-gray-200 pt-2 mt-1 space-y-2">
                                 <p className="text-[10px] text-gray-400 font-medium">租客分摊明细</p>
                                 {profitResult.tenants.map(t => (
-                                  <div key={t.tenantId} className="flex items-center justify-between text-[11px]">
-                                    <span className="text-gray-500 truncate max-w-[120px]">
-                                      {t.roomLabel || '?'} {t.tenantName}
-                                    </span>
-                                    <span className={t.rentPaid ? 'text-green-600' : 'text-orange-600'}>
-                                      ¥{t.paidRent.toFixed(0)}
-                                      {!t.rentPaid && <span className="ml-1">(未齐)</span>}
-                                    </span>
+                                  <div key={t.tenantId} className="bg-white rounded-lg border border-gray-100 px-2.5 py-2 space-y-1">
+                                    {/* 租客名 */}
+                                    <div className="flex items-center justify-between text-xs font-medium text-gray-700">
+                                      <span>{t.roomLabel || '?'} {t.tenantName}</span>
+                                      <span className={t.rentPaid ? 'text-green-600' : 'text-orange-600'}>
+                                        ¥{t.paidRent.toFixed(0)}
+                                        {!t.rentPaid && <span className="ml-1">(未齐)</span>}
+                                      </span>
+                                    </div>
+                                    {/* 费用明细列表 */}
+                                    <div className="space-y-0.5">
+                                      {t.feeBreakdown.map((f, fi) => (
+                                        <div key={fi} className="flex items-center justify-between text-[10px] pl-2">
+                                          <span className="text-gray-400 truncate max-w-[140px]">{f.label}</span>
+                                          <span className="flex items-center gap-1">
+                                            <span className="text-gray-500">¥{f.amount.toFixed(0)}</span>
+                                            {f.paid ? (
+                                              <span className="text-green-500 font-medium">✓</span>
+                                            ) : (
+                                              <span className="text-orange-400 text-[9px] px-1 rounded bg-orange-50">未收</span>
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {/* 小计 */}
+                                    <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-dotted border-gray-200 text-gray-500">
+                                      <span>小计</span>
+                                      <span className="font-medium">
+                                        ¥{(t.paidRent + t.otherFeeIncome).toFixed(0)}
+                                      </span>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
