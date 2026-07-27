@@ -155,7 +155,7 @@ export function calculatePeriodProfit(
       }
     }
 
-    totalIncome += paidRent + otherFeePaidAmount
+    totalIncome += apportionedRent + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
 
     tenantResults.push({
