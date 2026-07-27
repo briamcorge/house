@@ -26,13 +26,15 @@ export default function Bills() {
   const contractFilter = state?.propertyId || null
   const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status']>((state?.filterStatus as any) || state?.status || 'pending')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'refunded'>((state?.filterStatus as any) || state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
+  const [payPeriodStart, setPayPeriodStart] = useState('')
+  const [payPeriodEnd, setPayPeriodEnd] = useState('')
   const [showAllBills, setShowAllBills] = useState(false)
   const [dayRange, setDayRange] = useState(30)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -59,8 +61,32 @@ export default function Bills() {
     if (payConfirmBill) {
       setPayAmount(payConfirmBill.amount.toString())
       setPayDate(new Date().toISOString().slice(0, 10))
+      const m = payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+      if (m) {
+        setPayPeriodStart(m[1])
+        setPayPeriodEnd(m[2])
+      } else {
+        setPayPeriodStart('')
+        setPayPeriodEnd('')
+      }
     }
   }, [payConfirmBill])
+
+  function autoFillPayPeriod(paidAmt: number) {
+    const bill = payConfirmBill
+    if (!bill) return
+    const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+    if (!m || bill.amount <= 0) return
+    const start = new Date(m[1])
+    const end = new Date(m[2])
+    const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+    if (totalDays <= 0) return
+    const covered = Math.round(paidAmt / bill.amount * totalDays)
+    const newEnd = new Date(start)
+    newEnd.setDate(newEnd.getDate() + covered - 1)
+    setPayPeriodStart(m[1])
+    setPayPeriodEnd(newEnd.toISOString().slice(0, 10))
+  }
 
   const getPropertyAddress = (pid?: string) => {
     if (!pid) return ''
@@ -103,10 +129,12 @@ export default function Bills() {
     pending: 'bg-orange-100 text-orange-700',
     paid: 'bg-green-600 text-white',
     overdue: 'bg-red-100 text-red-700',
-    cancelled: 'bg-gray-100 text-gray-500'
+    cancelled: 'bg-gray-100 text-gray-500',
+    refunded: 'bg-blue-100 text-blue-700',
   }
 
-  const getStatusLabel = (status: Bill['status'], dir: BillDirection) => {
+  const getStatusLabel = (status: Bill['status'] | 'refunded', dir: BillDirection) => {
+    if (status === 'refunded') return dir === 'receivable' ? '已退还' : '已退还'
     if (status === 'paid') return dir === 'receivable' ? '✓ 已收' : '✓ 已付'
     if (status === 'pending') return dir === 'receivable' ? '未收' : '未付'
     if (status === 'cancelled') return '已作废'
@@ -139,9 +167,12 @@ export default function Bills() {
     // 合同模式：显示全部，不限制月份
     if (contractFilter) {
       const list = activeBills.filter(b => {
+        if (filterStatus === 'refunded') return b.amount < 0 && b.status === 'paid'
         const matchesStatus = filterStatus === 'pending'
           ? (b.status === 'pending' || b.status === 'overdue')
-          : b.status === filterStatus
+          : filterStatus === 'paid'
+            ? b.status === 'paid' && b.amount >= 0
+            : b.status === filterStatus
         return matchesStatus
       })
       return list
@@ -150,9 +181,12 @@ export default function Bills() {
     // 非合同模式：应用方向 + 状态 + 30天筛选
     const list = activeBills.filter(b => {
       if (direction !== 'all' && b.direction !== direction) return false
+      if (filterStatus === 'refunded') return b.amount < 0 && b.status === 'paid'
       const matchesStatus = filterStatus === 'pending'
         ? (b.status === 'pending' || b.status === 'overdue')
-        : b.status === filterStatus
+        : filterStatus === 'paid'
+          ? b.status === 'paid' && b.amount >= 0
+          : b.status === filterStatus
       if (!matchesStatus) return false
       // 对于"未收"筛选，排除已退租租客的应收账单
       if (filterStatus === 'pending' && b.direction === 'receivable' && b.tenantId) {
@@ -224,9 +258,10 @@ export default function Bills() {
 
           {/* 总体汇总 + 方向筛选（合同查看模式下隐藏） */}
           <div className={contractFilter ? 'hidden' : ''}>
-          <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-5 gap-1 mb-3">
             {(() => {
-              const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.type !== 'deposit').reduce((s, b) => s + b.amount, 0)
+              const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.type !== 'deposit' && b.amount >= 0).reduce((s, b) => s + b.amount, 0)
+              const receivableRefunded = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.amount < 0).reduce((s, b) => s + Math.abs(b.amount), 0)
               const receivableUnpaid = bills.filter(b =>
                 b.direction === 'receivable' &&
                 b.status !== 'paid' &&
@@ -234,7 +269,7 @@ export default function Bills() {
                 !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
                 b.type !== 'deposit'
               ).reduce((s, b) => s + b.amount, 0)
-              const payablePaid = bills.filter(b => b.direction === 'payable' && b.status === 'paid' && b.type !== 'deposit').reduce((s, b) => s + b.amount, 0)
+              const payablePaid = bills.filter(b => b.direction === 'payable' && b.status === 'paid' && b.type !== 'deposit' && b.amount >= 0).reduce((s, b) => s + b.amount, 0)
               const payableUnpaid = bills.filter(b =>
                 b.direction === 'payable' &&
                 b.status !== 'paid' &&
@@ -243,21 +278,25 @@ export default function Bills() {
               ).reduce((s, b) => s + b.amount, 0)
               return (
                 <>
-                  <div className="bg-green-50 rounded-xl p-2 text-center">
-                    <p className="text-xs text-green-600">已收</p>
-                    <p className="text-sm font-bold text-green-700">¥{receivablePaid.toFixed(0)}</p>
+                  <div className="bg-green-50 rounded-xl p-1.5 text-center">
+                    <p className="text-[10px] text-green-600">已收</p>
+                    <p className="text-xs font-bold text-green-700">¥{receivablePaid.toFixed(0)}</p>
                   </div>
-                  <div className="bg-red-50 rounded-xl p-2 text-center">
-                    <p className="text-xs text-red-600">未收</p>
-                    <p className="text-sm font-bold text-red-700">¥{receivableUnpaid.toFixed(0)}</p>
+                  <div className="bg-red-50 rounded-xl p-1.5 text-center">
+                    <p className="text-[10px] text-red-600">未收</p>
+                    <p className="text-xs font-bold text-red-700">¥{receivableUnpaid.toFixed(0)}</p>
                   </div>
-                  <div className="bg-orange-50 rounded-xl p-2 text-center">
-                    <p className="text-xs text-orange-600">未付</p>
-                    <p className="text-sm font-bold text-orange-700">¥{payableUnpaid.toFixed(0)}</p>
+                  <div className="bg-blue-50 rounded-xl p-1.5 text-center">
+                    <p className="text-[10px] text-blue-600">已退还</p>
+                    <p className="text-xs font-bold text-blue-700">¥{receivableRefunded.toFixed(0)}</p>
                   </div>
-                  <div className="bg-blue-50 rounded-xl p-2 text-center">
-                    <p className="text-xs text-blue-600">已付</p>
-                    <p className="text-sm font-bold text-blue-700">¥{payablePaid.toFixed(0)}</p>
+                  <div className="bg-orange-50 rounded-xl p-1.5 text-center">
+                    <p className="text-[10px] text-orange-600">未付</p>
+                    <p className="text-xs font-bold text-orange-700">¥{payableUnpaid.toFixed(0)}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-xl p-1.5 text-center">
+                    <p className="text-[10px] text-purple-600">已付</p>
+                    <p className="text-xs font-bold text-purple-700">¥{payablePaid.toFixed(0)}</p>
                   </div>
                 </>
               )
@@ -291,6 +330,7 @@ export default function Bills() {
             {([
               { key: 'pending' as const, label: direction === 'payable' ? '未付' : '未收' },
               { key: 'paid' as const, label: direction === 'payable' ? '已付' : '已收' },
+              { key: 'refunded' as const, label: '已退还' },
             ] as const).map((f) => (
               <button
                 key={f.key}
@@ -410,9 +450,9 @@ export default function Bills() {
                               <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
                               {bill.status !== 'pending' && (
                                 <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                                  bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                  bill.status === 'paid' && bill.amount < 0 ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                                 }`}>
-                                  {bill.status === 'paid' ? '已收' : '逾期'}
+                                  {bill.status === 'paid' && bill.amount < 0 ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
                                 </span>
                               )}
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
@@ -525,7 +565,7 @@ export default function Bills() {
               <span className="text-sm text-gray-500">
                 {displayBills.length} 笔
               </span>
-              <span className={`text-lg font-bold ${filterStatus === 'paid' ? 'text-green-700' : 'text-orange-700'}`}>
+              <span className={`text-lg font-bold ${filterStatus === 'paid' ? 'text-green-700' : filterStatus === 'refunded' ? 'text-blue-700' : 'text-orange-700'}`}>
                 ¥{displayBills.reduce((s, b) => s + b.amount, 0).toFixed(0)}
               </span>
             </div>
@@ -608,7 +648,11 @@ export default function Bills() {
                   <input
                     type="number"
                     value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
+                    onChange={(e) => {
+                      setPayAmount(e.target.value)
+                      const v = parseFloat(e.target.value)
+                      if (v > 0 && payConfirmBill && v < payConfirmBill.amount) autoFillPayPeriod(v)
+                    }}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                     min="0"
@@ -625,6 +669,19 @@ export default function Bills() {
                   />
                 </div>
               </div>
+
+              {payAmount !== '' && payConfirmBill && parseFloat(payAmount) > 0 && parseFloat(payAmount) < payConfirmBill.amount && payPeriodStart && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">开始日</label>
+                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">结束日</label>
+                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                  </div>
+                </div>
+              )}
 
               <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
                 留空本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额则视为全额{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}
@@ -643,6 +700,13 @@ export default function Bills() {
                     // 拆单：原账单金额减少，新生成一笔已付账单
                     const remaining = payConfirmBill.amount - paidAmt
                     updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
+                    const periodDesc = payPeriodStart && payPeriodEnd
+                      ? `${payPeriodStart} ~ ${payPeriodEnd}`
+                      : undefined
+                    const baseDesc = payConfirmBill.description || ''
+                    const newDesc = periodDesc
+                      ? baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, periodDesc)
+                      : baseDesc
                     addBill({
                       propertyId: payConfirmBill.propertyId,
                       roomId: payConfirmBill.roomId,
@@ -653,7 +717,7 @@ export default function Bills() {
                       direction: payConfirmBill.direction,
                       dueDate: payConfirmBill.dueDate,
                       paidDate: payDate || new Date().toISOString().slice(0, 10),
-                      description: payConfirmBill.description,
+                      description: newDesc,
                     })
                   } else {
                     updateBill(payConfirmBill.id, {

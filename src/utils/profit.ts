@@ -111,7 +111,8 @@ export function calculatePeriodProfit(
   propertyRooms: Room[],
   allBills: Bill[],
 ): PeriodProfitResult {
-  // 筛选合同期与业主周期有重叠的租客
+  // 筛选合同期与业主周期有重叠的租客，排除已作废账单
+  const activeBills = allBills.filter(b => b.status !== 'cancelled')
   const overlapTenants = propertyTenants.filter(t => {
     return t.contractEnd >= periodStart && t.contractStart <= periodEnd
   })
@@ -123,7 +124,7 @@ export function calculatePeriodProfit(
 
   for (const tenant of overlapTenants) {
     // 找该周期内的应收账单 — 按账单实际覆盖期匹配（description 中的起止日）
-    const periodBills = allBills.filter(b =>
+    const periodBills = activeBills.filter(b =>
       b.tenantId === tenant.id &&
       b.roomId === tenant.roomId &&
       b.direction === 'receivable' &&
