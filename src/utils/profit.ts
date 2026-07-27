@@ -1,5 +1,5 @@
 import { Tenant, Bill, Room } from '../types'
-import { calculateDays30_360, add30Days, formatDate } from './calculator'
+import { add30Days, formatDate } from './calculator'
 
 /** 判断账单是否与某业主周期重叠 — 按账单 description 中的实际起止日匹配（而非应收日） */
 function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
@@ -20,8 +20,7 @@ export interface TenantPeriodResult {
   tenantId: string
   tenantName: string
   roomLabel: string
-  overlapDays: number
-  apportionedRent: number       // 该期分摊房租
+  expectedRent: number          // 该账单周期内房租账单总额
   paidRent: number              // 实际已收房租（该期内）
   rentPaid: boolean             // 是否足额
   otherFeeIncome: number        // 卫管费收入（已付）
@@ -41,7 +40,7 @@ export interface PeriodProfitResult {
 
 /**
  * 计算某套房在某个业主周期内的利润。
- * 按30/360规则分摊租客房租。
+ * 按账单实际金额加总租客收入（不分摊、不按天折算）。
  * 押金不算利润，卫管费算利润。
  * 只有所有租客在该周期内的房租都交齐了，才算可分配利润。
  */
@@ -53,6 +52,7 @@ export function calculatePeriodProfit(
   propertyRooms: Room[],
   allBills: Bill[],
 ): PeriodProfitResult {
+  // 筛选合同期与业主周期有重叠的租客
   const overlapTenants = propertyTenants.filter(t => {
     return t.contractEnd >= periodStart && t.contractStart <= periodEnd
   })
@@ -63,14 +63,7 @@ export function calculatePeriodProfit(
   const tenantResults: TenantPeriodResult[] = []
 
   for (const tenant of overlapTenants) {
-    const overlapStart = tenant.contractStart > periodStart ? tenant.contractStart : periodStart
-    const overlapEnd = tenant.contractEnd < periodEnd ? tenant.contractEnd : periodEnd
-
-    // 30/360 含头含尾天数
-    const overlapDays = 1 + calculateDays30_360(new Date(overlapStart), new Date(overlapEnd))
-    const apportionedRent = Math.round(tenant.monthlyRent / 30 * overlapDays * 100) / 100
-
-    // 找该周期内的应收账单 — 按账单实际覆盖期匹配（description 中的起止日），而非应收日
+    // 找该周期内的应收账单 — 按账单实际覆盖期匹配（description 中的起止日）
     const periodBills = allBills.filter(b =>
       b.tenantId === tenant.id &&
       b.roomId === tenant.roomId &&
@@ -80,17 +73,16 @@ export function calculatePeriodProfit(
 
     // 该周期内的房租账单
     const periodRentBills = periodBills.filter(b => b.type === 'rent')
-    // 只要所有房租账单都已收，就认为该租客房租已交齐（不论金额是否精确匹配）
-    const allRentPaidInPeriod = periodRentBills.length > 0 && periodRentBills.every(b => b.status === 'paid')
+    const expectedRent = periodRentBills.reduce((s, b) => s + b.amount, 0)
     const paidRent = periodRentBills
       .filter(b => b.status === 'paid')
       .reduce((s, b) => s + (b.paidAmount ?? b.amount), 0)
 
-    // 检查房租是否足额
+    // 检查房租是否足额：按账单金额总和判断，不按天分摊
     const room = propertyRooms.find(r => r.id === tenant.roomId)
-    const rentPaid = allRentPaidInPeriod
-    if (!rentPaid && apportionedRent > 0 && periodRentBills.length > 0) {
-      const shortfall = apportionedRent - paidRent
+    const rentPaid = expectedRent > 0 && paidRent >= expectedRent - 0.01
+    if (!rentPaid && expectedRent > 0) {
+      const shortfall = expectedRent - paidRent
       unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
     }
 
@@ -101,15 +93,14 @@ export function calculatePeriodProfit(
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
 
-    totalIncome += Math.min(paidRent, apportionedRent) + otherFeePaidAmount
-    if (apportionedRent > 0 && !rentPaid) allPaid = false
+    totalIncome += paidRent + otherFeePaidAmount
+    if (expectedRent > 0 && !rentPaid) allPaid = false
 
     tenantResults.push({
       tenantId: tenant.id,
       tenantName: tenant.name,
       roomLabel: room?.label || '?',
-      overlapDays,
-      apportionedRent,
+      expectedRent,
       paidRent,
       rentPaid,
       otherFeeIncome: otherFeePaidAmount,
