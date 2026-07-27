@@ -1,0 +1,117 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e247]:
+      - generic [ref=f2e250]:
+        - button [ref=f2e251] [cursor=pointer]
+        - generic [ref=f2e254]:
+          - heading "安贞里二区16号楼1005 - C 室" [level=1] [ref=f2e255]
+          - paragraph [ref=f2e256]: 次卧
+        - button [ref=f2e258] [cursor=pointer]
+      - generic [ref=f2e265]:
+        - heading "合同记录" [level=2] [ref=f2e267]
+        - generic [ref=f2e273] [cursor=pointer]:
+          - generic [ref=f2e274]:
+            - generic [ref=f2e275]:
+              - button [ref=f2e276]
+              - generic [ref=f2e279]: 黄健
+              - generic [ref=f2e280]: "#ZL-0017"
+              - generic [ref=f2e281]: 在租
+            - generic [ref=f2e282]:
+              - button "编辑" [active] [ref=f2e283]
+              - button "续约" [ref=f2e284]
+              - button "退租" [ref=f2e285]
+              - button "删除" [ref=f2e286]
+          - generic [ref=f2e287]:
+            - generic [ref=f2e288]: 2026-01-20 ~ 2026-11-09
+            - generic [ref=f2e289]: ¥2800/月
+          - generic [ref=f2e290]:
+            - generic [ref=f2e291]: 已收 2 笔 ¥2449
+            - generic [ref=f2e292]: 待收 3 笔
+            - generic [ref=f2e293]: 押金 ¥2800
+      - generic [ref=f2e295]:
+        - generic [ref=f2e296]:
+          - generic [ref=f2e297]:
+            - heading "编辑租客" [level=2] [ref=f2e298]
+            - button [ref=f2e299] [cursor=pointer]
+          - generic [ref=f2e303]:
+            - generic [ref=f2e304]: "1"
+            - generic [ref=f2e305]: 合同信息
+            - generic [ref=f2e307]: "2"
+            - generic [ref=f2e308]: 确认账单
+        - generic [ref=f2e310]:
+          - text: 业主合同期：
+          - generic [ref=f2e313]: 2025-11-10 ~ 2027-11-09
+          - generic [ref=f2e314]: （24个月）
+        - generic [ref=f2e315]:
+          - generic [ref=f2e316]:
+            - generic [ref=f2e317]:
+              - generic [ref=f2e318]: 租客姓名
+              - textbox "例如：张先生" [ref=f2e322]: 黄健
+            - generic [ref=f2e323]:
+              - generic [ref=f2e324]: 电话（选填）
+              - textbox "13800138000" [ref=f2e327]
+          - generic [ref=f2e328]:
+            - generic [ref=f2e329]: 房间
+            - combobox [disabled] [ref=f2e333]:
+              - option "请选择房间"
+              - option "安贞里二区16号楼1005 - C室" [selected]
+          - generic [ref=f2e334]:
+            - generic [ref=f2e335]:
+              - generic [ref=f2e336]: 合同开始
+              - textbox [ref=f2e339]: 2026-01-20
+            - generic [ref=f2e340]:
+              - generic [ref=f2e341]: 合同结束
+              - textbox [ref=f2e344]: 2026-11-09
+          - generic [ref=f2e345]:
+            - generic [ref=f2e346]:
+              - generic [ref=f2e347]: 月租金（元）
+              - spinbutton "2000" [ref=f2e350]: "2800"
+            - generic [ref=f2e351]:
+              - generic [ref=f2e352]: 押金（选填）
+              - spinbutton "0" [ref=f2e353]: "2800"
+          - generic [ref=f2e354]:
+            - generic [ref=f2e355]:
+              - generic [ref=f2e356]:
+                - generic [ref=f2e357]: 费用名称
+                - textbox "卫管费" [ref=f2e358]
+              - generic [ref=f2e359]:
+                - generic [ref=f2e360]: 金额
+                - spinbutton "0" [ref=f2e361]: "582"
+            - paragraph [ref=f2e362]: 合同期内只收一次
+          - generic [ref=f2e363]:
+            - generic [ref=f2e364]:
+              - generic [ref=f2e365]: 付款方式
+              - combobox [ref=f2e368]:
+                - option "月付"
+                - option "二月付"
+                - option "季付" [selected]
+                - option "半年付"
+                - option "年付"
+            - generic [ref=f2e369]:
+              - generic [ref=f2e370]: 提前付款
+              - generic [ref=f2e371]:
+                - spinbutton [ref=f2e372]: "0"
+                - generic [ref=f2e373]: 天
+                - combobox [ref=f2e374]:
+                  - option "无" [selected]
+                  - option "7天"
+                  - option "15天"
+                  - option "30天"
+          - generic [ref=f2e375]:
+            - button "取消" [ref=f2e376] [cursor=pointer]
+            - button "保存" [ref=f2e377] [cursor=pointer]
+            - button "下一步" [ref=f2e378] [cursor=pointer]
+    - navigation [ref=f2e215]:
+      - generic [ref=f2e216]:
+        - link "首页" [ref=f2e217] [cursor=pointer]:
+          - /url: "#/"
+        - link "房屋" [ref=f2e222] [cursor=pointer]:
+          - /url: "#/properties"
+        - link "账单" [ref=f2e228] [cursor=pointer]:
+          - /url: "#/bills"
+        - link "统计" [ref=f2e233] [cursor=pointer]:
+          - /url: "#/statistics"
+        - link "更多" [ref=f2e237] [cursor=pointer]:
+          - /url: "#/more"
+      - generic "已同步" [ref=f2e243]
+  - generic [ref=f2e246]: "-15000"

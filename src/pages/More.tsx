@@ -72,6 +72,7 @@ const menuItems: MenuItem[] = [
 
 export default function More() {
   const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord, deleteProfitRecord } = useStore()
+;(window as any).__store = useStore
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
