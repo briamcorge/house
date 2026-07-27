@@ -16,6 +16,15 @@ function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): bo
   return false
 }
 
+export interface FeeBreakdownItem {
+  type: string       // rent|other|sublease|hygiene|deposit
+  label: string      // 显示用名称，如"季租"、"卫管费"
+  amount: number     // 账单金额
+  paid: boolean      // 是否已收
+  paidAmount: number // 实收金额（如果是已收状态）
+  description?: string // 完整描述，含日期范围
+}
+
 export interface TenantPeriodResult {
   tenantId: string
   tenantName: string
@@ -25,6 +34,7 @@ export interface TenantPeriodResult {
   rentPaid: boolean             // 是否足额
   otherFeeIncome: number        // 卫管费收入（已付）
   otherFeeName: string
+  feeBreakdown: FeeBreakdownItem[]  // 所有参与计算的费用明细
 }
 
 export interface PeriodProfitResult {
@@ -93,6 +103,22 @@ export function calculatePeriodProfit(
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
 
+    // 生成费用明细清单（排除押金）
+    const feeBreakdown: FeeBreakdownItem[] = periodBills
+      .filter(b => b.type !== 'deposit')
+      .map(b => ({
+        type: b.type,
+        label: b.type === 'rent' ? (b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租')
+          : b.type === 'hygiene' ? '卫管费'
+          : b.type === 'sublease' ? '转租费'
+          : b.type === 'agency' ? '中介费'
+          : b.description || '其他费用',
+        amount: b.amount,
+        paid: b.status === 'paid',
+        paidAmount: b.status === 'paid' ? (b.paidAmount ?? b.amount) : 0,
+        description: b.description,
+      }))
+
     totalIncome += paidRent + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
 
@@ -105,6 +131,7 @@ export function calculatePeriodProfit(
       rentPaid,
       otherFeeIncome: otherFeePaidAmount,
       otherFeeName: tenant.otherFeeName || '其他费',
+      feeBreakdown,
     })
   }
 
