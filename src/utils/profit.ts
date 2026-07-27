@@ -16,13 +16,12 @@ function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): bo
   return false
 }
 
-export interface FeeBreakdownItem {
+export interface FeeGroup {
   type: string       // rent|other|sublease|hygiene|deposit
-  label: string      // 显示用名称，如"季租"、"卫管费"
+  label: string      // 显示用名称，如"月租"、"卫管费"
   amount: number     // 账单金额
+  count: number      // 合并的账单数
   paid: boolean      // 是否已收
-  paidAmount: number // 实收金额（如果是已收状态）
-  description?: string // 完整描述，含日期范围
 }
 
 export interface TenantPeriodResult {
@@ -34,7 +33,9 @@ export interface TenantPeriodResult {
   rentPaid: boolean             // 是否足额
   otherFeeIncome: number        // 卫管费收入（已付）
   otherFeeName: string
-  feeBreakdown: FeeBreakdownItem[]  // 所有参与计算的费用明细
+  overlapDays: number           // 30/360 重叠天数（用于显示）
+  apportionedRent: number       // monthlyRent/30 × overlapDays（用于显示）
+  feeBreakdown: FeeGroup[]      // 所有参与计算的费用（按类型合并）
 }
 
 export interface PeriodProfitResult {
@@ -86,7 +87,7 @@ export function calculatePeriodProfit(
     const expectedRent = periodRentBills.reduce((s, b) => s + b.amount, 0)
     const paidRent = periodRentBills
       .filter(b => b.status === 'paid')
-      .reduce((s, b) => s + (b.paidAmount ?? b.amount), 0)
+      .reduce((s, b) => s + (b.paidAmount || b.amount), 0)
 
     // 检查房租是否足额：按账单金额总和判断，不按天分摊
     const room = propertyRooms.find(r => r.id === tenant.roomId)
@@ -103,21 +104,56 @@ export function calculatePeriodProfit(
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
 
-    // 生成费用明细清单（排除押金）
-    const feeBreakdown: FeeBreakdownItem[] = periodBills
+    // 生成费用明细清单（排除押金），按类型分组合并
+    const feeGroups = new Map<string, FeeGroup>()
+    periodBills
       .filter(b => b.type !== 'deposit')
-      .map(b => ({
-        type: b.type,
-        label: b.type === 'rent' ? (b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租')
-          : b.type === 'hygiene' ? '卫管费'
-          : b.type === 'sublease' ? '转租费'
-          : b.type === 'agency' ? '中介费'
-          : b.description || '其他费用',
-        amount: b.amount,
-        paid: b.status === 'paid',
-        paidAmount: b.status === 'paid' ? (b.paidAmount ?? b.amount) : 0,
-        description: b.description,
-      }))
+      .forEach(b => {
+        let label = ''
+        if (b.type === 'rent') {
+          const rentType = b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租'
+          label = rentType
+        } else if (b.type === 'hygiene') {
+          label = '卫管费'
+        } else if (b.type === 'sublease') {
+          label = '转租费'
+        } else if (b.type === 'agency') {
+          label = '中介费'
+        } else {
+          label = b.description || '其他费用'
+        }
+        const key = `$${b.type}_${label}`
+        if (feeGroups.has(key)) {
+          const g = feeGroups.get(key)!
+          g.amount += b.amount
+          g.count += 1
+          if (b.status !== 'paid') g.paid = false
+        } else {
+          feeGroups.set(key, { type: b.type, label, amount: b.amount, count: 1, paid: b.status === 'paid' })
+        }
+      })
+    const feeBreakdown = Array.from(feeGroups.values())
+
+    // 30/360 重叠天数（仅用于显示）
+    let overlapDays = 0
+    let apportionedRent = 0
+    if (periodRentBills.length > 0) {
+      const coveragePeriods = periodRentBills
+        .map(b => b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/))
+        .filter(Boolean) as RegExpMatchArray[]
+      if (coveragePeriods.length > 0) {
+        const covStart = coveragePeriods.reduce((s, m) => m[1] < s ? m[1] : s, coveragePeriods[0][1])
+        const covEnd = coveragePeriods.reduce((s, m) => m[2] > s ? m[2] : s, coveragePeriods[0][2])
+        const oStart = covStart > periodStart ? covStart : periodStart
+        const oEnd = covEnd < periodEnd ? covEnd : periodEnd
+        if (oStart <= oEnd) {
+          const [sy, sm, sd] = oStart.split('-').map(Number)
+          const [ey, em, ed] = oEnd.split('-').map(Number)
+          overlapDays = (ey - sy) * 360 + (em - sm) * 30 + (ed - sd) + 1
+          apportionedRent = Math.round((tenant.monthlyRent / 30) * overlapDays)
+        }
+      }
+    }
 
     totalIncome += paidRent + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
@@ -131,6 +167,8 @@ export function calculatePeriodProfit(
       rentPaid,
       otherFeeIncome: otherFeePaidAmount,
       otherFeeName: tenant.otherFeeName || '其他费',
+      overlapDays,
+      apportionedRent,
       feeBreakdown,
     })
   }
