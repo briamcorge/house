@@ -1,6 +1,38 @@
 import { Tenant, Bill, Room } from '../types'
 import { add30Days, formatDate } from './calculator'
 
+/** 每张账单按覆盖期分摊计算：有日期的按重叠比例摊，无日期的全额计入调整项 */
+function calcBillBasedRent(
+  rentBills: Bill[],
+  periodStart: string,
+  periodEnd: string,
+): { proratedRent: number; adjustment: number; overlapDays: number } {
+  let proratedRent = 0
+  let adjustment = 0
+  let totalOverlap = 0
+  for (const bill of rentBills) {
+    const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+    if (!m) {
+      // 无日期描述（退租金、减免等）：全额计入调整项
+      adjustment += bill.amount
+      continue
+    }
+    const bs = m[1], be = m[2]
+    const oStart = bs > periodStart ? bs : periodStart
+    const oEnd = be < periodEnd ? be : periodEnd
+    if (oStart > oEnd) continue
+    const [osy, osm, osd] = oStart.split('-').map(Number)
+    const [oey, oem, oed] = oEnd.split('-').map(Number)
+    const ovDays = (oey - osy) * 360 + (oem - osm) * 30 + (oed - osd) + 1
+    const [bsy, bsm, bsd] = bs.split('-').map(Number)
+    const [bey, bem, bed] = be.split('-').map(Number)
+    const billDays = (bey - bsy) * 360 + (bem - bsm) * 30 + (bed - bsd) + 1
+    proratedRent += bill.amount * ovDays / billDays
+    totalOverlap += ovDays
+  }
+  return { proratedRent, adjustment, overlapDays: totalOverlap }
+}
+
 /** 判断账单是否与某业主周期重叠 — 按账单 description 中的实际起止日匹配（而非应收日） */
 function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
   // 优先从 description 提取账单覆盖期（格式：... YYYY-MM-DD ~ YYYY-MM-DD）
@@ -34,7 +66,8 @@ export interface TenantPeriodResult {
   otherFeeIncome: number        // 卫管费收入（已付）
   otherFeeName: string
   overlapDays: number           // 30/360 重叠天数（用于显示）
-  apportionedRent: number       // monthlyRent/30 × overlapDays（用于显示）
+  proratedRent: number          // 按覆盖期分摊的房租
+  adjustment: number            // 无日期调整（退租金等）
   feeBreakdown: FeeGroup[]      // 所有参与计算的费用（按类型合并）
 }
 
@@ -134,26 +167,12 @@ export function calculatePeriodProfit(
       })
     const feeBreakdown = Array.from(feeGroups.values())
 
-    // 30/360 重叠天数（仅用于显示）
-    let overlapDays = 0
-    let apportionedRent = 0
-    if (periodRentBills.length > 0) {
-      const coveragePeriods = periodRentBills
-        .map(b => b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/))
-        .filter(Boolean) as RegExpMatchArray[]
-      if (coveragePeriods.length > 0) {
-        const covStart = coveragePeriods.reduce((s, m) => m[1] < s ? m[1] : s, coveragePeriods[0][1])
-        const covEnd = coveragePeriods.reduce((s, m) => m[2] > s ? m[2] : s, coveragePeriods[0][2])
-        const oStart = covStart > periodStart ? covStart : periodStart
-        const oEnd = covEnd < periodEnd ? covEnd : periodEnd
-        if (oStart <= oEnd) {
-          const [sy, sm, sd] = oStart.split('-').map(Number)
-          const [ey, em, ed] = oEnd.split('-').map(Number)
-          overlapDays = (ey - sy) * 360 + (em - sm) * 30 + (ed - sd) + 1
-          apportionedRent = Math.round((tenant.monthlyRent / 30) * overlapDays)
-        }
-      }
-    }
+    // 逐张房租账单按覆盖期分摊，支持退租金等无日期账单全额计入
+    const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd)
+    const overlapDays = summary.overlapDays
+    const proratedRent = Math.round(summary.proratedRent)
+    const adjustment = Math.round(summary.adjustment)
+    const apportionedRent = proratedRent + adjustment
 
     totalIncome += apportionedRent + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
@@ -168,7 +187,8 @@ export function calculatePeriodProfit(
       otherFeeIncome: otherFeePaidAmount,
       otherFeeName: tenant.otherFeeName || '其他费',
       overlapDays,
-      apportionedRent,
+      proratedRent,
+      adjustment,
       feeBreakdown,
     })
   }
