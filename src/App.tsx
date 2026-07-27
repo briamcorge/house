@@ -178,6 +178,22 @@ export default function App() {
     }
   }, [])
 
+  // 一次性数据修复：作废已退租租客的遗留未付账单
+  useEffect(() => {
+    const state = useStore.getState()
+    const endedTenantIds = new Set(state.tenants.filter(t => t.status === 'ended').map(t => t.id))
+    if (endedTenantIds.size === 0) return
+    let fixed = false
+    const bills = state.bills.map(b => {
+      if (endedTenantIds.has(b.tenantId) && b.status === 'pending' && b.direction === 'receivable') {
+        fixed = true
+        return { ...b, status: 'cancelled' as const }
+      }
+      return b
+    })
+    if (fixed) useStore.setState({ bills })
+  }, [])
+
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
     if (!isSupabaseConfigured() || !lastEvent) return
