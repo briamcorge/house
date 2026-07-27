@@ -9,7 +9,8 @@ function calcBillBasedRent(
 ): { proratedRent: number; adjustment: number; overlapDays: number } {
   let proratedRent = 0
   let adjustment = 0
-  let totalOverlap = 0
+  let earliestStart = ''
+  let latestEnd = ''
   for (const bill of rentBills) {
     const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
     if (!m) {
@@ -18,6 +19,7 @@ function calcBillBasedRent(
       continue
     }
     const bs = m[1], be = m[2]
+    // 累计分摊金额
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = be < periodEnd ? be : periodEnd
     if (oStart > oEnd) continue
@@ -28,9 +30,22 @@ function calcBillBasedRent(
     const [bey, bem, bed] = be.split('-').map(Number)
     const billDays = (bey - bsy) * 360 + (bem - bsm) * 30 + (bed - bsd) + 1
     proratedRent += bill.amount * ovDays / billDays
-    totalOverlap += ovDays
+    // 记录覆盖范围（用于显示唯一重叠天数）
+    if (!earliestStart || bs < earliestStart) earliestStart = bs
+    if (!latestEnd || be > latestEnd) latestEnd = be
   }
-  return { proratedRent, adjustment, overlapDays: totalOverlap }
+  // 唯一重叠天数（显示用）
+  let overlapDays = 0
+  if (earliestStart && latestEnd) {
+    const oStart = earliestStart > periodStart ? earliestStart : periodStart
+    const oEnd = latestEnd < periodEnd ? latestEnd : periodEnd
+    if (oStart <= oEnd) {
+      const [osy, osm, osd] = oStart.split('-').map(Number)
+      const [oey, oem, oed] = oEnd.split('-').map(Number)
+      overlapDays = (oey - osy) * 360 + (oem - osm) * 30 + (oed - osd) + 1
+    }
+  }
+  return { proratedRent, adjustment, overlapDays }
 }
 
 /** 判断账单是否与某业主周期重叠 — 按账单 description 中的实际起止日匹配（而非应收日） */
