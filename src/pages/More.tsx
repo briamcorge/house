@@ -88,6 +88,7 @@ export default function More() {
   const [profitCycleStart, setProfitCycleStart] = useState('')
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
   const [profitResult, setProfitResult] = useState<PeriodProfitResult | null>(null)
+  const [profitExtracted, setProfitExtracted] = useState(false)
   const landlordPayableBills = profitPropertyId
     ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
     : []
@@ -690,6 +691,7 @@ export default function More() {
                         setProfitCycleEnd('')
                         setProfitResult(null)
                         setProfitAmount('')
+                        setProfitExtracted(false)
                       }}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                     >
@@ -704,6 +706,7 @@ export default function More() {
                       onChange={(e) => {
                         const billId = e.target.value
                         setProfitBillId(billId)
+                        setProfitExtracted(false)
                         if (billId) {
                           const bill = bills.find(b => b.id === billId)
                           if (bill?.description) {
@@ -712,12 +715,21 @@ export default function More() {
                               const start = m[1], end = m[2]
                               setProfitCycleStart(start)
                               setProfitCycleEnd(end)
+                              // 检查该周期是否已提取过利润
+                              const alreadyExtracted = profitRecords.some(r =>
+                                r.propertyId === profitPropertyId &&
+                                r.cycleStart === start &&
+                                r.cycleEnd === end
+                              )
+                              setProfitExtracted(alreadyExtracted)
                               // 自动计算该周期利润
                               const propRooms = rooms.filter(r => r.propertyId === profitPropertyId)
                               const propTenants = tenants.filter(t => propRooms.some(r => r.id === t.roomId))
                               const result = calculatePeriodProfit(start, end, bill.amount, propTenants, propRooms, bills)
                               setProfitResult(result)
-                              setProfitAmount(String(Math.round(result.profitAmount)))
+                              if (!alreadyExtracted) {
+                                setProfitAmount(String(Math.round(result.profitAmount)))
+                              }
                             }
                           }
                         } else {
@@ -858,6 +870,7 @@ export default function More() {
                       </button>
                       <button
                         type="button"
+                        disabled={profitExtracted}
                         onClick={() => {
                           const amount = parseFloat(profitAmount)
                           if (!profitPropertyId || isNaN(amount) || amount <= 0) {
@@ -866,16 +879,6 @@ export default function More() {
                           }
                           if (!profitCycleStart || !profitCycleEnd) {
                             setAlertState({ title: '提示', message: '请选择利润提取的账单周期', variant: 'error' })
-                            return
-                          }
-                          // 检查该周期是否已提取过利润
-                          const existing = profitRecords.filter(r =>
-                            r.propertyId === profitPropertyId &&
-                            r.cycleStart === profitCycleStart &&
-                            r.cycleEnd === profitCycleEnd
-                          )
-                          if (existing.length > 0) {
-                            setAlertState({ title: '提示', message: `该周期（${profitCycleStart} ~ ${profitCycleEnd}）已提取过利润，不能重复提取`, variant: 'error' })
                             return
                           }
                           addProfitRecord({
@@ -888,12 +891,16 @@ export default function More() {
                             isManual: true,
                             status: 'available',
                           })
-                          resetProfitForm()
+                          setProfitExtracted(true)
                           setAlertState({ title: '成功', message: '利润提取记录已添加', variant: 'success' })
                         }}
-                        className="py-2.5 px-3 bg-purple-600 text-white rounded-xl font-medium text-sm hover:bg-purple-700 transition-colors"
+                        className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-colors ${
+                          profitExtracted
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                        }`}
                       >
-                        提交
+                        {profitExtracted ? '已提取' : '提交'}
                       </button>
                     </div>
                   </div>
