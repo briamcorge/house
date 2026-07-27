@@ -393,7 +393,10 @@ export default function RoomDetail() {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: '违约金' })
           }
           if (refunds.rentRefund > 0) {
-            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: '退租金' })
+            const desc = refunds.rentRefundStart && refunds.rentRefundEnd
+              ? `退租金 ${refunds.rentRefundStart} ~ ${refunds.rentRefundEnd}`
+              : '退租金'
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: desc })
           }
           if (refunds.otherRefund > 0 && refunds.otherName) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.otherRefund, type: 'other', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: `退${refunds.otherName}` })
