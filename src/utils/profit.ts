@@ -84,7 +84,7 @@ export function calculatePeriodProfit(
 
     // 检查房租是否足额
     const room = propertyRooms.find(r => r.id === tenant.roomId)
-    const rentPaid = paidRent >= apportionedRent - 0.01 // 允许舍入误差
+    const rentPaid = paidRent >= apportionedRent - 0.50 // 允许舍入误差（最大0.50元）
     if (!rentPaid && apportionedRent > 0) {
       const shortfall = apportionedRent - paidRent
       unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
