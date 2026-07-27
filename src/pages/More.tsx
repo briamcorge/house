@@ -790,7 +790,7 @@ export default function More() {
                                       {t.roomLabel || '?'} {t.tenantName}
                                     </span>
                                     <span className={t.rentPaid ? 'text-green-600' : 'text-orange-600'}>
-                                      ¥{t.apportionedRent.toFixed(0)}
+                                      ¥{t.paidRent.toFixed(0)}
                                       {!t.rentPaid && <span className="ml-1">(未齐)</span>}
                                     </span>
                                   </div>
