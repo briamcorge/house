@@ -6,7 +6,7 @@ interface CheckoutModalProps {
   onClose: () => void
   tenantName: string
   deposit?: number
-  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number; checkoutDate: string }) => void
+  onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number; checkoutDate: string; rentRefundStart: string; rentRefundEnd: string }) => void
 }
 
 function todayStr() {
@@ -21,6 +21,8 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
   const [otherRefund, setOtherRefund] = useState('0')
   const [penalty, setPenalty] = useState('0')
   const [checkoutDate, setCheckoutDate] = useState(todayStr())
+  const [rentRefundStart, setRentRefundStart] = useState('')
+  const [rentRefundEnd, setRentRefundEnd] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -88,8 +90,21 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               <DollarSign className="w-4 h-4 inline mr-1" />
               退还租金
             </label>
-            <input type="number" value={rentRefund} onChange={e => setRentRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
           </div>
+
+          {parseFloat(rentRefund) > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退款开始日</label>
+                <input type="date" value={rentRefundStart} onChange={e => setRentRefundStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退款结束日</label>
+                <input type="date" value={rentRefundEnd} onChange={e => setRentRefundEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -128,7 +143,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
                 showError('押金退还不能超过 ¥' + deposit)
                 return
               }
-              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p, checkoutDate })
+              onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p, checkoutDate, rentRefundStart, rentRefundEnd })
             }} className="flex-[2] py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700">确认退租并退款</button>
           </div>
         </div>
