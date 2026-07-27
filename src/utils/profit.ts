@@ -78,14 +78,18 @@ export function calculatePeriodProfit(
       billOverlapsCycle(b, periodStart, periodEnd)
     )
 
-    // 已收房租
-    const paidRentBills = periodBills.filter(b => b.type === 'rent' && b.status === 'paid')
-    const paidRent = paidRentBills.reduce((s, b) => s + b.amount, 0)
+    // 该周期内的房租账单
+    const periodRentBills = periodBills.filter(b => b.type === 'rent')
+    // 只要所有房租账单都已收，就认为该租客房租已交齐（不论金额是否精确匹配）
+    const allRentPaidInPeriod = periodRentBills.length > 0 && periodRentBills.every(b => b.status === 'paid')
+    const paidRent = periodRentBills
+      .filter(b => b.status === 'paid')
+      .reduce((s, b) => s + (b.paidAmount ?? b.amount), 0)
 
     // 检查房租是否足额
     const room = propertyRooms.find(r => r.id === tenant.roomId)
-    const rentPaid = paidRent >= apportionedRent - 0.50 // 允许舍入误差（最大0.50元）
-    if (!rentPaid && apportionedRent > 0) {
+    const rentPaid = allRentPaidInPeriod
+    if (!rentPaid && apportionedRent > 0 && periodRentBills.length > 0) {
       const shortfall = apportionedRent - paidRent
       unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
     }
