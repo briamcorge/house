@@ -80,6 +80,8 @@ export default function RoomDetail() {
   const [payConfirmBill, setPayConfirmBill] = useState<Bill | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
+  const [payPeriodStart, setPayPeriodStart] = useState('')
+  const [payPeriodEnd, setPayPeriodEnd] = useState('')
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [showRoomChange, setShowRoomChange] = useState(false)
   const [roomChangeTenant, setRoomChangeTenant] = useState<Tenant | null>(null)
@@ -89,8 +91,34 @@ export default function RoomDetail() {
     if (payConfirmBill) {
       setPayAmount(payConfirmBill.amount.toString())
       setPayDate(new Date().toISOString().slice(0, 10))
+      // 从 description 提取原有效期
+      const m = payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+      if (m) {
+        setPayPeriodStart(m[1])
+        setPayPeriodEnd(m[2])
+      } else {
+        setPayPeriodStart('')
+        setPayPeriodEnd('')
+      }
     }
   }, [payConfirmBill])
+
+  // 部分收款时自动填充有效期
+  function autoFillPayPeriod(paidAmt: number) {
+    const bill = payConfirmBill
+    if (!bill) return
+    const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+    if (!m || bill.amount <= 0) return
+    const start = new Date(m[1])
+    const end = new Date(m[2])
+    const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+    if (totalDays <= 0) return
+    const covered = Math.round(paidAmt / bill.amount * totalDays)
+    const newEnd = new Date(start)
+    newEnd.setDate(newEnd.getDate() + covered - 1)
+    setPayPeriodStart(m[1])
+    setPayPeriodEnd(newEnd.toISOString().slice(0, 10))
+  }
 
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
   const typeIcons: Record<string, typeof FileText> = {
@@ -442,7 +470,11 @@ export default function RoomDetail() {
                   <input
                     type="number"
                     value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
+                    onChange={(e) => {
+                      setPayAmount(e.target.value)
+                      const v = parseFloat(e.target.value)
+                      if (v > 0 && v < payConfirmBill.amount) autoFillPayPeriod(v)
+                    }}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                     min="0"
@@ -459,6 +491,20 @@ export default function RoomDetail() {
                   />
                 </div>
               </div>
+
+              {/* 部分收款时显示有效期 */}
+              {payAmount !== '' && parseFloat(payAmount) > 0 && parseFloat(payAmount) < payConfirmBill.amount && payPeriodStart && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">开始日</label>
+                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">结束日</label>
+                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                  </div>
+                </div>
+              )}
 
               <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
                 留空本次收款金额则视为全额收款
@@ -484,6 +530,13 @@ export default function RoomDetail() {
                     if (isPartial) {
                       const remaining = payConfirmBill.amount - paidAmt
                       updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
+                      const periodDesc = payPeriodStart && payPeriodEnd
+                        ? `${payPeriodStart} ~ ${payPeriodEnd}`
+                        : undefined
+                      const baseDesc = payConfirmBill.description || ''
+                      const newDesc = periodDesc
+                        ? baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, periodDesc)
+                        : baseDesc
                       addBill({
                         propertyId: payConfirmBill.propertyId,
                         roomId: payConfirmBill.roomId,
@@ -494,7 +547,7 @@ export default function RoomDetail() {
                         direction: payConfirmBill.direction,
                         dueDate: payConfirmBill.dueDate,
                         paidDate: payDate || new Date().toISOString().slice(0, 10),
-                        description: payConfirmBill.description,
+                        description: newDesc,
                       })
                     } else {
                       updateBill(payConfirmBill.id, {

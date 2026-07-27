@@ -90,6 +90,7 @@ export default function More() {
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
   const [profitResult, setProfitResult] = useState<PeriodProfitResult | null>(null)
   const [profitExtracted, setProfitExtracted] = useState(false)
+  const [profitExtractionDate, setProfitExtractionDate] = useState(new Date().toISOString().slice(0, 10))
   const landlordPayableBills = profitPropertyId
     ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
     : []
@@ -822,15 +823,26 @@ export default function More() {
                         )}
 
                         {/* 手动输入/确认金额 */}
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">提取金额（元）</label>
-                          <input
-                            type="number"
-                            value={profitAmount}
-                            onChange={(e) => setProfitAmount(e.target.value)}
-                            placeholder="利润金额"
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                          />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">提取金额（元）</label>
+                            <input
+                              type="number"
+                              value={profitAmount}
+                              onChange={(e) => setProfitAmount(e.target.value)}
+                              placeholder="利润金额"
+                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">提取日期</label>
+                            <input
+                              type="date"
+                              value={profitExtractionDate}
+                              onChange={(e) => setProfitExtractionDate(e.target.value)}
+                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                            />
+                          </div>
                         </div>
                       </>
                     )}
@@ -850,7 +862,8 @@ export default function More() {
                                 )}
                                 <span className="truncate">{r.cycleStart}~{r.cycleEnd}</span>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-2 shrink-0">
+                                {r.extractedAt && <span className="text-gray-400">{r.extractedAt}</span>}
                                 <span className="font-medium text-gray-700">¥{r.profitAmount.toFixed(0)}</span>
                                 <button
                                   type="button"
@@ -895,16 +908,17 @@ export default function More() {
                             setAlertState({ title: '提示', message: '请选择利润提取的账单周期', variant: 'error' })
                             return
                           }
-                          addProfitRecord({
-                            propertyId: profitPropertyId,
-                            tenantIncome: profitResult?.tenantIncome || amount,
-                            landlordExpense: profitResult?.landlordExpense || 0,
-                            profitAmount: amount,
-                            cycleStart: profitCycleStart,
-                            cycleEnd: profitCycleEnd,
-                            isManual: true,
-                            status: 'available',
-                          })
+                           addProfitRecord({
+                             propertyId: profitPropertyId,
+                             tenantIncome: profitResult?.tenantIncome || amount,
+                             landlordExpense: profitResult?.landlordExpense || 0,
+                             profitAmount: amount,
+                             cycleStart: profitCycleStart,
+                             cycleEnd: profitCycleEnd,
+                             isManual: true,
+                             status: 'available',
+                             extractedAt: profitExtractionDate,
+                           })
                           setProfitExtracted(true)
                           setAlertState({ title: '成功', message: '利润提取记录已添加', variant: 'success' })
                         }}

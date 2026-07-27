@@ -80,6 +80,7 @@ export interface ProfitRecord {
   landlordExpense: number // 该周期付业主金额
   profitAmount: number    // 利润 = tenantIncome - landlordExpense
   status: 'available' | 'withdrawn'
+  extractedAt?: string   // 用户选择的提取日期
   withdrawnAt?: string
   isManual?: boolean
   remark?: string
