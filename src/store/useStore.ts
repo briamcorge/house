@@ -23,6 +23,7 @@ interface AppStore {
 
   addTenant: (tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>) => void
   updateTenant: (id: string, tenant: Partial<Tenant>) => void
+  changeTenantRoom: (tenantId: string, newRoomId: string) => void
   deleteTenant: (id: string) => void
   terminateTenant: (id: string, roomId: string) => void
   extendContract: (id: string, newEndDate: string) => void
@@ -217,6 +218,38 @@ export const useStore = create<AppStore>()(
           ),
           auditLogs: recordLog(state, 'update', 'tenant', id, tenant.name || `租客`),
         })),
+
+      changeTenantRoom: (tenantId, newRoomId) =>
+        set((state) => {
+          const tenant = state.tenants.find(t => t.id === tenantId)
+          if (!tenant || tenant.roomId === newRoomId) return state
+          const oldRoomId = tenant.roomId
+          const oldRoom = state.rooms.find(r => r.id === oldRoomId)
+          const newRoom = state.rooms.find(r => r.id === newRoomId)
+          // 更新租客 roomId
+          const updatedTenants = state.tenants.map(t =>
+            t.id === tenantId ? { ...t, roomId: newRoomId } : t
+          )
+          // 更新该租客所有账单的 roomId
+          const updatedBills = state.bills.map(b =>
+            b.tenantId === tenantId ? { ...b, roomId: newRoomId } : b
+          )
+          // 更新房间状态
+          const otherActiveInOldRoom = updatedTenants.some(
+            t => t.roomId === oldRoomId && t.status === 'active' && t.id !== tenantId
+          )
+          const updatedRooms = state.rooms.map(r => {
+            if (r.id === oldRoomId && !otherActiveInOldRoom) return { ...r, status: 'vacant' as const }
+            if (r.id === newRoomId) return { ...r, status: 'occupied' as const }
+            return r
+          })
+          return {
+            tenants: updatedTenants,
+            bills: updatedBills,
+            rooms: updatedRooms,
+            auditLogs: recordLog(state, 'update', 'tenant', tenantId, `换房: ${oldRoom?.label||oldRoomId}→${newRoom?.label||newRoomId}`),
+          }
+        }),
 
       deleteTenant: (id) =>
         set((state) => {

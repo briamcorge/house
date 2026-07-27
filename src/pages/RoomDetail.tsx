@@ -16,7 +16,7 @@ export default function RoomDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const selectedTenantId = (location.state as { selectedTenantId?: string } | null)?.selectedTenantId
-  const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills } = useStore()
+  const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills, changeTenantRoom } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const room = rooms.find(r => r.id === roomId)
@@ -81,6 +81,9 @@ export default function RoomDetail() {
   const [payAmount, setPayAmount] = useState('')
   const [payDate, setPayDate] = useState('')
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+  const [showRoomChange, setShowRoomChange] = useState(false)
+  const [roomChangeTenant, setRoomChangeTenant] = useState<Tenant | null>(null)
+  const [roomChangeTarget, setRoomChangeTarget] = useState('')
 
   useEffect(() => {
     if (payConfirmBill) {
@@ -235,6 +238,7 @@ export default function RoomDetail() {
                             <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(false); setEditingTenant(t); setShowTenantModal(true) }} className="text-xs text-blue-600 hover:underline whitespace-nowrap">编辑</button>
                             {t.status === 'active' ? (
                               <>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setRoomChangeTenant(t); setRoomChangeTarget(''); setShowRoomChange(true) }} className="text-xs text-amber-600 hover:underline whitespace-nowrap">换房</button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline whitespace-nowrap">续约</button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">退租</button>
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: false }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
@@ -514,6 +518,75 @@ export default function RoomDetail() {
         roomLabel={`${room.label}室`}
         onViewTenant={(tenantId) => navigate(`/properties/${propertyId}/rooms/${roomId}`, { state: { selectedTenantId: tenantId } })}
       />
+
+      {/* 换房弹窗 */}
+      {showRoomChange && roomChangeTenant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+          <div className="bg-white rounded-t-3xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">换房</h2>
+              <p className="text-xs text-gray-400 mt-1">
+                {roomChangeTenant.name} — 当前：{rooms.find(r => r.id === roomChangeTenant.roomId)?.label || '?'}室
+              </p>
+            </div>
+            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+              {rooms
+                .filter(r => r.propertyId === propertyId && r.id !== roomId)
+                .map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setRoomChangeTarget(r.id)}
+                    className={`w-full text-left p-3 rounded-xl border transition-colors ${
+                      roomChangeTarget === r.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="font-medium text-sm">{r.label}室</span>
+                    <span className={`ml-2 text-xs ${r.status === 'vacant' ? 'text-green-600' : 'text-orange-600'}`}>
+                      {r.status === 'vacant' ? '空置' : '已入住'}
+                    </span>
+                    {r.roomType && <span className="ml-2 text-xs text-gray-400">{r.roomType}</span>}
+                  </button>
+                ))}
+              {rooms.filter(r => r.propertyId === propertyId && r.id !== roomId).length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">该房源没有其他房间可选</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-100 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowRoomChange(false); setRoomChangeTenant(null); setRoomChangeTarget('') }}
+                className="py-2.5 px-3 bg-gray-100 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-200"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={!roomChangeTarget}
+                onClick={() => {
+                  if (!roomChangeTenant || !roomChangeTarget) return
+                  const oldRoom = rooms.find(r => r.id === roomChangeTenant.roomId)
+                  const newRoom = rooms.find(r => r.id === roomChangeTarget)
+                  changeTenantRoom(roomChangeTenant.id, roomChangeTarget)
+                  setShowRoomChange(false)
+                  setRoomChangeTenant(null)
+                  setRoomChangeTarget('')
+                  setAlertState({ title: '成功', message: `已将 ${roomChangeTenant.name} 从 ${oldRoom?.label||'?'}室 换到 ${newRoom?.label||'?'}室` })
+                }}
+                className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-colors ${
+                  roomChangeTarget
+                    ? 'bg-amber-600 text-white hover:bg-amber-700'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                确认换房
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={deleteConfirm !== null}
