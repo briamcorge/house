@@ -1,0 +1,154 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e283]:
+    - generic [ref=e1225]:
+      - generic [ref=e1228]:
+        - button [ref=e1229] [cursor=pointer]
+        - generic [ref=e1232]:
+          - heading "安贞里二区16号楼1005 - C 室" [level=1] [ref=e1233]
+          - paragraph [ref=e1234]: 次卧
+        - button [ref=e1236] [cursor=pointer]
+      - generic [ref=e1243]:
+        - heading "合同记录" [level=2] [ref=e1245]
+        - generic [ref=e1251] [cursor=pointer]:
+          - generic [ref=e1252]:
+            - generic [ref=e1253]:
+              - button [ref=e1254]
+              - generic [ref=e1257]: 黄健
+              - generic [ref=e1258]: "#ZL-0017"
+              - generic [ref=e1259]: 在租
+            - generic [ref=e1260]:
+              - button "编辑" [ref=e1261]
+              - button "续约" [ref=e1262]
+              - button "退租" [ref=e1263]
+              - button "删除" [ref=e1264]
+          - generic [ref=e1265]:
+            - generic [ref=e1266]: 2026-01-20 ~ 2026-11-09
+            - generic [ref=e1267]: ¥2800/月
+          - generic [ref=e1268]:
+            - generic [ref=e1269]: 已收 2 笔 ¥2449
+            - generic [ref=e1270]: 待收 3 笔
+            - generic [ref=e1271]: 押金 ¥2800
+      - generic [ref=e1273]:
+        - generic [ref=e1274]:
+          - generic [ref=e1275]:
+            - heading "编辑租客" [level=2] [ref=e1276]
+            - button [ref=e1277] [cursor=pointer]
+          - generic [ref=e1281]:
+            - generic [ref=e1282]: "1"
+            - generic [ref=e1283]: 合同信息
+            - generic [ref=e1285]: "2"
+            - generic [ref=e1286]: 确认账单
+        - generic [ref=e1359]:
+          - generic [ref=e1361]:
+            - generic [ref=e1362]:
+              - paragraph [ref=e1363]: 安贞里二区16号楼1005 - C室
+              - paragraph [ref=e1364]: 2026-01-20 至 2026-11-09
+            - generic [ref=e1365]:
+              - paragraph [ref=e1366]: 季付
+              - paragraph [ref=e1367]: 提前无
+          - generic [ref=e1368]:
+            - heading "待生成账单（可修改）" [level=3] [ref=e1369]
+            - generic [ref=e1370]:
+              - generic [ref=e1371]: 押金
+              - generic [ref=e1373]:
+                - generic [ref=e1374]:
+                  - generic [ref=e1375]: 应收日
+                  - textbox [ref=e1376]: 2026-01-20
+                - generic [ref=e1377]:
+                  - generic [ref=e1378]: 金额
+                  - spinbutton [ref=e1379]: "2800"
+                - generic [ref=e1380]:
+                  - generic [ref=e1381]: 周期开始
+                  - textbox [ref=e1382]: 2026-01-20
+                - generic [ref=e1383]:
+                  - generic [ref=e1384]: 周期结束
+                  - textbox [ref=e1385]: 2026-11-09
+            - generic [ref=e1386]:
+              - generic [ref=e1387]: 卫管费
+              - generic [ref=e1389]:
+                - generic [ref=e1390]:
+                  - generic [ref=e1391]: 应收日
+                  - textbox [ref=e1392]: 2026-01-20
+                - generic [ref=e1393]:
+                  - generic [ref=e1394]: 金额
+                  - spinbutton [ref=e1395]: "582"
+            - generic [ref=e1396]:
+              - generic [ref=e1397]: 第1期
+              - generic [ref=e1399]:
+                - generic [ref=e1400]:
+                  - generic [ref=e1401]: 应收日
+                  - textbox [ref=e1402]: 2026-01-20
+                - generic [ref=e1403]:
+                  - generic [ref=e1404]: 金额
+                  - spinbutton [ref=e1405]: "8400"
+                - generic [ref=e1406]:
+                  - generic [ref=e1407]: 周期开始
+                  - textbox [ref=e1408]: 2026-01-20
+                - generic [ref=e1409]:
+                  - generic [ref=e1410]: 周期结束
+                  - textbox [ref=e1411]: 2026-04-19
+            - generic [ref=e1412]:
+              - generic [ref=e1413]: 第2期
+              - generic [ref=e1415]:
+                - generic [ref=e1416]:
+                  - generic [ref=e1417]: 应收日
+                  - textbox [ref=e1418]: 2026-04-20
+                - generic [ref=e1419]:
+                  - generic [ref=e1420]: 金额
+                  - spinbutton [ref=e1421]: "8400"
+                - generic [ref=e1422]:
+                  - generic [ref=e1423]: 周期开始
+                  - textbox [ref=e1424]: 2026-04-20
+                - generic [ref=e1425]:
+                  - generic [ref=e1426]: 周期结束
+                  - textbox [ref=e1427]: 2026-07-19
+            - generic [ref=e1428]:
+              - generic [ref=e1429]: 第3期
+              - generic [ref=e1431]:
+                - generic [ref=e1432]:
+                  - generic [ref=e1433]: 应收日
+                  - textbox [ref=e1434]: 2026-07-20
+                - generic [ref=e1435]:
+                  - generic [ref=e1436]: 金额
+                  - spinbutton [ref=e1437]: "8400"
+                - generic [ref=e1438]:
+                  - generic [ref=e1439]: 周期开始
+                  - textbox [ref=e1440]: 2026-07-20
+                - generic [ref=e1441]:
+                  - generic [ref=e1442]: 周期结束
+                  - textbox [ref=e1443]: 2026-10-19
+            - generic [ref=e1444]:
+              - generic [ref=e1445]: 第4期
+              - generic [ref=e1447]:
+                - generic [ref=e1448]:
+                  - generic [ref=e1449]: 应收日
+                  - textbox [ref=e1450]: 2026-10-20
+                - generic [ref=e1451]:
+                  - generic [ref=e1452]: 金额
+                  - spinbutton [ref=e1453]: "1866.67"
+                - generic [ref=e1454]:
+                  - generic [ref=e1455]: 周期开始
+                  - textbox [ref=e1456]: 2026-10-20
+                - generic [ref=e1457]:
+                  - generic [ref=e1458]: 周期结束
+                  - textbox [ref=e1459]: 2026-11-09
+          - generic [ref=e1460]:
+            - generic [ref=e1461]: 合计
+            - generic [ref=e1462]: ¥30448.67
+          - generic [ref=e1463]:
+            - button "上一步" [ref=e1464] [cursor=pointer]
+            - button "保存合同修改" [ref=e1467] [cursor=pointer]
+    - navigation [ref=e434]:
+      - generic [ref=e435]:
+        - link "首页" [ref=e436] [cursor=pointer]:
+          - /url: "#/"
+        - link "房屋" [ref=e441] [cursor=pointer]:
+          - /url: "#/properties"
+        - link "账单" [ref=e447] [cursor=pointer]:
+          - /url: "#/bills"
+        - link "统计" [ref=e452] [cursor=pointer]:
+          - /url: "#/statistics"
+        - link "更多" [ref=e456] [cursor=pointer]:
+          - /url: "#/more"
+      - generic "已同步" [ref=e462]
+  - generic [ref=e282]: "-15000"

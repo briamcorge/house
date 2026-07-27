@@ -1,0 +1,44 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e247]:
+      - generic [ref=f2e250]:
+        - button [ref=f2e251] [cursor=pointer]
+        - generic [ref=f2e254]:
+          - heading "安贞里二区16号楼1005 - C 室" [level=1] [ref=f2e255]
+          - paragraph [ref=f2e256]: 次卧
+        - button [ref=f2e258] [cursor=pointer]
+      - generic [ref=f2e265]:
+        - heading "合同记录" [level=2] [ref=f2e267]
+        - generic [ref=f2e273] [cursor=pointer]:
+          - generic [ref=f2e274]:
+            - generic [ref=f2e275]:
+              - button [ref=f2e276]
+              - generic [ref=f2e279]: 黄健
+              - generic [ref=f2e280]: "#ZL-0017"
+              - generic [ref=f2e281]: 在租
+            - generic [ref=f2e282]:
+              - button "编辑" [ref=f2e283]
+              - button "续约" [ref=f2e284]
+              - button "退租" [ref=f2e285]
+              - button "删除" [ref=f2e286]
+          - generic [ref=f2e287]:
+            - generic [ref=f2e288]: 2026-01-20 ~ 2026-11-09
+            - generic [ref=f2e289]: ¥2800/月
+          - generic [ref=f2e290]:
+            - generic [ref=f2e291]: 已收 2 笔 ¥2449
+            - generic [ref=f2e292]: 待收 3 笔
+            - generic [ref=f2e293]: 押金 ¥2800
+    - navigation [ref=f2e215]:
+      - generic [ref=f2e216]:
+        - link "首页" [ref=f2e217] [cursor=pointer]:
+          - /url: "#/"
+        - link "房屋" [ref=f2e222] [cursor=pointer]:
+          - /url: "#/properties"
+        - link "账单" [ref=f2e228] [cursor=pointer]:
+          - /url: "#/bills"
+        - link "统计" [ref=f2e233] [cursor=pointer]:
+          - /url: "#/statistics"
+        - link "更多" [ref=f2e237] [cursor=pointer]:
+          - /url: "#/more"
+      - generic "已同步" [ref=f2e243]
+  - generic [ref=f2e246]: "-15000"
