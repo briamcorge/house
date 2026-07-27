@@ -790,7 +790,10 @@ export default function More() {
                                     <span className="text-gray-700 font-medium">{t.roomLabel} {t.tenantName}</span>
                                     <span>：</span>
                                     {t.overlapDays > 0 && (
-                                      <span><b>{t.overlapDays}天</b>¥{t.apportionedRent.toFixed(0)}</span>
+                                      <span><b>{t.overlapDays}天</b>¥{t.proratedRent.toFixed(0)}</span>
+                                    )}
+                                    {t.adjustment !== 0 && (
+                                      <span><span className="text-gray-400">+</span>退租金¥{t.adjustment.toFixed(0)}</span>
                                     )}
                                     {t.feeBreakdown.filter(f => f.type !== 'rent').map((f, fi) => (
                                       <span key={fi}>
@@ -799,7 +802,7 @@ export default function More() {
                                     ))}
                                     <span className="text-gray-400">=</span>
                                     <span className="text-gray-700 font-medium">
-                                      ¥{(t.apportionedRent + t.otherFeeIncome).toFixed(0)}
+                                      ¥{(t.proratedRent + t.adjustment + t.otherFeeIncome).toFixed(0)}
                                     </span>
                                     {!t.rentPaid && t.expectedRent > 0 && (
                                       <span className="text-orange-500 font-medium ml-0.5">未齐</span>
