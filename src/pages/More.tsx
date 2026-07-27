@@ -799,7 +799,7 @@ export default function More() {
                                     ))}
                                     <span className="text-gray-400">=</span>
                                     <span className="text-gray-700 font-medium">
-                                      ¥{(t.paidRent + t.otherFeeIncome).toFixed(0)}
+                                      ¥{(t.apportionedRent + t.otherFeeIncome).toFixed(0)}
                                     </span>
                                     {!t.rentPaid && t.expectedRent > 0 && (
                                       <span className="text-orange-500 font-medium ml-0.5">未齐</span>
