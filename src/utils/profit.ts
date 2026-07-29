@@ -140,6 +140,7 @@ export function calculatePeriodProfit(
       b.tenantId === tenant.id &&
       b.roomId === tenant.roomId &&
       b.direction === 'receivable' &&
+      !(b.amount < 0 && b.type === 'rent') &&
       billOverlapsCycle(b, periodStart, periodEnd)
     )
     // 已退租租客：排除未付的正数账单（这些是退租时没清理的遗留账单）
@@ -176,12 +177,8 @@ export function calculatePeriodProfit(
       .forEach(b => {
         let label = ''
         if (b.type === 'rent') {
-          if (b.amount < 0) {
-            label = '退租金'
-          } else {
-            const rentType = b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租'
-            label = rentType
-          }
+          const rentType = b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租'
+          label = rentType
         } else if (b.type === 'hygiene') {
           label = '卫管费'
         } else if (b.type === 'sublease') {
