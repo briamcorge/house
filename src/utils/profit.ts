@@ -6,7 +6,7 @@ function calcBillBasedRent(
   rentBills: Bill[],
   periodStart: string,
   periodEnd: string,
-  tenantContractEnd: string, // 租客合同结束日，用于退租后截断账单覆盖
+  effectiveEnd: string, // 实际有效截止日（退租后的退款起始日-1），用于截断账单覆盖
 ): { proratedRent: number; adjustment: number; overlapDays: number } {
   let proratedRent = 0
   let adjustment = 0
@@ -20,11 +20,11 @@ function calcBillBasedRent(
       continue
     }
     const bs = m[1], be = m[2]
-    // 退租时，账单覆盖期不能超过合同结束日（退租日不参与计算）
-    const cappedEnd = be < tenantContractEnd ? be : tenantContractEnd
+    // 退租时，账单覆盖期不能超过实际有效截止日（退租日当天不占房）
+    const capEnd = effectiveEnd && be > effectiveEnd ? effectiveEnd : be
     // 累计分摊金额
     const oStart = bs > periodStart ? bs : periodStart
-    const oEnd = cappedEnd < periodEnd ? cappedEnd : periodEnd
+    const oEnd = capEnd < periodEnd ? capEnd : periodEnd
     if (oStart > oEnd) continue
     const [osy, osm, osd] = oStart.split('-').map(Number)
     const [oey, oem, oed] = oEnd.split('-').map(Number)
@@ -35,7 +35,7 @@ function calcBillBasedRent(
     proratedRent += bill.amount * ovDays / billDays
     // 记录覆盖范围（用于显示唯一重叠天数）
     if (!earliestStart || bs < earliestStart) earliestStart = bs
-    if (!latestEnd || cappedEnd > latestEnd) latestEnd = cappedEnd
+    if (!latestEnd || oEnd > latestEnd) latestEnd = oEnd
   }
   // 唯一重叠天数（显示用）
   let overlapDays = 0
@@ -116,9 +116,24 @@ export function calculatePeriodProfit(
 ): PeriodProfitResult {
   // 筛选合同期与业主周期有重叠的租客，排除已作废账单
   const activeBills = allBills.filter(b => b.status !== 'cancelled')
-  // 租客合同期决定是否参与某期利润。退租时 contractEnd 会被更新为退租日，自然排除后续期数
+  // 确定每个租客在该周期的实际有效截止日。如果租客有退租金账单，以退租日起日-1为准
   const overlapTenants = propertyTenants.filter(t => {
-    return t.contractEnd >= periodStart && t.contractStart <= periodEnd
+    // 基本合同期检查
+    if (t.contractStart > periodEnd) return false
+    // 检查实际有效截止日：优先从退租金账单推导
+    let effectiveEnd = t.contractEnd
+    if (t.status === 'ended') {
+      const refund = activeBills.find(b => b.tenantId === t.id && b.amount < 0 && b.type === 'rent')
+      if (refund) {
+        const rm = refund.description?.match(/(\d{4}-\d{2}-\d{2})\s*~/)
+        if (rm) {
+          const d = new Date(rm[1])
+          d.setDate(d.getDate() - 1)
+          effectiveEnd = d.toISOString().slice(0, 10)
+        }
+      }
+    }
+    return effectiveEnd >= periodStart
   })
 
   let totalIncome = 0
@@ -187,8 +202,21 @@ export function calculatePeriodProfit(
       })
     const feeBreakdown = Array.from(feeGroups.values())
 
-    // 逐张房租账单按覆盖期分摊，退租时截断至合同结束日
-    const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, tenant.contractEnd)
+    // 逐张房租账单按覆盖期分摊，退租时截断至退租日-1
+    // 从退租金账单推导有效截止日：退租金描述中的起日-1（退租日当天不占房）
+    let effectiveEnd = ''
+    const globalRefund = activeBills.find(b =>
+      b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent'
+    )
+    if (globalRefund) {
+      const rm = globalRefund.description?.match(/(\d{4}-\d{2}-\d{2})\s*~/)
+      if (rm) {
+        const d = new Date(rm[1])
+        d.setDate(d.getDate() - 1)
+        effectiveEnd = d.toISOString().slice(0, 10)
+      }
+    }
+    const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, effectiveEnd)
     const overlapDays = summary.overlapDays
     const proratedRent = Math.round(summary.proratedRent)
     const adjustment = Math.round(summary.adjustment)
