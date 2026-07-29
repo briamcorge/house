@@ -238,8 +238,22 @@ export default function Contracts() {
                       {tBills.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-3 text-xs">
                           <span className="text-gray-500"><BarChart3 className="w-3 h-3 inline mr-0.5" />{tBills.length}笔</span>
-                          <span className="text-red-600">未收 ¥{unpaid.toFixed(0)}</span>
-                          <span className="text-green-600">已收 ¥{paid.toFixed(0)}</span>
+                          {t.status === 'active' ? (
+                            <>
+                              <span className="text-red-600">未收 ¥{unpaid.toFixed(0)}</span>
+                              <span className="text-green-600">已收 ¥{paid.toFixed(0)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-green-600">
+                                已付 ¥{tBills.filter(b => b.type !== 'deposit' && (b.status === 'paid' || b.status === 'refunded')).reduce((s, b) => s + b.amount, 0).toFixed(0)}
+                              </span>
+                              {(() => {
+                                const dr = tBills.filter(b => b.type === 'deposit' && b.status === 'refunded').reduce((s, b) => s + Math.abs(b.amount), 0)
+                                return dr > 0 ? <span className="text-blue-600">已退押金 ¥{dr.toFixed(0)}</span> : null
+                              })()}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

@@ -335,7 +335,9 @@ export default function RoomDetail() {
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                       <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(0)}</span>
-                                      {bill.status !== 'paid' && (
+                                      {bill.status === 'refunded' ? (
+                                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg">退款</span>
+                                      ) : bill.status !== 'paid' && (
                                         <button
                                           type="button"
                                           onClick={() => setPayConfirmBill(bill)}
