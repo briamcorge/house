@@ -820,17 +820,14 @@ export default function More() {
                                     {t.overlapDays > 0 && (
                                       <span><b>{t.overlapDays}天</b>¥{t.proratedRent.toFixed(0)}</span>
                                     )}
-                                    {t.adjustment !== 0 && (
-                                      <span><span className="text-gray-400">+</span>退租金¥{t.adjustment.toFixed(0)}</span>
-                                    )}
-                                    {t.feeBreakdown.filter(f => f.type !== 'rent').map((f, fi) => (
+                                    {t.feeBreakdown.filter(f => f.type !== 'rent' || f.amount < 0).map((f, fi) => (
                                       <span key={fi}>
                                         <span className="text-gray-400">+</span>{f.label}¥{f.amount.toFixed(0)}
                                       </span>
                                     ))}
                                     <span className="text-gray-400">=</span>
                                     <span className="text-gray-700 font-medium">
-                                      ¥{(t.proratedRent + t.adjustment + t.otherFeeIncome).toFixed(0)}
+                                      ¥{(t.proratedRent + t.otherFeeIncome + t.feeBreakdown.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0)).toFixed(0)}
                                     </span>
                                     {!t.rentPaid && t.expectedRent > 0 && (
                                       <span className="text-orange-500 font-medium ml-0.5">未齐</span>
