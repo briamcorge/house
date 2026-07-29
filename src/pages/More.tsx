@@ -169,7 +169,7 @@ export default function More() {
       ['房源', properties as unknown as Record<string, unknown>[], { id: 'ID', address: '地址', description: '备注', createdAt: '创建时间' }],
       ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
       ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', createdAt: '创建时间' }],
-      ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', createdAt: '创建时间' }],
+      ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '', effectiveEnd: t.effectiveEnd ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', effectiveEnd: '退租日', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', createdAt: '创建时间' }],
       ['账单', bills.map(b => {
         const { startDate, endDate } = extractPeriod(b.description)
         return {
@@ -197,7 +197,8 @@ export default function More() {
          periodStart: '覆盖开始', periodEnd: '覆盖结束',
          实收日: '实收日', 实付日: '实付日',
          description: '期间描述', createdAt: '创建时间',
-       }],
+        }],
+       ['利润提取', profitRecords.map(r => ({ ...r, extractedAt: r.extractedAt ?? '', isManual: r.isManual ? '是' : '', remark: r.remark ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', cycleStart: '周期开始', cycleEnd: '周期结束', tenantIncome: '租客收入', landlordExpense: '业主支出', profitAmount: '利润', status: '状态', extractedAt: '提取日期', isManual: '手动', remark: '备注', createdAt: '创建时间' }],
     ]
 
     for (const [name, data, headers] of sheets) {
@@ -294,8 +295,9 @@ export default function More() {
           '房源': { 'ID': 'id', '地址': 'address', '备注': 'description', '创建时间': 'createdAt' },
           '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
           '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '创建时间': 'createdAt' },
-          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '创建时间': 'createdAt' },
+          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '创建时间': 'createdAt' },
           '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '创建时间': 'createdAt' },
+          '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
         }
 
         // 需要转换为数字的字段
@@ -371,6 +373,15 @@ export default function More() {
           delete (b as any)._paidDateR; delete (b as any)._startDate; delete (b as any)._endDate
           return b
         })
+        const rawProfitRecords = parseSheet('利润提取').map(r => ({
+          ...r,
+          tenantIncome: Number(r.tenantIncome) || 0,
+          landlordExpense: Number(r.landlordExpense) || 0,
+          profitAmount: Number(r.profitAmount) || 0,
+          extractedAt: String(r.extractedAt || ''),
+          isManual: r.isManual === '是' ? true as any : undefined,
+          remark: String(r.remark || ''),
+        }))
 
         // ─── 行级校验 ───
         const allErrors: string[] = []
@@ -399,6 +410,7 @@ export default function More() {
             const contractList = validContracts
             const tenantList = validTenants
             const billList = validBills
+            const profitList = rawProfitRecords
 
             const s2 = useStore.getState()
             useStore.setState({
@@ -407,7 +419,7 @@ export default function More() {
               landlordContracts: contractList as any[],
               tenants: tenantList as any[],
               bills: billList as any[],
-              profitRecords: s2.profitRecords,
+              profitRecords: profitList as any[],
               trash: s2.trash,
               auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
             })
@@ -419,7 +431,7 @@ export default function More() {
                 tenants: tenantList as any[],
                 bills: billList as any[],
                 landlordContracts: contractList as any[],
-                profitRecords: [],
+                profitRecords: profitList as any[],
                 trash: [],
               })
               console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
@@ -443,7 +455,7 @@ export default function More() {
           }
           setConfirmAction({
             title: '导入数据',
-            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`,
+            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`,
             variant: 'default',
             confirmText: '导入',
             cancelText: '取消',
@@ -460,6 +472,7 @@ export default function More() {
           const contractList = validContracts
           const tenantList = validTenants
           const billList = validBills
+          const profitList = rawProfitRecords
 
           const s2 = useStore.getState()
           useStore.setState({
@@ -468,7 +481,7 @@ export default function More() {
             landlordContracts: contractList as any[],
             tenants: tenantList as any[],
             bills: billList as any[],
-            profitRecords: s2.profitRecords,
+            profitRecords: profitList as any[],
             trash: s2.trash,
             auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
           })
@@ -480,7 +493,7 @@ export default function More() {
               tenants: tenantList as any[],
               bills: billList as any[],
               landlordContracts: contractList as any[],
-              profitRecords: [],
+              profitRecords: profitList as any[],
               trash: [],
             })
             console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
