@@ -33,12 +33,14 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
   const getStatusStyle = (status: string) => {
+    if (status === 'refunded') return 'bg-blue-100 text-blue-700'
     if (status === 'paid') return 'bg-green-100 text-green-700'
     if (status === 'overdue') return 'bg-red-100 text-red-700'
     return 'bg-yellow-100 text-yellow-700'
   }
 
   const getStatusLabel = (bill: Bill) => {
+    if (bill.status === 'refunded') return '已退还'
     if (bill.status === 'paid') return bill.direction === 'receivable' ? '已收' : '已付'
     if (bill.status === 'overdue') return '已逾期'
     return bill.direction === 'receivable' ? '未收' : '未付'

@@ -167,7 +167,7 @@ export default function Bills() {
     // 合同模式：显示全部，不限制月份
     if (contractFilter) {
       const list = activeBills.filter(b => {
-        if (filterStatus === 'refunded') return b.amount < 0 && b.status === 'paid'
+    if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
         const matchesStatus = filterStatus === 'pending'
           ? (b.status === 'pending' || b.status === 'overdue')
           : filterStatus === 'paid'
@@ -181,7 +181,7 @@ export default function Bills() {
     // 非合同模式：应用方向 + 状态 + 30天筛选
     const list = activeBills.filter(b => {
       if (direction !== 'all' && b.direction !== direction) return false
-      if (filterStatus === 'refunded') return b.amount < 0 && b.status === 'paid'
+      if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
       const matchesStatus = filterStatus === 'pending'
         ? (b.status === 'pending' || b.status === 'overdue')
         : filterStatus === 'paid'
@@ -450,9 +450,9 @@ export default function Bills() {
                               <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
                               {bill.status !== 'pending' && (
                                 <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                                  bill.status === 'paid' && bill.amount < 0 ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                  bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                                 }`}>
-                                  {bill.status === 'paid' && bill.amount < 0 ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
+                                  {bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
                                 </span>
                               )}
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>

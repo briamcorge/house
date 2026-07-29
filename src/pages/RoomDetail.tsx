@@ -16,7 +16,7 @@ export default function RoomDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const selectedTenantId = (location.state as { selectedTenantId?: string } | null)?.selectedTenantId
-  const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, editTenantContract, renewTenantContract, deleteTenantAndBills, changeTenantRoom } = useStore()
+  const { properties, rooms, tenants, bills, updateTenant, addBill, updateBill, createTenantContract, terminateTenant, restoreTenant, editTenantContract, renewTenantContract, deleteTenantAndBills, changeTenantRoom } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const room = rooms.find(r => r.id === roomId)
@@ -272,7 +272,10 @@ export default function RoomDetail() {
                                 <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: false }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
                               </>
                             ) : (
-                              <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                              <>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); restoreTenant(t.id, t.roomId) }} className="text-xs text-blue-600 hover:underline whitespace-nowrap">恢复</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -415,7 +418,7 @@ export default function RoomDetail() {
           if (!checkoutTenant) return
           const checkoutDate = refunds.checkoutDate
           if (refunds.depositRefund > 0) {
-            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'deposit', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: '退押金' })
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.depositRefund, type: 'deposit', status: 'refunded', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: '退押金' })
           }
           if (refunds.penalty > 0) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: '违约金' })
@@ -424,10 +427,10 @@ export default function RoomDetail() {
             const desc = refunds.rentRefundStart && refunds.rentRefundEnd
               ? `退租金 ${refunds.rentRefundStart} ~ ${refunds.rentRefundEnd}`
               : '退租金'
-            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: desc, periodStart: refunds.rentRefundStart, periodEnd: refunds.rentRefundEnd })
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.rentRefund, type: 'rent', status: 'refunded', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: desc, periodStart: refunds.rentRefundStart, periodEnd: refunds.rentRefundEnd })
           }
           if (refunds.otherRefund > 0 && refunds.otherName) {
-            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.otherRefund, type: 'other', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: `退${refunds.otherName}` })
+            addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.otherRefund, type: 'other', status: 'refunded', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: `退${refunds.otherName}` })
           }
           terminateTenant(checkoutTenant.id, roomId!, checkoutDate)
           setCheckoutTenant(null)
