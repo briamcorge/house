@@ -40,6 +40,8 @@ export default function LandlordContractDetailModal({
 
   const paidBills = contractBills.filter(b => b.status === 'paid')
   const paidTotal = paidBills.reduce((s, b) => s + b.amount, 0)
+  const refundedBills = contractBills.filter(b => b.status === 'refunded')
+  const refundedTotal = refundedBills.reduce((s, b) => s + b.amount, 0)
   const pendingCount = contractBills.filter(b => b.status === 'pending').length
 
   if (!isOpen) return null
@@ -101,6 +103,7 @@ export default function LandlordContractDetailModal({
             </div>
             <div className="text-xs text-gray-400">
               <span className="text-green-600">已付 {paidBills.length} 笔 ¥{paidTotal.toFixed(0)}</span>
+              {refundedBills.length > 0 && <span className="text-blue-600 ml-2">已退还 {refundedBills.length} 笔 ¥{Math.abs(refundedTotal).toFixed(0)}</span>}
               {pendingCount > 0 && <span className="text-orange-600 ml-2">待付 {pendingCount} 笔</span>}
             </div>
           </div>

@@ -325,13 +325,13 @@ export default function RoomDetail() {
                                         {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
                                       </div>
                                       <span className="font-medium text-sm text-gray-900 truncate">{typeLabels[bill.type]}</span>
-                                      {bill.status !== 'pending' && (
-                                        <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium shrink-0 ${
-                                          bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                                        }`}>
-                                          {bill.status === 'paid' ? '已收' : '逾期'}
-                                        </span>
-                                      )}
+                                        {bill.status !== 'pending' && (
+                                          <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium shrink-0 ${
+                                            bill.status === 'refunded' ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                          }`}>
+                                            {bill.status === 'refunded' ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
+                                          </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                       <span className="text-base font-bold text-gray-900">¥{bill.amount.toFixed(0)}</span>

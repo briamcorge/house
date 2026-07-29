@@ -105,7 +105,7 @@ export default function Home() {
   const hasExpired = (expiredTenants.length + expiredLandlords.length) > 0
 
   const recentTransactions = useMemo(() =>
-    bills.filter(b => b.status === 'paid')
+    bills.filter(b => b.status === 'paid' || b.status === 'refunded')
       .sort((a, b) => b.paidDate!.localeCompare(a.paidDate!))
       .slice(0, 6),
     [bills]

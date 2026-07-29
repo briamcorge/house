@@ -261,7 +261,7 @@ export default function Bills() {
           <div className="grid grid-cols-5 gap-1 mb-3">
             {(() => {
               const receivablePaid = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.type !== 'deposit' && b.amount >= 0).reduce((s, b) => s + b.amount, 0)
-              const receivableRefunded = bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.amount < 0).reduce((s, b) => s + Math.abs(b.amount), 0)
+              const receivableRefunded = bills.filter(b => b.direction === 'receivable' && (b.status === 'refunded' || (b.status === 'paid' && b.amount < 0))).reduce((s, b) => s + Math.abs(b.amount), 0)
               const receivableUnpaid = bills.filter(b =>
                 b.direction === 'receivable' &&
                 b.status !== 'paid' &&
