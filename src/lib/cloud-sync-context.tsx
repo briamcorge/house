@@ -98,11 +98,21 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       const cloudData = await loadCloudData()
       if (cloudData) {
         _loading = true
+        // 数据修复：已退租租客的未付遗留账单
+        let { tenants, bills } = cloudData as any
+        if (tenants && bills) {
+          const endedIds = new Set(tenants.filter((t: any) => t.status === 'ended').map((t: any) => t.id))
+          // 删除 ended 租客的 pending 正数账单（退租没清理的遗留）
+          const filteredBills = bills.filter((b: any) =>
+            !(endedIds.has(b.tenantId) && b.amount > 0 && b.status === 'pending' && b.direction === 'receivable')
+          )
+          bills = filteredBills
+        }
         useStore.setState({
           properties: cloudData.properties,
           rooms: cloudData.rooms,
           tenants: cloudData.tenants,
-          bills: cloudData.bills,
+          bills: bills || cloudData.bills,
           landlordContracts: cloudData.landlordContracts,
           profitRecords: cloudData.profitRecords,
           trash: cloudData.trash,
