@@ -22,8 +22,7 @@ function calcBillBasedRent(
   let latestEnd = ''
   for (const bill of rentBills) {
     if (bill.amount <= 0) {
-      // 负数账单（退租金等）：全额计入调整项，不参与分摊也不影响天数
-      adjustment += bill.amount
+      // 负数房租（退租金等）：从未算过利润，不参与利润计算，仅展示
       continue
     }
     const period = getBillPeriod(bill)
@@ -94,7 +93,8 @@ export interface TenantPeriodResult {
   otherFeeIncome: number        // 卫管费收入（已付）
   otherFeeName: string
   overlapDays: number           // 30/360 重叠天数（用于显示）
-  proratedRent: number          // 按覆盖期分摊的房租
+  proratedRent: number          // 按覆盖期分摊的正数房租
+  adjustment: number            // 无覆盖期正数账单的补充收入（负数房租退租金等已排除，不参与利润）
   feeBreakdown: FeeGroup[]      // 所有参与计算的费用（按类型合并）
 }
 
@@ -228,7 +228,7 @@ export function calculatePeriodProfit(
     const overlapDays = summary.overlapDays
     const proratedRent = Math.round(summary.proratedRent)
     const adjustment = Math.round(summary.adjustment)
-    // adjustment（退租金等由dueDate匹配的负数）独立显示但不参与天数，仍计入利润
+    // adjustment：正数无覆盖期账单的补充收入；负数房租(退租金等)不参与利润计算，仅展示
     const apportionedRent = proratedRent
 
     totalIncome += apportionedRent + adjustment + otherFeePaidAmount
@@ -248,6 +248,7 @@ export function calculatePeriodProfit(
       otherFeeName: tenant.otherFeeName || '其他费',
       overlapDays,
       proratedRent,
+      adjustment,
       feeBreakdown,
     })
   }

@@ -827,7 +827,7 @@ export default function More() {
                                     ))}
                                     <span className="text-gray-400">=</span>
                                     <span className="text-gray-700 font-medium">
-                                      ¥{(t.proratedRent + t.otherFeeIncome + t.feeBreakdown.filter(f => f.amount < 0).reduce((s, f) => s + f.amount, 0)).toFixed(0)}
+                                      ¥{(t.proratedRent + t.otherFeeIncome + t.adjustment).toFixed(0)}
                                     </span>
                                     {!t.rentPaid && t.expectedRent > 0 && (
                                       <span className="text-orange-500 font-medium ml-0.5">未齐</span>
