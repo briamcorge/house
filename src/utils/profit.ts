@@ -1,29 +1,35 @@
 import { Tenant, Bill, Room } from '../types'
 import { add30Days, formatDate } from './calculator'
 
+/** 取账单覆盖期：优先从 periodStart/periodEnd 字段，旧数据从 description 正则提取 */
+function getBillPeriod(bill: Bill): [string, string] | null {
+  if (bill.periodStart && bill.periodEnd) return [bill.periodStart, bill.periodEnd]
+  const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+  if (m) return [m[1], m[2]]
+  return null
+}
+
 /** 每张账单按覆盖期分摊计算：有日期的按重叠比例摊，无日期的全额计入调整项 */
 function calcBillBasedRent(
   rentBills: Bill[],
   periodStart: string,
   periodEnd: string,
-  effectiveEnd: string, // 实际有效截止日（退租后的退款起始日-1），用于截断账单覆盖
+  effectiveEnd: string, // 实际有效截止日（退租日的次日），正数账单覆盖期不超出此日
 ): { proratedRent: number; adjustment: number; overlapDays: number } {
   let proratedRent = 0
   let adjustment = 0
   let earliestStart = ''
   let latestEnd = ''
   for (const bill of rentBills) {
-    const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
-    if (!m) {
+    const period = getBillPeriod(bill)
+    if (!period) {
       // 无日期描述（退租金、减免等）：全额计入调整项
       adjustment += bill.amount
       continue
     }
-    const bs = m[1], be = m[2]
-    // 退租时，正数房租账单的覆盖期不能超过退租日（退租日当天不占房）
-    // 负数账单（退租金）不用截断，按原始覆盖期参与分摊
+    const [bs, be] = period
+    // 退租时，正数房租账单的覆盖期不超过有效截止日（退租当日不占房）
     const capEnd = bill.amount > 0 && effectiveEnd && be > effectiveEnd ? effectiveEnd : be
-    // 累计分摊金额
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
     if (oStart > oEnd) continue
@@ -34,11 +40,9 @@ function calcBillBasedRent(
     const [bey, bem, bed] = be.split('-').map(Number)
     const billDays = (bey - bsy) * 360 + (bem - bsm) * 30 + (bed - bsd) + 1
     proratedRent += bill.amount * ovDays / billDays
-    // 记录覆盖范围（用于显示唯一重叠天数）
     if (!earliestStart || bs < earliestStart) earliestStart = bs
     if (!latestEnd || oEnd > latestEnd) latestEnd = oEnd
   }
-  // 唯一重叠天数（显示用）
   let overlapDays = 0
   if (earliestStart && latestEnd) {
     const oStart = earliestStart > periodStart ? earliestStart : periodStart
@@ -52,16 +56,14 @@ function calcBillBasedRent(
   return { proratedRent, adjustment, overlapDays }
 }
 
-/** 判断账单是否与某业主周期重叠 — 按账单 description 中的实际起止日匹配（而非应收日） */
+/** 判断账单是否与某业主周期重叠 — 按账单覆盖期匹配（优先字段，旧数据从 description 提取） */
 function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
-  // 优先从 description 提取账单覆盖期（格式：... YYYY-MM-DD ~ YYYY-MM-DD）
-  const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
-  if (m) {
-    const bs = m[1], be = m[2]
-    // 账单覆盖期与业主周期有重叠：账单开始 ≤ 周期结束 AND 账单结束 ≥ 周期开始
+  const period = getBillPeriod(bill)
+  if (period) {
+    const [bs, be] = period
     return bs <= cycleEnd && be >= cycleStart
   }
-  // 没有描述信息的账单，用应收日或实收日判断（适用违约金/减免/返费等无日期段的账单）
+  // 无覆盖期的账单（违约金/退款等），用应收日或实收日判断
   if (bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd) return true
   if (bill.paidDate && bill.paidDate >= cycleStart && bill.paidDate <= cycleEnd) return true
   return false
@@ -191,18 +193,25 @@ export function calculatePeriodProfit(
       })
     const feeBreakdown = Array.from(feeGroups.values())
 
-    // 逐张房租账单按覆盖期分摊，退租时截断至退租日-1
-    // 从退租金账单推导有效截止日：退租金描述中的起日-1（退租日当天不占房）
+    // 逐张房租账单按覆盖期分摊，退租时截断至退租日
+    // 有效截止日 = effectiveEnd - 1（退租日当天不占房）
     let effectiveEnd = ''
-    const globalRefund = activeBills.find(b =>
-      b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent'
-    )
-    if (globalRefund) {
-      const rm = globalRefund.description?.match(/(\d{4}-\d{2}-\d{2})\s*~/)
-      if (rm) {
-        const d = new Date(rm[1])
-        d.setDate(d.getDate() - 1)
-        effectiveEnd = d.toISOString().slice(0, 10)
+    if (tenant.effectiveEnd) {
+      const d = new Date(tenant.effectiveEnd)
+      d.setDate(d.getDate() - 1)
+      effectiveEnd = d.toISOString().slice(0, 10)
+    } else if (tenant.status === 'ended') {
+      // 旧数据没有 effectiveEnd：从退租金账单推导
+      const refund = activeBills.find(b =>
+        b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent'
+      )
+      if (refund) {
+        const period = getBillPeriod(refund)
+        if (period) {
+          const d = new Date(period[0])
+          d.setDate(d.getDate() - 1)
+          effectiveEnd = d.toISOString().slice(0, 10)
+        }
       }
     }
     const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, effectiveEnd)

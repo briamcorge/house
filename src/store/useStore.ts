@@ -278,9 +278,11 @@ export const useStore = create<AppStore>()(
           const d = new Date(checkoutDate)
           d.setDate(d.getDate() - 1)
           const contractEnd = d.toISOString().slice(0, 10)
+          // 合同结束日保持原有值不变，新增 actualEffectiveEnd 字段表示实际退租日。
+          // 历史数据中已有 contractEnd 被修改过的，由 profit.ts 从退租金账单推导。
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'ended', contractEnd } : t
+              t.id === id ? { ...t, status: 'ended', effectiveEnd: checkoutDate } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'vacant' } : r
@@ -344,6 +346,8 @@ export const useStore = create<AppStore>()(
             direction: 'receivable' as const,
             dueDate: b.dueDate,
             description: b.description,
+            periodStart: b.periodStart,
+            periodEnd: b.periodEnd,
             createdAt: now,
           }))
           return {
@@ -369,6 +373,8 @@ export const useStore = create<AppStore>()(
             direction: 'receivable' as const,
             dueDate: b.dueDate,
             description: b.description,
+            periodStart: b.periodStart,
+            periodEnd: b.periodEnd,
             createdAt: now,
           }))
           return {
@@ -398,6 +404,8 @@ export const useStore = create<AppStore>()(
             direction: 'receivable' as const,
             dueDate: b.dueDate,
             description: b.description,
+            periodStart: b.periodStart,
+            periodEnd: b.periodEnd,
             createdAt: now,
           }))
           return {
@@ -569,7 +577,7 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 4,
+    version: 5,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
@@ -631,9 +639,32 @@ export const useStore = create<AppStore>()(
           if (adjusted >= ce) return t
           return { ...t, contractEnd: adjusted }
         })
-        return { ...state, tenants } as unknown as AppStore
+        state = { ...state, tenants }
       }
-      return persistedState as AppStore
+      // v4→v5: 给旧账单补 periodStart/periodEnd + 已退租租客补 effectiveEnd
+      if (version <= 4) {
+        const tenants = (state.tenants as Array<Record<string, unknown>> || []).map(t => {
+          if (String(t.status) === 'ended' && !t.effectiveEnd) {
+            let ee = String(t.contractEnd || '')
+            if (ee) {
+              const d = new Date(ee)
+              d.setDate(d.getDate() + 1)
+              ee = d.toISOString().slice(0, 10)
+            }
+            return { ...t, effectiveEnd: ee }
+          }
+          return t
+        })
+        const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
+          if (b.periodStart || b.periodEnd) return b
+          const desc = String(b.description || '')
+          const m = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+          if (!m) return b
+          return { ...b, periodStart: m[1], periodEnd: m[2] }
+        })
+        state = { ...state, tenants, bills }
+      }
+      return state as unknown as AppStore
     },
   })
 )

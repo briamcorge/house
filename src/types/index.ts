@@ -36,6 +36,8 @@ export interface Tenant {
   createdAt: string
   /** 续约时指向上一个租客 ID，用于追踪续约链 */
   previousTenantId?: string
+  /** 实际退租日（退租时填入，不退租则为空），用于利润计算无需从退款账单反推 */
+  effectiveEnd?: string
 }
 
 export type BillDirection = 'payable' | 'receivable'
@@ -54,6 +56,9 @@ export interface Bill {
   paidDate?: string
   description?: string
   createdAt: string
+  /** 账单覆盖起止日（替代从 description 正则提取），新建账单时自动填入 */
+  periodStart?: string
+  periodEnd?: string
 }
 
 export interface LandlordContract {

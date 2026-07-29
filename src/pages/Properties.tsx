@@ -242,6 +242,8 @@ export default function Properties() {
               direction: 'payable',
               dueDate: bill.dueDate,
               description: bill.description,
+              periodStart: bill.periodStart,
+              periodEnd: bill.periodEnd,
             })
           })
           addLandlordContract({
@@ -270,6 +272,8 @@ export default function Properties() {
               direction: 'payable',
               dueDate: bill.dueDate,
               description: `[续约${now}] ${bill.description}`,
+              periodStart: bill.periodStart,
+              periodEnd: bill.periodEnd,
             })
           })
           // 结束旧合同
