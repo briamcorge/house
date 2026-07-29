@@ -65,11 +65,12 @@ function calcBillBasedRent(
 /** 判断账单是否与某业主周期重叠 — 按账单覆盖期匹配（优先字段，旧数据从 description 提取） */
 function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
   const period = getBillPeriod(bill)
-  if (period) {
+  if (period && bill.amount >= 0) {
+    // 正数账单按覆盖期匹配
     const [bs, be] = period
     return bs <= cycleEnd && be >= cycleStart
   }
-  // 无覆盖期的账单（违约金/退款等），用应收日或实收日判断
+  // 负数账单（退租金等）及无覆盖期的账单按应收日/实收日匹配
   if (bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd) return true
   if (bill.paidDate && bill.paidDate >= cycleStart && bill.paidDate <= cycleEnd) return true
   return false
@@ -94,7 +95,6 @@ export interface TenantPeriodResult {
   otherFeeName: string
   overlapDays: number           // 30/360 重叠天数（用于显示）
   proratedRent: number          // 按覆盖期分摊的房租
-  adjustment: number            // 无日期调整（退租金等）
   feeBreakdown: FeeGroup[]      // 所有参与计算的费用（按类型合并）
 }
 
@@ -176,8 +176,12 @@ export function calculatePeriodProfit(
       .forEach(b => {
         let label = ''
         if (b.type === 'rent') {
-          const rentType = b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租'
-          label = rentType
+          if (b.amount < 0) {
+            label = '退租金'
+          } else {
+            const rentType = b.description?.match(/(季租|月租|半年租|年租)/)?.[1] || '房租'
+            label = rentType
+          }
         } else if (b.type === 'hygiene') {
           label = '卫管费'
         } else if (b.type === 'sublease') {
@@ -224,9 +228,10 @@ export function calculatePeriodProfit(
     const overlapDays = summary.overlapDays
     const proratedRent = Math.round(summary.proratedRent)
     const adjustment = Math.round(summary.adjustment)
-    const apportionedRent = proratedRent + adjustment
+    // adjustment（退租金等由dueDate匹配的负数）独立显示但不参与天数，仍计入利润
+    const apportionedRent = proratedRent
 
-    totalIncome += apportionedRent + otherFeePaidAmount
+    totalIncome += apportionedRent + adjustment + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
 
     // 没有任何收入/支出（周期内无有效账单）则跳过
@@ -243,7 +248,6 @@ export function calculatePeriodProfit(
       otherFeeName: tenant.otherFeeName || '其他费',
       overlapDays,
       proratedRent,
-      adjustment,
       feeBreakdown,
     })
   }
