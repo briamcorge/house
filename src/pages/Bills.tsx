@@ -396,13 +396,35 @@ export default function Bills() {
 
               {/* 月份汇总 */}
               {(() => {
+                if (displayBills.length === 0) return null
+                if (filterStatus === 'refunded') {
+                  const receivableRefund = displayBills.filter(b => b.direction === 'receivable').reduce((s, b) => s + Math.abs(b.amount), 0)
+                  const payableRefund = displayBills.filter(b => b.direction === 'payable').reduce((s, b) => s + Math.abs(b.amount), 0)
+                  return (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-blue-50 rounded-lg p-2 text-xs">
+                          <span className="text-blue-600">已退还租客：</span>
+                          <span className="font-medium text-blue-700">¥{receivableRefund.toFixed(0)}</span>
+                        </div>
+                        <div className="bg-orange-50 rounded-lg p-2 text-xs">
+                          <span className="text-orange-600">已退还业主：</span>
+                          <span className="font-medium text-orange-700">¥{payableRefund.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
                 const receivableBills = displayBills.filter(b => b.direction === 'receivable')
                 const payableBills = displayBills.filter(b => b.direction === 'payable')
                 const receivablePaid = receivableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                 const receivableUnpaid = receivableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
                 const payablePaid = payableBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
                 const payableUnpaid = payableBills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.amount, 0)
-                return displayBills.length > 0 ? (
+                return (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-500">{displayBills.length} 笔</span>
@@ -422,7 +444,7 @@ export default function Bills() {
                       </div>
                     </div>
                   </div>
-                ) : null
+                )
               })()}
 
               {/* 账单列表 */}
@@ -464,7 +486,9 @@ export default function Bills() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            {bill.status !== 'paid' && (
+                            {bill.status === 'refunded' ? (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600">退款</span>
+                            ) : bill.status !== 'paid' && (
                               <button
                                 type="button"
                                 onClick={() => setPayConfirmBill(bill)}
