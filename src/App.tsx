@@ -178,35 +178,6 @@ export default function App() {
     }
   }, [])
 
-  // 一次性数据修复：删除已退租租客的遗留未付账单 + 更新 contractEnd 为退租日
-  useEffect(() => {
-    const state = useStore.getState()
-    const endedTenants = state.tenants.filter(t => t.status === 'ended')
-    if (endedTenants.length === 0) return
-    let billsChanged = false
-    let tenantsChanged = false
-    const bills = state.bills.filter(b => {
-      if (endedTenants.some(t => t.id === b.tenantId) && b.status === 'pending' && b.direction === 'receivable') {
-        billsChanged = true
-        return false
-      }
-      return true
-    })
-    const tenants = state.tenants.map(t => {
-      if (t.status !== 'ended') return t
-      // 找退租金/退押金账单的 paidDate/dueDate 作为实际退租日
-      const refundBill = state.bills.find(b =>
-        b.tenantId === t.id && b.amount < 0 && b.direction === 'receivable'
-      )
-      if (!refundBill) return t
-      const actualEnd = refundBill.paidDate || refundBill.dueDate
-      if (!actualEnd || actualEnd >= t.contractEnd) return t
-      tenantsChanged = true
-      return { ...t, contractEnd: actualEnd }
-    })
-    if (billsChanged || tenantsChanged) useStore.setState({ bills, tenants })
-  }, [])
-
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
     if (!isSupabaseConfigured() || !lastEvent) return

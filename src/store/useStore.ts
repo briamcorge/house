@@ -565,7 +565,7 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 2,
+    version: 3,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
@@ -595,6 +595,30 @@ export const useStore = create<AppStore>()(
           return { ...b, type }
         })
         return { ...state, bills } as AppStore
+      }
+      // v2→v3: 已退租租客修复
+      if (version <= 2) {
+        const rawTenants = (state.tenants as Array<Record<string, unknown>> || [])
+        const rawBills = (state.bills as Array<Record<string, unknown>> || [])
+        const tenants = rawTenants.map(t => {
+          if (String(t.status) !== 'ended') return t
+          // 找退租金账单，从描述中提取实际退租日
+          const refund = rawBills.find(b =>
+            b.tenantId === t.id && Number(b.amount) < 0 && String(b.direction) === 'receivable' && String(b.description || '').includes('退租金')
+          )
+          if (!refund) return t
+          // 尝试从描述提取退租日期：退租金 2026-06-30 ~ ... 或 退租金2026-06-30 ~ ...
+          const m = String(refund.description || '').match(/(\d{4}-\d{2}-\d{2})\s*~/)
+          const actualEnd = m ? m[1] : String(refund.paidDate || refund.dueDate || '')
+          if (!actualEnd || actualEnd >= String(t.contractEnd || '')) return t
+          return { ...t, contractEnd: actualEnd }
+        })
+        // 删除已退租租客的未付账单
+        const endedIds = new Set(tenants.filter(t => String(t.status) === 'ended').map(t => String(t.id)))
+        const bills = rawBills.filter(b =>
+          !(endedIds.has(String(b.tenantId)) && String(b.status) === 'pending' && String(b.direction) === 'receivable')
+        )
+        return { ...state, tenants, bills } as unknown as AppStore
       }
       return persistedState as AppStore
     },
