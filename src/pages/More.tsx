@@ -120,7 +120,7 @@ export default function More() {
   }
 
   const activeTenants = tenants.filter(t => t.status === 'active')
-  const pendingBills = bills.filter(b => b.status !== 'paid')
+  const pendingBills = bills.filter(b => b.status === 'pending' || b.status === 'overdue')
   const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable').reduce((s, b) => s + Number(b.amount), 0)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable').reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable')

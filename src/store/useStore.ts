@@ -272,9 +272,9 @@ export const useStore = create<AppStore>()(
 
       terminateTenant: (id, roomId, checkoutDate) =>
         set((state) => {
-          // 删除该租客所有未付账单（退租后这些未来期数的账单不应再存在）
+          // 保留已付和已退还的账单，删除其他（未付/逾期的未来期数账单）
           const remainingBills = state.bills.filter(b =>
-            !(b.tenantId === id && b.status !== 'paid' && b.direction === 'receivable')
+            !(b.tenantId === id && b.status !== 'paid' && b.status !== 'refunded' && b.direction === 'receivable')
           )
           // 合同结束日：退租日的前一天（退租当天已不住）
           const d = new Date(checkoutDate)
@@ -295,15 +295,25 @@ export const useStore = create<AppStore>()(
         }),
 
       restoreTenant: (id, roomId) =>
-        set((state) => ({
-          tenants: state.tenants.map((t) =>
-            t.id === id ? { ...t, status: 'active' as const } : t
-          ),
-          rooms: state.rooms.map((r) =>
-            r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
-          ),
-          auditLogs: recordLog(state, 'restore', 'tenant', id, `恢复租客`),
-        })),
+        set((state) => {
+          // 检查房间是否已有活跃租客
+          const roomHasActiveTenant = state.tenants.some(t =>
+            t.roomId === roomId && t.id !== id && t.status === 'active'
+          )
+          if (roomHasActiveTenant) {
+            // 房间被占用，不恢复
+            return state
+          }
+          return {
+            tenants: state.tenants.map((t) =>
+              t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined } : t
+            ),
+            rooms: state.rooms.map((r) =>
+              r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
+            ),
+            auditLogs: recordLog(state, 'restore', 'tenant', id, `恢复租客`),
+          }
+        }),
 
       extendContract: (id, newEndDate) =>
         set((state) => ({

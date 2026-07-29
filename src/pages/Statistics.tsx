@@ -63,7 +63,7 @@ export default function Statistics() {
   // 该年退款 (负数账单)
   const yearlyRefund = useMemo(() => {
     return bills
-      .filter(b => b.status === 'paid' && b.amount < 0 && b.paidDate?.startsWith(selectedYear.toString()))
+      .filter(b => (b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)) && b.paidDate?.startsWith(selectedYear.toString()))
       .reduce((s, b) => s + Math.abs(b.amount), 0)
   }, [bills, selectedYear])
 
@@ -91,7 +91,7 @@ export default function Statistics() {
         .filter(b => b.direction === 'payable' && b.status === 'paid')
         .reduce((s, b) => s + b.amount, 0)
       const refund = propBills
-        .filter(b => b.amount < 0 && b.status === 'paid')
+        .filter(b => (b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)))
         .reduce((s, b) => s + Math.abs(b.amount), 0)
 
       return {
