@@ -25,7 +25,7 @@ interface AppStore {
   updateTenant: (id: string, tenant: Partial<Tenant>) => void
   changeTenantRoom: (tenantId: string, newRoomId: string) => void
   deleteTenant: (id: string) => void
-  terminateTenant: (id: string, roomId: string) => void
+  terminateTenant: (id: string, roomId: string, checkoutDate: string) => void
   extendContract: (id: string, newEndDate: string) => void
 
   addBill: (bill: Omit<Bill, 'id' | 'createdAt'>) => void
@@ -268,7 +268,7 @@ export const useStore = create<AppStore>()(
           }
         }),
 
-      terminateTenant: (id, roomId) =>
+      terminateTenant: (id, roomId, checkoutDate) =>
         set((state) => {
           // 作废该租客所有未付账单
           const cancelledBills = state.bills.map((b) =>
@@ -278,7 +278,7 @@ export const useStore = create<AppStore>()(
           )
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'ended' } : t
+              t.id === id ? { ...t, status: 'ended', contractEnd: checkoutDate } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'vacant' } : r

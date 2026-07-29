@@ -178,20 +178,33 @@ export default function App() {
     }
   }, [])
 
-  // 一次性数据修复：作废已退租租客的遗留未付账单
+  // 一次性数据修复：已退租租客的未付账单作废 + 更新 contractEnd 为退租日
   useEffect(() => {
     const state = useStore.getState()
-    const endedTenantIds = new Set(state.tenants.filter(t => t.status === 'ended').map(t => t.id))
-    if (endedTenantIds.size === 0) return
-    let fixed = false
+    const endedTenants = state.tenants.filter(t => t.status === 'ended')
+    if (endedTenants.length === 0) return
+    let billsChanged = false
+    let tenantsChanged = false
     const bills = state.bills.map(b => {
-      if (endedTenantIds.has(b.tenantId) && b.status === 'pending' && b.direction === 'receivable') {
-        fixed = true
+      if (endedTenants.some(t => t.id === b.tenantId) && b.status === 'pending' && b.direction === 'receivable') {
+        billsChanged = true
         return { ...b, status: 'cancelled' as const }
       }
       return b
     })
-    if (fixed) useStore.setState({ bills })
+    const tenants = state.tenants.map(t => {
+      if (t.status !== 'ended') return t
+      // 找退租金/退押金账单的 paidDate/dueDate 作为实际退租日
+      const refundBill = state.bills.find(b =>
+        b.tenantId === t.id && b.amount < 0 && b.direction === 'receivable'
+      )
+      if (!refundBill) return t
+      const actualEnd = refundBill.paidDate || refundBill.dueDate
+      if (!actualEnd || actualEnd >= t.contractEnd) return t
+      tenantsChanged = true
+      return { ...t, contractEnd: actualEnd }
+    })
+    if (billsChanged || tenantsChanged) useStore.setState({ bills, tenants })
   }, [])
 
   // 监听 auth 事件，执行业务逻辑

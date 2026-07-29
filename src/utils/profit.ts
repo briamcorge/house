@@ -113,9 +113,8 @@ export function calculatePeriodProfit(
 ): PeriodProfitResult {
   // 筛选合同期与业主周期有重叠的租客，排除已作废账单
   const activeBills = allBills.filter(b => b.status !== 'cancelled')
-  // 排除已退租的租客 — 其未付账单应作废，不应参与未来周期的利润计算
+  // 租客合同期决定是否参与某期利润。退租时 contractEnd 会被更新为退租日，自然排除后续期数
   const overlapTenants = propertyTenants.filter(t => {
-    if (t.status === 'ended') return false
     return t.contractEnd >= periodStart && t.contractStart <= periodEnd
   })
 

@@ -429,7 +429,7 @@ export default function RoomDetail() {
           if (refunds.otherRefund > 0 && refunds.otherName) {
             addBill({ roomId: roomId!, tenantId: checkoutTenant.id, amount: -refunds.otherRefund, type: 'other', status: 'paid', direction: 'receivable', paidDate: checkoutDate, dueDate: checkoutDate, description: `退${refunds.otherName}` })
           }
-          terminateTenant(checkoutTenant.id, roomId!)
+          terminateTenant(checkoutTenant.id, roomId!, checkoutDate)
           setCheckoutTenant(null)
         }}
       />
