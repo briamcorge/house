@@ -1,6 +1,24 @@
 import { Tenant, Bill, Room } from '../types'
 import { add30Days, formatDate } from './calculator'
 
+/** 30/360 日期解析：每月30天，Feb 28→30，任何31→30 */
+function to360(s: string): { y: number; m: number; d: number } {
+  const [y, m0, d0] = s.split('-').map(Number)
+  const m = m0 - 1
+  let d = Math.min(d0, 30)
+  if (m === 1) {
+    const leap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)
+    if (d0 >= (leap ? 29 : 28)) d = 30
+  }
+  return { y, m, d }
+}
+
+/** 30/360 间隔天数（包含两端）：Feb 28→30 后算差 */
+function days360(a: string, b: string): number {
+  const da = to360(a), db = to360(b)
+  return (db.y - da.y) * 360 + (db.m - da.m) * 30 + (db.d - da.d) + 1
+}
+
 /** 取账单覆盖期：优先从 periodStart/periodEnd 字段，旧数据从 description 正则提取 */
 function getBillPeriod(bill: Bill): [string, string] | null {
   if (bill.periodStart && bill.periodEnd) return [bill.periodStart, bill.periodEnd]
@@ -37,12 +55,8 @@ function calcBillBasedRent(
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
     if (oStart > oEnd) continue
-    const [osy, osm, osd] = oStart.split('-').map(Number)
-    const [oey, oem, oed] = oEnd.split('-').map(Number)
-    const ovDays = (oey - osy) * 360 + (oem - osm) * 30 + (oed - osd) + 1
-    const [bsy, bsm, bsd] = bs.split('-').map(Number)
-    const [bey, bem, bed] = be.split('-').map(Number)
-    const billDays = (bey - bsy) * 360 + (bem - bsm) * 30 + (bed - bsd) + 1
+    const ovDays = days360(oStart, oEnd)
+    const billDays = days360(bs, be)
     proratedRent += bill.amount * ovDays / billDays
     // 正数账单才计入天数范围
     if (!earliestStart || bs < earliestStart) earliestStart = bs
@@ -53,9 +67,7 @@ function calcBillBasedRent(
     const oStart = earliestStart > periodStart ? earliestStart : periodStart
     const oEnd = latestEnd < periodEnd ? latestEnd : periodEnd
     if (oStart <= oEnd) {
-      const [osy, osm, osd] = oStart.split('-').map(Number)
-      const [oey, oem, oed] = oEnd.split('-').map(Number)
-      overlapDays = (oey - osy) * 360 + (oem - osm) * 30 + (oed - osd) + 1
+      overlapDays = days360(oStart, oEnd)
     }
   }
   return { proratedRent, adjustment, overlapDays }
