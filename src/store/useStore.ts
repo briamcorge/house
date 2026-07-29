@@ -637,3 +637,21 @@ export const useStore = create<AppStore>()(
     },
   })
 )
+
+/** 数据迁移：已退租租客的合同结束日改为退租前一天（退租日当天不占房）。云端同步后需要调用 */
+export function migrateEndedTenantsContractEnd() {
+  const state = useStore.getState()
+  let changed = false
+  const tenants = state.tenants.map(t => {
+    if (t.status !== 'ended') return t
+    const ce = t.contractEnd
+    if (!ce) return t
+    const d = new Date(ce)
+    d.setDate(d.getDate() - 1)
+    const adjusted = d.toISOString().slice(0, 10)
+    if (adjusted >= ce) return t
+    changed = true
+    return { ...t, contractEnd: adjusted }
+  })
+  if (changed) useStore.setState({ tenants })
+}
