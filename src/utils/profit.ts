@@ -9,7 +9,7 @@ function getBillPeriod(bill: Bill): [string, string] | null {
   return null
 }
 
-/** 每张账单按覆盖期分摊计算：有日期的按重叠比例摊，无日期的全额计入调整项 */
+/** 每张账单按覆盖期分摊计算：正数有日期的按重叠比例摊，负数的全额计入调整项 */
 function calcBillBasedRent(
   rentBills: Bill[],
   periodStart: string,
@@ -21,15 +21,20 @@ function calcBillBasedRent(
   let earliestStart = ''
   let latestEnd = ''
   for (const bill of rentBills) {
+    if (bill.amount <= 0) {
+      // 负数账单（退租金等）：全额计入调整项，不参与分摊也不影响天数
+      adjustment += bill.amount
+      continue
+    }
     const period = getBillPeriod(bill)
     if (!period) {
-      // 无日期描述（退租金、减免等）：全额计入调整项
+      // 无日期正数账单：全额计入调整项
       adjustment += bill.amount
       continue
     }
     const [bs, be] = period
-    // 退租时，正数房租账单的覆盖期不超过有效截止日（退租当日不占房）
-    const capEnd = bill.amount > 0 && effectiveEnd && be > effectiveEnd ? effectiveEnd : be
+    // 正数房租账单的覆盖期不超过有效截止日（退租当日不占房）
+    const capEnd = effectiveEnd && be > effectiveEnd ? effectiveEnd : be
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
     if (oStart > oEnd) continue
@@ -40,6 +45,7 @@ function calcBillBasedRent(
     const [bey, bem, bed] = be.split('-').map(Number)
     const billDays = (bey - bsy) * 360 + (bem - bsm) * 30 + (bed - bsd) + 1
     proratedRent += bill.amount * ovDays / billDays
+    // 正数账单才计入天数范围
     if (!earliestStart || bs < earliestStart) earliestStart = bs
     if (!latestEnd || oEnd > latestEnd) latestEnd = oEnd
   }
