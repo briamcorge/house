@@ -292,7 +292,7 @@ export default function More() {
           '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
           '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '创建时间': 'createdAt' },
           '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '创建时间': 'createdAt' },
-          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '实付日': 'paidDate', '描述': 'description', '创建时间': 'createdAt' },
+          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '创建时间': 'createdAt' },
         }
 
         // 需要转换为数字的字段
@@ -356,7 +356,18 @@ export default function More() {
         const rawRooms = parseSheet('房间')
         const rawContracts = parseSheet('代理合同')
         const rawTenants = parseSheet('租客')
-        const rawBills = parseSheet('账单')
+        const rawBills = parseSheet('账单').map(b => {
+          // 合并方向特定列：新格式的收款日/付款日 → dueDate，实收日 → paidDate
+          if (!b.dueDate) {
+            b.dueDate = String((b as any)._dueDateR || (b as any)._dueDateP || '')
+          }
+          if (!b.paidDate) {
+            b.paidDate = String((b as any)._paidDateR || b.paidDate || '')
+          }
+          delete (b as any)._dueDateR; delete (b as any)._dueDateP
+          delete (b as any)._paidDateR; delete (b as any)._startDate; delete (b as any)._endDate
+          return b
+        })
 
         // ─── 行级校验 ───
         const allErrors: string[] = []
