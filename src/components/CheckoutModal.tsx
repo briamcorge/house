@@ -41,8 +41,8 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">退租结算 - {tenantName}</h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
@@ -51,7 +51,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
           </div>
         </div>
 
-          <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <p className="text-sm text-gray-500">填写退还金额，不退还填0</p>
 
           {error && (
@@ -67,22 +67,23 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
             <p className="text-xs text-gray-400 mt-1">实际退租日期，即账单的应收日/实付日</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              退还押金
-            </label>
-            <input type="number" value={depositRefund} onChange={e => setDepositRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
-            {deposit && <p className="text-xs text-gray-400 mt-1">原押金 ¥{deposit}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              违约金
-            </label>
-            <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
-            <p className="text-xs text-gray-400 mt-1">违约不退还的押金、转租费</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                退还押金
+              </label>
+              <input type="number" value={depositRefund} onChange={e => setDepositRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+              {deposit && <p className="text-xs text-gray-400 mt-1">原押金 ¥{deposit}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                违约金
+              </label>
+              <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+              <p className="text-xs text-gray-400 mt-1">违约不退还的押金、转租费</p>
+            </div>
           </div>
 
           <div>

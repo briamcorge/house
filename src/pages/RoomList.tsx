@@ -17,7 +17,7 @@ import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } 
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, editTenantContract, createTenantContract, deleteRoom } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, restoreLandlordContract, editTenantContract, createTenantContract, deleteRoom } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
@@ -116,7 +116,9 @@ export default function RoomList() {
                           <button type="button" onClick={e => { e.stopPropagation(); setEditContractId(c.id) }} className="text-xs text-blue-600 hover:underline">编辑</button>
                           {c.status === 'active' ? (
                             <button type="button" onClick={e => { e.stopPropagation(); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="text-xs text-orange-600 hover:underline">退租</button>
-                          ) : null}
+                          ) : (
+                            <button type="button" onClick={e => { e.stopPropagation(); restoreLandlordContract(c.id) }} className="text-xs text-blue-600 hover:underline">恢复</button>
+                          )}
                           <button type="button" onClick={e => { e.stopPropagation(); setContractConfirm({ id: c.id, action: 'delete' }) }} className="text-xs text-red-600 hover:underline">删除</button>
                           <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">{c.status === 'active' ? '执行中' : '已结束'}</span>
                         </div>
@@ -315,10 +317,16 @@ export default function RoomList() {
           if (!landlordCheckout) return
           const dt = refunds.checkoutDate
           if (refunds.depositRefund > 0) {
-            addBill({ propertyId: propertyId!, amount: -refunds.depositRefund, type: 'deposit', status: 'paid', direction: 'payable', paidDate: dt, dueDate: dt, description: '退押金' })
+            addBill({ propertyId: propertyId!, amount: -refunds.depositRefund, type: 'deposit', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: '退押金' })
           }
           if (refunds.penalty > 0) {
             addBill({ propertyId: propertyId!, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: dt, dueDate: dt, description: '业主违约金' })
+          }
+          if (refunds.rentRefund > 0) {
+            const desc = refunds.rentRefundStart && refunds.rentRefundEnd
+              ? `退租金 ${refunds.rentRefundStart} ~ ${refunds.rentRefundEnd}`
+              : '退租金'
+            addBill({ propertyId: propertyId!, amount: -refunds.rentRefund, type: 'rent', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: desc, periodStart: refunds.rentRefundStart, periodEnd: refunds.rentRefundEnd })
           }
           terminateLandlordContract(landlordCheckout.id)
           setLandlordCheckout(null)

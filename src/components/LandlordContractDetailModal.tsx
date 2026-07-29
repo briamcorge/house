@@ -121,9 +121,9 @@ export default function LandlordContractDetailModal({
                         <span className="font-medium text-sm text-gray-900 truncate">{typeLabels[bill.type] || bill.type}</span>
                         {bill.status !== 'pending' && (
                           <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium shrink-0 ${
-                            bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                            bill.status === 'refunded' ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                           }`}>
-                            {bill.status === 'paid' ? (bill.amount < 0 ? '已退' : '已付') : '逾期'}
+                            {bill.status === 'refunded' ? '已退还' : bill.status === 'paid' ? '已付' : '逾期'}
                           </span>
                         )}
                       </div>

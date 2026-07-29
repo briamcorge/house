@@ -26,6 +26,7 @@ interface AppStore {
   changeTenantRoom: (tenantId: string, newRoomId: string) => void
   deleteTenant: (id: string) => void
   terminateTenant: (id: string, roomId: string, checkoutDate: string) => void
+  restoreTenant: (id: string, roomId: string) => void
   extendContract: (id: string, newEndDate: string) => void
 
   addBill: (bill: Omit<Bill, 'id' | 'createdAt'>) => void
@@ -36,6 +37,7 @@ interface AppStore {
   updateLandlordContract: (id: string, data: Partial<LandlordContract>) => void
   deleteLandlordContract: (id: string, propertyId: string) => void
   terminateLandlordContract: (id: string) => void
+  restoreLandlordContract: (id: string) => void
   deleteTenantAndBills: (id: string, roomId: string) => void
   createTenantContract: (tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
   editTenantContract: (tenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
@@ -292,6 +294,17 @@ export const useStore = create<AppStore>()(
           }
         }),
 
+      restoreTenant: (id, roomId) =>
+        set((state) => ({
+          tenants: state.tenants.map((t) =>
+            t.id === id ? { ...t, status: 'active' as const } : t
+          ),
+          rooms: state.rooms.map((r) =>
+            r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
+          ),
+          auditLogs: recordLog(state, 'restore', 'tenant', id, `恢复租客`),
+        })),
+
       extendContract: (id, newEndDate) =>
         set((state) => ({
           tenants: state.tenants.map((t) =>
@@ -481,6 +494,14 @@ export const useStore = create<AppStore>()(
           auditLogs: recordLog(state, 'terminate', 'landlord_contract', id, `终止业主合同`),
         })),
 
+      restoreLandlordContract: (id) =>
+        set((state) => ({
+          landlordContracts: state.landlordContracts.map((c) =>
+            c.id === id ? { ...c, status: 'active' as const } : c
+          ),
+          auditLogs: recordLog(state, 'restore', 'landlord_contract', id, `恢复业主合同`),
+        })),
+
       deleteTenantAndBills: (id, roomId) =>
         set((state) => {
           const tenant = state.tenants.find((t) => t.id === id)
@@ -577,7 +598,7 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 5,
+    version: 6,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
@@ -663,6 +684,16 @@ export const useStore = create<AppStore>()(
           return { ...b, periodStart: m[1], periodEnd: m[2] }
         })
         state = { ...state, tenants, bills }
+      }
+      // v5→v6: 原 status='paid' 的退款账单（amount<0）改为 status='refunded'
+      if (version <= 5) {
+        const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
+          if (b.status === 'paid' && Number(b.amount) < 0) {
+            return { ...b, status: 'refunded' as const }
+          }
+          return b
+        })
+        state = { ...state, bills }
       }
       return state as unknown as AppStore
     },

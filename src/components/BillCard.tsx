@@ -26,9 +26,9 @@ export default function BillCard({ bill, propertyAddress }: BillCardProps) {
         </span>
         {bill.status !== 'pending' && (
           <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-            bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+            bill.status === 'refunded' ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
           }`}>
-            {bill.status === 'paid' ? '已收' : '逾期'}
+            {bill.status === 'refunded' ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
           </span>
         )}
       </div>
