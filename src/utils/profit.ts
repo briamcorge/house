@@ -20,8 +20,9 @@ function calcBillBasedRent(
       continue
     }
     const bs = m[1], be = m[2]
-    // 退租时，账单覆盖期不能超过实际有效截止日（退租日当天不占房）
-    const capEnd = effectiveEnd && be > effectiveEnd ? effectiveEnd : be
+    // 退租时，正数房租账单的覆盖期不能超过退租日（退租日当天不占房）
+    // 负数账单（退租金）不用截断，按原始覆盖期参与分摊
+    const capEnd = bill.amount > 0 && effectiveEnd && be > effectiveEnd ? effectiveEnd : be
     // 累计分摊金额
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
@@ -116,24 +117,8 @@ export function calculatePeriodProfit(
 ): PeriodProfitResult {
   // 筛选合同期与业主周期有重叠的租客，排除已作废账单
   const activeBills = allBills.filter(b => b.status !== 'cancelled')
-  // 确定每个租客在该周期的实际有效截止日。如果租客有退租金账单，以退租日起日-1为准
   const overlapTenants = propertyTenants.filter(t => {
-    // 基本合同期检查
-    if (t.contractStart > periodEnd) return false
-    // 检查实际有效截止日：优先从退租金账单推导
-    let effectiveEnd = t.contractEnd
-    if (t.status === 'ended') {
-      const refund = activeBills.find(b => b.tenantId === t.id && b.amount < 0 && b.type === 'rent')
-      if (refund) {
-        const rm = refund.description?.match(/(\d{4}-\d{2}-\d{2})\s*~/)
-        if (rm) {
-          const d = new Date(rm[1])
-          d.setDate(d.getDate() - 1)
-          effectiveEnd = d.toISOString().slice(0, 10)
-        }
-      }
-    }
-    return effectiveEnd >= periodStart
+    return t.contractEnd >= periodStart && t.contractStart <= periodEnd
   })
 
   let totalIncome = 0
@@ -143,12 +128,16 @@ export function calculatePeriodProfit(
 
   for (const tenant of overlapTenants) {
     // 找该周期内的应收账单 — 按账单实际覆盖期匹配（description 中的起止日）
-    const periodBills = activeBills.filter(b =>
+    let periodBills = activeBills.filter(b =>
       b.tenantId === tenant.id &&
       b.roomId === tenant.roomId &&
       b.direction === 'receivable' &&
       billOverlapsCycle(b, periodStart, periodEnd)
     )
+    // 已退租租客：排除未付的正数账单（这些是退租时没清理的遗留账单）
+    if (tenant.status === 'ended') {
+      periodBills = periodBills.filter(b => !(b.amount > 0 && b.status === 'pending'))
+    }
 
     // 该周期内的房租账单
     const periodRentBills = periodBills.filter(b => b.type === 'rent')
@@ -224,6 +213,9 @@ export function calculatePeriodProfit(
 
     totalIncome += apportionedRent + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
+
+    // 没有任何收入/支出（周期内无有效账单）则跳过
+    if (periodBills.length === 0) continue
 
     tenantResults.push({
       tenantId: tenant.id,
