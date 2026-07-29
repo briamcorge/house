@@ -185,8 +185,8 @@ export default function More() {
            实付日: b.direction === 'payable' && b.paidDate ? b.paidDate : '',
            startDate,
            endDate,
-           periodStart: b.periodStart ?? '',
-           periodEnd: b.periodEnd ?? '',
+           periodStart: b.periodStart || (b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[1] ?? ''),
+           periodEnd: b.periodEnd || (b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[2] ?? ''),
          }
        }) as unknown as Record<string, unknown>[], {
          id: 'ID', propertyId: '房源ID', roomId: '房间ID', tenantId: '租客ID',
