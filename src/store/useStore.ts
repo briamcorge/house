@@ -270,11 +270,9 @@ export const useStore = create<AppStore>()(
 
       terminateTenant: (id, roomId, checkoutDate) =>
         set((state) => {
-          // 作废该租客所有未付账单
-          const cancelledBills = state.bills.map((b) =>
-            b.tenantId === id && b.status !== 'paid' && b.direction === 'receivable'
-              ? { ...b, status: 'cancelled' as const }
-              : b
+          // 删除该租客所有未付账单（退租后这些未来期数的账单不应再存在）
+          const remainingBills = state.bills.filter(b =>
+            !(b.tenantId === id && b.status !== 'paid' && b.direction === 'receivable')
           )
           return {
             tenants: state.tenants.map((t) =>
@@ -283,8 +281,8 @@ export const useStore = create<AppStore>()(
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'vacant' } : r
             ),
-            bills: cancelledBills,
-            auditLogs: recordLog(state, 'terminate', 'tenant', id, `退租（已作废未付账单）`),
+            bills: remainingBills,
+            auditLogs: recordLog(state, 'terminate', 'tenant', id, `退租`),
           }
         }),
 

@@ -178,19 +178,19 @@ export default function App() {
     }
   }, [])
 
-  // 一次性数据修复：已退租租客的未付账单作废 + 更新 contractEnd 为退租日
+  // 一次性数据修复：删除已退租租客的遗留未付账单 + 更新 contractEnd 为退租日
   useEffect(() => {
     const state = useStore.getState()
     const endedTenants = state.tenants.filter(t => t.status === 'ended')
     if (endedTenants.length === 0) return
     let billsChanged = false
     let tenantsChanged = false
-    const bills = state.bills.map(b => {
+    const bills = state.bills.filter(b => {
       if (endedTenants.some(t => t.id === b.tenantId) && b.status === 'pending' && b.direction === 'receivable') {
         billsChanged = true
-        return { ...b, status: 'cancelled' as const }
+        return false
       }
-      return b
+      return true
     })
     const tenants = state.tenants.map(t => {
       if (t.status !== 'ended') return t
