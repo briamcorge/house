@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Mail, Loader2, ChevronDown, ChevronUp, Search, Ban, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Shield, Mail, Loader2, ChevronDown, ChevronUp, Search, Ban, CheckCircle, ChevronRight } from 'lucide-react'
 import { getAllUserData, checkIsAdmin, getCurrentUser, setUserDisabled } from '../lib/supabase'
 
 interface UserData {
@@ -27,6 +27,8 @@ export default function Admin() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null)
+  const [expandedProp, setExpandedProp] = useState<string | null>(null)
+  const [expandedContract, setExpandedContract] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -225,12 +227,50 @@ export default function Admin() {
                       {user.data.properties.map((p: any) => {
                         const propRooms = user.data?.rooms?.filter((r: any) => r.propertyId === p.id) || []
                         const propTenants = user.data?.tenants?.filter((t: any) => propRooms.some((r: any) => r.id === t.roomId)) || []
+                        const isExpanded = expandedProp === p.id
                         return (
-                          <div key={p.id} className="bg-gray-50 rounded-lg px-3 py-2 mb-1">
-                            <p className="text-sm font-medium text-gray-900">{p.address}</p>
-                            <p className="text-xs text-gray-400">
-                              {propRooms.length} 间房间 · {propTenants.length} 个租客
-                            </p>
+                          <div key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedProp(isExpanded ? null : p.id)}
+                              className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 mb-1 text-left transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-gray-900">{p.address}</p>
+                                <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                              </div>
+                              <p className="text-xs text-gray-400">
+                                {propRooms.length} 间房间 · {propTenants.length} 个租客
+                              </p>
+                            </button>
+                            {isExpanded && (
+                              <div className="pl-3 mb-1 space-y-1">
+                                {propRooms.length === 0 ? (
+                                  <p className="text-xs text-gray-400 py-1">暂无房间</p>
+                                ) : propRooms.map((r: any) => {
+                                  const roomTenants = propTenants.filter((t: any) => t.roomId === r.id)
+                                  return (
+                                    <div key={r.id} className="bg-white border border-gray-100 rounded-lg px-3 py-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-gray-700">{r.label}室 ({r.roomType})</span>
+                                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.status === 'occupied' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                          {r.status === 'occupied' ? '已租' : '空置'}
+                                        </span>
+                                      </div>
+                                      {roomTenants.length > 0 && roomTenants.map((t: any) => (
+                                        <div key={t.id} className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                                          <span>{t.name}</span>
+                                          <span className="text-gray-300">|</span>
+                                          <span>{t.contractStart}~{t.contractEnd}</span>
+                                          <span className="text-gray-300">|</span>
+                                          <span>¥{t.monthlyRent}/月</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -241,15 +281,34 @@ export default function Admin() {
                   {user.data?.landlordContracts && user.data.landlordContracts.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs font-medium text-gray-500 mb-1">业主合同 ({user.data.landlordContracts.length})</p>
-                      {user.data.landlordContracts.slice(0, 3).map((c: any) => (
-                        <div key={c.id} className="flex justify-between items-center bg-gray-50 rounded-lg px-3 py-1.5 mb-1">
-                          <span className="text-xs text-gray-700">{c.landlordName} · {c.displayId}</span>
-                          <span className="text-xs text-gray-500">¥{c.monthlyRent}/月</span>
-                        </div>
-                      ))}
-                      {user.data.landlordContracts.length > 3 && (
-                        <p className="text-xs text-gray-400 text-center">...还有 {user.data.landlordContracts.length - 3} 份</p>
-                      )}
+                      {user.data.landlordContracts.map((c: any) => {
+                        const isExpanded = expandedContract === c.id
+                        return (
+                          <div key={c.id}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedContract(isExpanded ? null : c.id)}
+                              className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-1.5 mb-1 text-left transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                  <span className="text-xs text-gray-700 font-medium">{c.landlordName} · {c.displayId}</span>
+                                </div>
+                                <span className="text-xs text-gray-500">¥{c.monthlyRent}/月</span>
+                              </div>
+                            </button>
+                            {isExpanded && (
+                              <div className="pl-3 mb-1 bg-white border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 space-y-1">
+                                <p><span className="text-gray-400">业主电话：</span>{c.landlordPhone || '未填写'}</p>
+                                <p><span className="text-gray-400">合同期限：</span>{c.contractStart} ~ {c.contractEnd}</p>
+                                <p><span className="text-gray-400">付款方式：</span>{c.paymentMethod === 'monthly' ? '月付' : c.paymentMethod === 'quarterly' ? '季付' : c.paymentMethod === 'semi-annual' ? '半年付' : '年付'}</p>
+                                <p><span className="text-gray-400">状态：</span><span className={`${c.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>{c.status === 'active' ? '执行中' : '已结束'}</span></p>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
