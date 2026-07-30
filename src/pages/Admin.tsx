@@ -153,7 +153,7 @@ export default function Admin() {
             <div key={user.user_id} className={`bg-white rounded-xl ${user.disabled ? 'opacity-60' : ''}`}>
               <button
                 type="button"
-                onClick={() => setExpandedUser(expandedUser === user.user_id ? null : user.user_id)}
+                onClick={() => { setExpandedUser(expandedUser === user.user_id ? null : user.user_id); setExpandedProp(null); setExpandedContract(null); }}
                 className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 rounded-xl transition-colors"
               >
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${user.disabled ? 'bg-gray-200' : 'bg-blue-100'}`}>
@@ -177,7 +177,7 @@ export default function Admin() {
               </button>
 
               {expandedUser === user.user_id && (
-                <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
+                <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3" onClick={(e) => { if (e.target === e.currentTarget) { setExpandedProp(null); setExpandedContract(null); } }}>
                   {/* 停用/启用按钮 */}
                   <div className="flex justify-end">
                     <button
@@ -232,7 +232,8 @@ export default function Admin() {
                           <div key={p.id}>
                             <button
                               type="button"
-                              onClick={() => setExpandedProp(isExpanded ? null : p.id)}
+                              onClick={() => { setExpandedProp(isExpanded ? null : p.id); setExpandedContract(null); }
+                              }
                               className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 mb-1 text-left transition-colors"
                             >
                               <div className="flex items-center justify-between">
@@ -258,8 +259,8 @@ export default function Admin() {
                                         </span>
                                       </div>
                                       {roomTenants.length > 0 && roomTenants.map((t: any) => (
-                                        <div key={t.id} className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                                          <span>{t.name}</span>
+                                        <div key={t.id} className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                          <span className="font-medium">{t.name}</span>
                                           <span className="text-gray-300">|</span>
                                           <span>{t.contractStart}~{t.contractEnd}</span>
                                           <span className="text-gray-300">|</span>
@@ -287,7 +288,8 @@ export default function Admin() {
                           <div key={c.id}>
                             <button
                               type="button"
-                              onClick={() => setExpandedContract(isExpanded ? null : c.id)}
+                              onClick={() => { setExpandedContract(isExpanded ? null : c.id); setExpandedProp(null); }
+                              }
                               className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-1.5 mb-1 text-left transition-colors"
                             >
                               <div className="flex items-center justify-between">
