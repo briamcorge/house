@@ -177,7 +177,7 @@ export default function Admin() {
               </button>
 
               {expandedUser === user.user_id && (
-                <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3" onClick={(e) => { if (e.target === e.currentTarget) { setExpandedProp(null); setExpandedContract(null); } }}>
+                <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3" onClick={() => { setExpandedProp(null); setExpandedContract(null); }}>
                   {/* 停用/启用按钮 */}
                   <div className="flex justify-end">
                     <button
@@ -232,7 +232,7 @@ export default function Admin() {
                           <div key={p.id}>
                             <button
                               type="button"
-                              onClick={() => { setExpandedProp(isExpanded ? null : p.id); setExpandedContract(null); }
+                              onClick={(e) => { e.stopPropagation(); setExpandedProp(isExpanded ? null : p.id); setExpandedContract(null); }
                               }
                               className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 mb-1 text-left transition-colors"
                             >
@@ -288,7 +288,7 @@ export default function Admin() {
                           <div key={c.id}>
                             <button
                               type="button"
-                              onClick={() => { setExpandedContract(isExpanded ? null : c.id); setExpandedProp(null); }
+                              onClick={(e) => { e.stopPropagation(); setExpandedContract(isExpanded ? null : c.id); setExpandedProp(null); }
                               }
                               className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-1.5 mb-1 text-left transition-colors"
                             >
