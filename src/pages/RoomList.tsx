@@ -117,7 +117,7 @@ export default function RoomList() {
                           <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(menuOpenContractId === c.id ? null : c.id) }} className="text-xs px-1.5 py-1 rounded-lg text-gray-500 hover:bg-gray-100 whitespace-nowrap">操作 ▾</button>
                           {menuOpenContractId === c.id && (
                             <>
-                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenContractId(null)} />
+                              <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); }} />
                               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 min-w-[88px]" onClick={e => e.stopPropagation()}>
                                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setEditContractId(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">编辑</button>
                                 {c.status === 'active' ? (
@@ -181,7 +181,7 @@ export default function RoomList() {
                   </button>
                   {roomMenu === room.id && (
                     <>
-                      <div className="fixed inset-0 z-[5]" onClick={() => setRoomMenu(null)} />
+                      <div className="fixed inset-0 z-[5]" onClick={e => { e.stopPropagation(); setRoomMenu(null); }} />
                     <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[150px] z-[60]">
                       <button
                         type="button"
