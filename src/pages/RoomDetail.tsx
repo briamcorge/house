@@ -236,7 +236,7 @@ export default function RoomDetail() {
                   const isExpanded = expandedContracts.has(t.id)
 
                   return (
-                    <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
                       {/* 合同头部 — 点击展开/折叠账单 */}
                       <div
                         onClick={() => toggleContract(t.id)}
