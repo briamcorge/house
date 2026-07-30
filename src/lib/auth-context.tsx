@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { getSupabase, isSupabaseConfigured } from './supabase'
+import { getSupabase, isSupabaseConfigured, updateLastActive } from './supabase'
 
 type AuthEvent = 'INITIAL_SESSION' | 'SIGNED_IN' | 'SIGNED_OUT' | 'PASSWORD_RECOVERY' | 'TOKEN_REFRESHED' | 'USER_UPDATED'
 
@@ -33,11 +33,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (ev === 'INITIAL_SESSION') {
         setReady(true)
+        if (session?.user) {
+          updateLastActive()
+        }
+      }
+      if (ev === 'SIGNED_IN') {
+        updateLastActive()
       }
     })
 
     return () => { subscription.unsubscribe() }
   }, [])
+
+  // 用户在线时每5分钟更新一次最后活跃时间
+  useEffect(() => {
+    if (!user) return
+    const interval = setInterval(() => updateLastActive(), 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [user])
 
   return (
     <AuthContext.Provider value={{ user, ready, lastEvent }}>

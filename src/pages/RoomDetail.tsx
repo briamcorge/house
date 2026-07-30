@@ -86,6 +86,7 @@ export default function RoomDetail() {
   const [showRoomChange, setShowRoomChange] = useState(false)
   const [roomChangeTenant, setRoomChangeTenant] = useState<Tenant | null>(null)
   const [roomChangeTarget, setRoomChangeTarget] = useState('')
+  const [menuOpenTenantId, setMenuOpenTenantId] = useState<string | null>(null)
 
   useEffect(() => {
     if (payConfirmBill) {
@@ -262,19 +263,29 @@ export default function RoomDetail() {
                               {t.status === 'active' ? '在租' : '已退租'}
                             </span>
                           </div>
-                          <div className="flex gap-2 shrink-0">
-                            <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(false); setEditingTenant(t); setShowTenantModal(true) }} className="text-xs text-blue-600 hover:underline whitespace-nowrap">编辑</button>
-                            {t.status === 'active' ? (
+                          <div className="flex gap-1 shrink-0 items-center relative">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(menuOpenTenantId === t.id ? null : t.id) }} className="text-xs px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 whitespace-nowrap">操作 ▾</button>
+                            {menuOpenTenantId === t.id && (
                               <>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setRoomChangeTenant(t); setRoomChangeTarget(''); setShowRoomChange(true) }} className="text-xs text-amber-600 hover:underline whitespace-nowrap">换房</button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="text-xs text-green-600 hover:underline whitespace-nowrap">续约</button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setCheckoutTenant(t) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">退租</button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: false }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
-                              </>
-                            ) : (
-                              <>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); restoreTenant(t.id, t.roomId) }} className="text-xs text-blue-600 hover:underline whitespace-nowrap">恢复</button>
-                                <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="text-xs text-red-600 hover:underline whitespace-nowrap">删除</button>
+                                <div className="fixed inset-0 z-40" onClick={() => setMenuOpenTenantId(null)} />
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 min-w-[88px]" onClick={e => e.stopPropagation()}>
+                                  {t.status === 'active' ? (
+                                    <>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setIsRenewal(false); setEditingTenant(t); setShowTenantModal(true) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">编辑</button>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setRoomChangeTenant(t); setRoomChangeTarget(''); setShowRoomChange(true) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">换房</button>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setIsRenewal(true); setEditingTenant({ ...t, contractStart: formatDate(add30Days(new Date(t.contractEnd), 1)), contractEnd: formatDate(add30Days(new Date(t.contractEnd), 360)) }); setShowTenantModal(true) }} className="block w-full text-left px-3 py-1.5 text-xs text-green-600 hover:bg-gray-50">续约</button>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setCheckoutTenant(t) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">退租</button>
+                                      <div className="border-t border-gray-50 my-1" />
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setDeleteConfirm({ tenantId: t.id, isEnded: false }) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">删除</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); restoreTenant(t.id, t.roomId) }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">恢复</button>
+                                      <div className="border-t border-gray-50 my-1" />
+                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">删除</button>
+                                    </>
+                                  )}
+                                </div>
                               </>
                             )}
                           </div>

@@ -120,7 +120,6 @@ export default function More() {
   }
 
   const activeTenants = tenants.filter(t => t.status === 'active')
-  const pendingBills = bills.filter(b => b.status === 'pending' || b.status === 'overdue')
   const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable').reduce((s, b) => s + Number(b.amount), 0)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable').reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable')
@@ -576,7 +575,7 @@ export default function More() {
                 <p className="text-blue-200 text-xs">轻松管理您的房产</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => navigate('/properties')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
                 <p className="text-lg font-bold text-white">{properties.length}</p>
                 <p className="text-blue-200 text-xs">房屋</p>
@@ -584,10 +583,6 @@ export default function More() {
               <button type="button" onClick={() => navigate('/tenants')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
                 <p className="text-lg font-bold text-white">{activeTenants.length}</p>
                 <p className="text-blue-200 text-xs">在租租客</p>
-              </button>
-              <button type="button" onClick={() => navigate('/bills')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
-                <p className="text-lg font-bold text-white">{pendingBills.length}</p>
-                <p className="text-blue-200 text-xs">待处理账单</p>
               </button>
             </div>
             <div className="mt-2 pt-2 border-t border-white/20 grid grid-cols-2 gap-2">

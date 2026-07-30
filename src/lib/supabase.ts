@@ -250,11 +250,26 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
 }
 
 // 获取所有用户数据（仅管理员可调用）
-export async function getAllUserData(): Promise<{ user_id: string; email: string; data: any; updated_at: string }[]> {
+export async function getAllUserData(): Promise<{ user_id: string; email: string; data: any; updated_at: string; last_active_at: string | null; disabled: boolean }[]> {
   const sb = getSupabase()
   if (!sb) return []
   const { data, error } = await sb.rpc('get_all_user_data')
   if (error) return []
   return data as any[]
+}
+
+// 更新当前用户最后活跃时间
+export async function updateLastActive(): Promise<void> {
+  const sb = getSupabase()
+  if (!sb) return
+  try { await sb.rpc('update_last_active') } catch {}
+}
+
+// 管理员停用/启用用户
+export async function setUserDisabled(userId: string, disabled: boolean): Promise<boolean> {
+  const sb = getSupabase()
+  if (!sb) return false
+  const { error } = await sb.rpc('set_user_disabled', { target_user_id: userId, is_disabled: disabled })
+  return !error
 }
 

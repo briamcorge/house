@@ -42,6 +42,7 @@ export default function RoomList() {
   const [landlordCheckout, setLandlordCheckout] = useState<{ id: string; name: string; deposit: number } | null>(null)
   const [detailContractId, setDetailContractId] = useState<string | null>(null)
   const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
+  const [menuOpenContractId, setMenuOpenContractId] = useState<string | null>(null)
 
   if (!property) {
     return (
@@ -112,15 +113,24 @@ export default function RoomList() {
                             <span onClick={e => { e.stopPropagation(); setEditInlineValue(c.landlordName || ''); setInlineEdit({ id: c.id, field: 'name', value: c.landlordName || '' }) }} className="cursor-pointer hover:text-blue-600" title="点击修改">{c.landlordName || '业主'}</span>
                           )} · ¥{c.monthlyRent}/月
                         </span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={e => { e.stopPropagation(); setEditContractId(c.id) }} className="text-xs text-blue-600 hover:underline">编辑</button>
-                          {c.status === 'active' ? (
-                            <button type="button" onClick={e => { e.stopPropagation(); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="text-xs text-orange-600 hover:underline">退租</button>
-                          ) : (
-                            <button type="button" onClick={e => { e.stopPropagation(); restoreLandlordContract(c.id) }} className="text-xs text-blue-600 hover:underline">恢复</button>
+                        <div className="flex items-center gap-1 relative">
+                          <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(menuOpenContractId === c.id ? null : c.id) }} className="text-xs px-1.5 py-1 rounded-lg text-gray-500 hover:bg-gray-100 whitespace-nowrap">操作 ▾</button>
+                          {menuOpenContractId === c.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenContractId(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 min-w-[88px]" onClick={e => e.stopPropagation()}>
+                                <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setEditContractId(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">编辑</button>
+                                {c.status === 'active' ? (
+                                  <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="block w-full text-left px-3 py-1.5 text-xs text-orange-600 hover:bg-gray-50">退租</button>
+                                ) : (
+                                  <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); restoreLandlordContract(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">恢复</button>
+                                )}
+                                <div className="border-t border-gray-50 my-1" />
+                                <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setContractConfirm({ id: c.id, action: 'delete' }) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">删除</button>
+                              </div>
+                            </>
                           )}
-                          <button type="button" onClick={e => { e.stopPropagation(); setContractConfirm({ id: c.id, action: 'delete' }) }} className="text-xs text-red-600 hover:underline">删除</button>
-                          <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">{c.status === 'active' ? '执行中' : '已结束'}</span>
+                          <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full ml-1">{c.status === 'active' ? '执行中' : '已结束'}</span>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
