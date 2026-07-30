@@ -170,7 +170,7 @@ export default function RoomDetail() {
               </button>
               {showHeaderMenu && (
                 <>
-                  <div className="fixed inset-0 z-[5]" onClick={() => setShowHeaderMenu(false)} />
+                  <div className="fixed inset-0 z-[5]" onClick={e => { e.stopPropagation(); setShowHeaderMenu(false); }} />
                   <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[140px] z-[60]">
                     {roomTenants.some(t => t.status === 'ended') && (
                       <button
@@ -267,7 +267,7 @@ export default function RoomDetail() {
                             <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(menuOpenTenantId === t.id ? null : t.id) }} className="text-xs px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 whitespace-nowrap">操作 ▾</button>
                             {menuOpenTenantId === t.id && (
                               <>
-                                <div className="fixed inset-0 z-40" onClick={() => setMenuOpenTenantId(null)} />
+                                <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); setMenuOpenTenantId(null); }} />
                                 <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 min-w-[88px]" onClick={e => e.stopPropagation()}>
                                   {t.status === 'active' ? (
                                     <>
