@@ -428,6 +428,7 @@ export default function RoomDetail() {
         rooms={rooms}
         tenants={roomTenants}
         defaultRoomId={roomId}
+        defaultTenantId={billModalTenantId || undefined}
         defaultDirection="receivable"
       />
       <CheckoutModal

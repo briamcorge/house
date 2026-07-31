@@ -33,7 +33,7 @@ interface AppStore {
   updateBill: (id: string, bill: Partial<Bill>) => void
   deleteBill: (id: string) => void
 
-  addLandlordContract: (contract: Omit<LandlordContract, 'id' | 'createdAt' | 'displayId'>) => void
+  addLandlordContract: (contract: Omit<LandlordContract, 'id' | 'createdAt' | 'displayId'>) => string
   updateLandlordContract: (id: string, data: Partial<LandlordContract>) => void
   deleteLandlordContract: (id: string, propertyId: string) => void
   terminateLandlordContract: (id: string) => void
@@ -446,18 +446,18 @@ export const useStore = create<AppStore>()(
           }
         }),
 
-      addLandlordContract: (contract) =>
-        set((state) => {
-          const now = new Date().toISOString()
-          const id = createId()
-          return {
-            landlordContracts: [
-              ...state.landlordContracts,
-              { ...contract, displayId: nextDisplayId(state, 'DL'), id, createdAt: now } as LandlordContract,
-            ],
-            auditLogs: recordLog(state, 'create', 'landlord_contract', id, `业主合同`),
-          }
-        }),
+      addLandlordContract: (contract) => {
+        const now = new Date().toISOString()
+        const id = createId()
+        set((state) => ({
+          landlordContracts: [
+            ...state.landlordContracts,
+            { ...contract, displayId: nextDisplayId(state, 'DL'), id, createdAt: now } as LandlordContract,
+          ],
+          auditLogs: recordLog(state, 'create', 'landlord_contract', id, `业主合同`),
+        }))
+        return id
+      },
 
       updateLandlordContract: (id, data) =>
         set((state) => ({
@@ -473,22 +473,27 @@ export const useStore = create<AppStore>()(
           const trash: TrashItem[] = []
           if (contract) {
             trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) })
-            // 只删除该合同日期范围内的应付账单
+            // 删除该合同关联的应付账单（landlordContractId 精确匹配）
+            // 旧数据无 landlordContractId → 兜底按 propertyId + dueDate 在合同日期范围内删除
             state.bills.filter((b) =>
-              b.propertyId === propertyId &&
               b.direction === 'payable' &&
-              b.dueDate >= contract.contractStart &&
-              b.dueDate <= contract.contractEnd
+              (b.landlordContractId === id ||
+                (!b.landlordContractId &&
+                  b.propertyId === propertyId &&
+                  b.dueDate >= contract.contractStart &&
+                  b.dueDate <= contract.contractEnd))
             ).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
           }
           return {
             landlordContracts: state.landlordContracts.filter((c) => c.id !== id),
             bills: contract
               ? state.bills.filter((b) =>
-                  !(b.propertyId === propertyId &&
-                    b.direction === 'payable' &&
-                    b.dueDate >= contract.contractStart &&
-                    b.dueDate <= contract.contractEnd)
+                  !(b.direction === 'payable' &&
+                    (b.landlordContractId === id ||
+                      (!b.landlordContractId &&
+                        b.propertyId === propertyId &&
+                        b.dueDate >= contract.contractStart &&
+                        b.dueDate <= contract.contractEnd)))
                 )
               : state.bills,
             trash: [...state.trash, ...trash],
@@ -499,7 +504,7 @@ export const useStore = create<AppStore>()(
       terminateLandlordContract: (id) =>
         set((state) => ({
           landlordContracts: state.landlordContracts.map((c) =>
-            c.id === id ? { ...c, status: 'ended' as const } : c
+            c.id === id ? { ...c, status: 'ended' as const, endReason: 'checkout' as const } : c
           ),
           auditLogs: recordLog(state, 'terminate', 'landlord_contract', id, `终止业主合同`),
         })),
@@ -507,7 +512,7 @@ export const useStore = create<AppStore>()(
       restoreLandlordContract: (id) =>
         set((state) => ({
           landlordContracts: state.landlordContracts.map((c) =>
-            c.id === id ? { ...c, status: 'active' as const } : c
+            c.id === id ? { ...c, status: 'active' as const, endReason: undefined } : c
           ),
           auditLogs: recordLog(state, 'restore', 'landlord_contract', id, `恢复业主合同`),
         })),
@@ -573,6 +578,13 @@ export const useStore = create<AppStore>()(
           const item = state.trash.find((t) => t.id === trashId)
           if (!item) return state
           const data = item.data
+          // 恢复账单时校验关联实体存在（防止孤儿账单：租客/房间已被彻底删除）
+          if (item.type === 'bill') {
+            const b = data as Bill
+            if (b.tenantId && !state.tenants.some(t => t.id === b.tenantId)) return state
+            if (b.roomId && !state.rooms.some(r => r.id === b.roomId)) return state
+            if (b.landlordContractId && !state.landlordContracts.some(c => c.id === b.landlordContractId)) return state
+          }
           const log = recordLog(state, 'restore', item.type, item.originalId, `恢复 ${item.label}`)
           switch (item.type) {
             case 'property':
@@ -608,7 +620,7 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 6,
+    version: 7,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
@@ -702,6 +714,20 @@ export const useStore = create<AppStore>()(
             return { ...b, status: 'refunded' as const }
           }
           return b
+        })
+        state = { ...state, bills }
+      }
+      // v6→v7: 给旧应付账单回填 landlordContractId（按 propertyId + dueDate 落在合同日期范围内匹配）
+      if (version <= 6) {
+        const contracts = (state.landlordContracts as Array<Record<string, unknown>> || [])
+        const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
+          if (b.direction !== 'payable' || b.landlordContractId) return b
+          const c = contracts.find((c: Record<string, unknown>) =>
+            String(c.propertyId) === String(b.propertyId) &&
+            String(b.dueDate || '') >= String(c.contractStart || '') &&
+            String(b.dueDate || '') <= String(c.contractEnd || '')
+          )
+          return c ? { ...b, landlordContractId: c.id } : b
         })
         state = { ...state, bills }
       }

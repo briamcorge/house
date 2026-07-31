@@ -305,7 +305,7 @@ export default function Admin() {
                                 <p><span className="text-gray-400">业主电话：</span>{c.landlordPhone || '未填写'}</p>
                                 <p><span className="text-gray-400">合同期限：</span>{c.contractStart} ~ {c.contractEnd}</p>
                                 <p><span className="text-gray-400">付款方式：</span>{c.paymentMethod === 'monthly' ? '月付' : c.paymentMethod === 'quarterly' ? '季付' : c.paymentMethod === 'semi-annual' ? '半年付' : '年付'}</p>
-                                <p><span className="text-gray-400">状态：</span><span className={`${c.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>{c.status === 'active' ? '执行中' : '已结束'}</span></p>
+                                <p><span className="text-gray-400">状态：</span><span className={`${c.status === 'active' ? 'text-green-600' : c.endReason === 'renew' ? 'text-indigo-600' : 'text-gray-400'}`}>{c.status === 'active' ? '执行中' : c.endReason === 'renew' ? '已续约' : '已结束'}</span></p>
                               </div>
                             )}
                           </div>

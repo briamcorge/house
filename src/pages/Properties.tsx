@@ -233,20 +233,7 @@ export default function Properties() {
         isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
         onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
         onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
-          draftBills.forEach((bill) => {
-            addBill({
-              propertyId: landlordPropertyId!,
-              amount: bill.amount,
-              type: bill.type === 'deposit' ? 'deposit' : 'rent',
-              status: 'pending',
-              direction: 'payable',
-              dueDate: bill.dueDate,
-              description: bill.description,
-              periodStart: bill.periodStart,
-              periodEnd: bill.periodEnd,
-            })
-          })
-          addLandlordContract({
+          const contractId = addLandlordContract({
             propertyId: landlordPropertyId!,
             landlordName: name,
             landlordPhone: phone,
@@ -257,31 +244,32 @@ export default function Properties() {
             status: 'active',
             deposit: deposit,
           })
+          draftBills.forEach((bill) => {
+            addBill({
+              propertyId: landlordPropertyId!,
+              landlordContractId: contractId,
+              amount: bill.amount,
+              type: bill.type === 'deposit' ? 'deposit' : 'rent',
+              status: 'pending',
+              direction: 'payable',
+              dueDate: bill.dueDate,
+              description: bill.description,
+              periodStart: bill.periodStart,
+              periodEnd: bill.periodEnd,
+            })
+          })
           setLandlordPropertyId(null)
         }}
         onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
           const pid = landlordEdit?.pid
           if (!pid) return
           const now = new Date().toISOString().slice(0, 7)
-          draftBills.forEach((bill) => {
-            addBill({
-              propertyId: pid,
-              amount: bill.amount,
-              type: bill.type === 'deposit' ? 'deposit' : 'rent',
-              status: 'pending',
-              direction: 'payable',
-              dueDate: bill.dueDate,
-              description: `[续约${now}] ${bill.description}`,
-              periodStart: bill.periodStart,
-              periodEnd: bill.periodEnd,
-            })
-          })
-          // 结束旧合同
+          // 结束旧合同（续约被替代，不是退租）
           const oldContract = landlordContracts.find(c => c.propertyId === pid && c.status === 'active')
           if (oldContract) {
-            updateLandlordContract(oldContract.id, { status: 'ended' })
+            updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
           }
-          addLandlordContract({
+          const contractId = addLandlordContract({
             propertyId: pid,
             landlordName: name,
             landlordPhone: phone,
@@ -291,6 +279,21 @@ export default function Properties() {
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
             deposit: deposit,
+            previousContractId: oldContract?.id,
+          })
+          draftBills.forEach((bill) => {
+            addBill({
+              propertyId: pid,
+              landlordContractId: contractId,
+              amount: bill.amount,
+              type: bill.type === 'deposit' ? 'deposit' : 'rent',
+              status: 'pending',
+              direction: 'payable',
+              dueDate: bill.dueDate,
+              description: `[续约${now}] ${bill.description}`,
+              periodStart: bill.periodStart,
+              periodEnd: bill.periodEnd,
+            })
           })
           setLandlordEdit(null)
         }}
