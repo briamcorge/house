@@ -381,7 +381,7 @@ export default function RoomList() {
           }
         }}
         title={contractConfirm?.action === 'terminate' ? '退租确认' : '删除确认'}
-        message={contractConfirm?.action === 'terminate' ? '确定退租？合同标记为已结束，账单保留。' : '确定删除该合同及所有应付账单？'}
+        message={contractConfirm?.action === 'terminate' ? '确定退租？合同标记为已结束，未付账单将一并删除（恢复合同可找回）。' : '确定删除该合同及所有应付账单？'}
         variant="danger"
       />
 

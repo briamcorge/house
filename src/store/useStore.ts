@@ -273,9 +273,10 @@ export const useStore = create<AppStore>()(
       terminateTenant: (id, roomId, checkoutDate) =>
         set((state) => {
           // 保留已付和已退还的账单，删除其他（未付/逾期的未来期数账单）
-          const remainingBills = state.bills.filter(b =>
-            !(b.tenantId === id && b.status !== 'paid' && b.status !== 'refunded' && b.direction === 'receivable')
+          const removedBills = state.bills.filter(b =>
+            b.tenantId === id && b.status !== 'paid' && b.status !== 'refunded' && b.direction === 'receivable'
           )
+          const remainingBills = state.bills.filter(b => !removedBills.includes(b))
           // 合同结束日：退租日的前一天（退租当天已不住）
           const d = new Date(checkoutDate)
           d.setDate(d.getDate() - 1)
@@ -284,7 +285,7 @@ export const useStore = create<AppStore>()(
           // 历史数据中已有 contractEnd 被修改过的，由 profit.ts 从退租金账单推导。
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'ended', effectiveEnd: checkoutDate, endReason: 'checkout' as const } : t
+              t.id === id ? { ...t, status: 'ended', effectiveEnd: checkoutDate, endReason: 'checkout' as const, pendingBills: removedBills } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'vacant' } : r
@@ -315,14 +316,17 @@ export const useStore = create<AppStore>()(
               ))
               .map(b => b.id)
           )
+          // 找回退租时暂存的未付账单（未来期数）
+          const tenant = state.tenants.find(t => t.id === id)
+          const pendingBills = tenant?.pendingBills || []
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined, endReason: undefined } : t
+              t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined, endReason: undefined, pendingBills: undefined } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
             ),
-            bills: state.bills.filter(b => !checkoutBillIds.has(b.id)),
+            bills: [...state.bills.filter(b => !checkoutBillIds.has(b.id)), ...pendingBills],
             auditLogs: recordLog(state, 'restore', 'tenant', id, `恢复租客`),
           }
         }),
@@ -514,12 +518,27 @@ export const useStore = create<AppStore>()(
         }),
 
       terminateLandlordContract: (id) =>
-        set((state) => ({
-          landlordContracts: state.landlordContracts.map((c) =>
-            c.id === id ? { ...c, status: 'ended' as const, endReason: 'checkout' as const } : c
-          ),
-          auditLogs: recordLog(state, 'terminate', 'landlord_contract', id, `终止业主合同`),
-        })),
+        set((state) => {
+          const contract = state.landlordContracts.find((c) => c.id === id)
+          if (!contract) return state
+          // 删除该合同未付的应付账单（未来期数），已付/已退还保留；暂存以便恢复时找回
+          // 旧数据无 landlordContractId → 兜底按 propertyId + dueDate 在合同日期范围内删除
+          const isContractBill = (b: Bill) =>
+            b.direction === 'payable' &&
+            (b.landlordContractId === id ||
+              (!b.landlordContractId &&
+                b.propertyId === contract.propertyId &&
+                b.dueDate >= contract.contractStart &&
+                b.dueDate <= contract.contractEnd))
+          const removedBills = state.bills.filter(b => isContractBill(b) && b.status !== 'paid' && b.status !== 'refunded')
+          return {
+            landlordContracts: state.landlordContracts.map((c) =>
+              c.id === id ? { ...c, status: 'ended' as const, endReason: 'checkout' as const, pendingBills: removedBills } : c
+            ),
+            bills: state.bills.filter(b => !removedBills.includes(b)),
+            auditLogs: recordLog(state, 'terminate', 'landlord_contract', id, `终止业主合同`),
+          }
+        }),
 
       restoreLandlordContract: (id) =>
         set((state) => {
@@ -533,11 +552,14 @@ export const useStore = create<AppStore>()(
               ))
               .map(b => b.id)
           )
+          // 找回退租时暂存的未付账单（未来期数）
+          const contract = state.landlordContracts.find(c => c.id === id)
+          const pendingBills = contract?.pendingBills || []
           return {
             landlordContracts: state.landlordContracts.map((c) =>
-              c.id === id ? { ...c, status: 'active' as const, endReason: undefined } : c
+              c.id === id ? { ...c, status: 'active' as const, endReason: undefined, pendingBills: undefined } : c
             ),
-            bills: state.bills.filter(b => !checkoutBillIds.has(b.id)),
+            bills: [...state.bills.filter(b => !checkoutBillIds.has(b.id)), ...pendingBills],
             auditLogs: recordLog(state, 'restore', 'landlord_contract', id, `恢复业主合同`),
           }
         }),

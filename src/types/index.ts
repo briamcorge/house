@@ -40,6 +40,8 @@ export interface Tenant {
   effectiveEnd?: string
   /** 结束原因：checkout=手动退租，renew=续约被替代。用于 UI 区分"已退租"与"已续约" */
   endReason?: 'checkout' | 'renew'
+  /** 退租时被删除的未付账单暂存（恢复租客时找回），仅退租的租客可能有 */
+  pendingBills?: Bill[]
 }
 
 export type BillDirection = 'payable' | 'receivable'
@@ -81,6 +83,8 @@ export interface LandlordContract {
   endReason?: 'checkout' | 'renew'
   /** 续约时指向上一个业主合同 ID，用于追踪续约链 */
   previousContractId?: string
+  /** 退租时被删除的未付账单暂存（恢复合同时找回），仅已退租的合同可能有 */
+  pendingBills?: Bill[]
   createdAt: string
 }
 
