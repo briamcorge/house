@@ -594,7 +594,7 @@ export default function RoomDetail() {
       <HistoryTenantsModal
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
-        tenants={roomTenants.filter(t => t.status === 'ended')}
+        tenants={roomTenants}
         roomLabel={`${room.label}室`}
         onViewTenant={(tenantId) => navigate(`/properties/${propertyId}/rooms/${roomId}`, { state: { selectedTenantId: tenantId } })}
       />

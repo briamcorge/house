@@ -21,6 +21,8 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
 
   if (!isOpen) return null
 
+  // 只显示已结束的租客；但续约判断需用完整租客列表（含在租的续约合同）反查
+  const historyTenants = tenants.filter(t => t.status === 'ended')
   // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
   const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
     t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
@@ -38,12 +40,12 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
         </div>
 
         <div className="p-4 space-y-3">
-          {tenants.length === 0 ? (
+          {historyTenants.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-400 text-sm">暂无历史租客</p>
             </div>
           ) : (
-            tenants.map(t => (
+            historyTenants.map(t => (
               <div
                 key={t.id}
                 onClick={() => { onViewTenant?.(t.id); onClose() }}
