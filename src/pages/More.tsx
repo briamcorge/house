@@ -167,7 +167,7 @@ export default function More() {
     const sheets: [string, Record<string, unknown>[], Record<string, string>][] = [
       ['房源', properties as unknown as Record<string, unknown>[], { id: 'ID', address: '地址', description: '备注', createdAt: '创建时间' }],
       ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
-      ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', createdAt: '创建时间' }],
+      ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '', endReason: c.endReason ?? '', previousContractId: c.previousContractId ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', endReason: '结束原因', previousContractId: '上一合同ID', createdAt: '创建时间' }],
       ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '', effectiveEnd: t.effectiveEnd ?? '', endReason: t.endReason ?? '', previousTenantId: t.previousTenantId ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', effectiveEnd: '退租日', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', endReason: '结束原因', previousTenantId: '上一合同ID', createdAt: '创建时间' }],
       ['账单', bills.map(b => {
         const { startDate, endDate } = extractPeriod(b.description)
@@ -193,9 +193,10 @@ export default function More() {
          direction: '方向',
          收款日: '收款日', 付款日: '付款日',
          startDate: '开始日', endDate: '结束日',
-         periodStart: '覆盖开始', periodEnd: '覆盖结束',
-         实收日: '实收日', 实付日: '实付日',
-         description: '期间描述', createdAt: '创建时间',
+          periodStart: '覆盖开始', periodEnd: '覆盖结束',
+          实收日: '实收日', 实付日: '实付日',
+          landlordContractId: '业主合同ID',
+          description: '期间描述', createdAt: '创建时间',
         }],
        ['利润提取', profitRecords.map(r => ({ ...r, extractedAt: r.extractedAt ?? '', isManual: r.isManual ? '是' : '', remark: r.remark ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', cycleStart: '周期开始', cycleEnd: '周期结束', tenantIncome: '租客收入', landlordExpense: '业主支出', profitAmount: '利润', status: '状态', extractedAt: '提取日期', isManual: '手动', remark: '备注', createdAt: '创建时间' }],
     ]
@@ -293,9 +294,9 @@ export default function More() {
         const sheetHeaders: Record<string, Record<string, string>> = {
           '房源': { 'ID': 'id', '地址': 'address', '备注': 'description', '创建时间': 'createdAt' },
           '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
-          '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '创建时间': 'createdAt' },
+          '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousContractId', '创建时间': 'createdAt' },
           '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousTenantId', '创建时间': 'createdAt' },
-          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '创建时间': 'createdAt' },
+          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '业主合同ID': 'landlordContractId', '创建时间': 'createdAt' },
           '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
         }
 

@@ -17,7 +17,15 @@ export default function Tenants() {
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ tenantId: string; roomId: string } | null>(null)
   const navigate = useNavigate()
 
-  const filteredTenants = tenants.filter(t => statusFilter === 'all' || t.status === statusFilter)
+  // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
+  const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
+
+  const filteredTenants = tenants.filter(t =>
+    statusFilter === 'all' ? true
+      : statusFilter === 'active' ? t.status === 'active'
+        : t.status === 'ended' && !isRenewedTenant(t)
+  )
 
   const getRoomInfo = (roomId: string) => {
     const room = rooms.find(r => r.id === roomId)
@@ -71,7 +79,7 @@ export default function Tenants() {
               <button key={f} onClick={() => setStatusFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === f ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
               >
-                {f === 'all' ? '全部' : f === 'active' ? '在租' : '已退租'}（{f === 'all' ? tenants.length : tenants.filter(t => t.status === f).length}）
+                {f === 'all' ? '全部' : f === 'active' ? '在租' : '已退租'}（{f === 'all' ? tenants.length : f === 'active' ? tenants.filter(t => t.status === 'active').length : tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length}）
               </button>
             ))}
           </div>

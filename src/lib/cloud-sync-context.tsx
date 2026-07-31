@@ -128,6 +128,17 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
             if (ee) { const d = new Date(ee); d.setDate(d.getDate() + 1); ee = d.toISOString().slice(0, 10) }
             return { ...t, effectiveEnd: ee }
           })
+          // 给旧应付账单补 landlordContractId（按 propertyId + dueDate 落在合同日期范围内匹配）
+          const contracts = cloudData.landlordContracts || []
+          bills = bills.map((b: any) => {
+            if (b.direction !== 'payable' || b.landlordContractId) return b
+            const c = contracts.find((c: any) =>
+              String(c.propertyId) === String(b.propertyId) &&
+              String(b.dueDate || '') >= String(c.contractStart || '') &&
+              String(b.dueDate || '') <= String(c.contractEnd || '')
+            )
+            return c ? { ...b, landlordContractId: c.id } : b
+          })
         }
         useStore.setState({
           properties: cloudData.properties,

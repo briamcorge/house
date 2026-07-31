@@ -12,6 +12,7 @@ interface BillModalProps {
   tenants: Tenant[]
   editingBill?: Bill
   defaultRoomId?: string
+  defaultTenantId?: string
   defaultDirection?: BillDirection
 }
 
@@ -20,7 +21,7 @@ function showError(setter: (msg: string) => void, msg: string) {
   setTimeout(() => setter(''), 5000)
 }
 
-export default function BillModal({ isOpen, onClose, onSave, properties, rooms, tenants, editingBill, defaultRoomId, defaultDirection }: BillModalProps) {
+export default function BillModal({ isOpen, onClose, onSave, properties, rooms, tenants, editingBill, defaultRoomId, defaultTenantId, defaultDirection }: BillModalProps) {
   const [direction, setDirection] = useState<BillDirection>('receivable')
   const [propertyId, setPropertyId] = useState('')
   const [roomId, setRoomId] = useState('')
@@ -59,8 +60,10 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       setDirection(defaultDirection || 'receivable')
       setPropertyId('')
       setRoomId(defaultRoomId || '')
-      // 默认选中本房间的租客
-      if (defaultRoomId) {
+      // 默认选中本房间的租客（优先用传入的 defaultTenantId）
+      if (defaultTenantId) {
+        setTenantId(defaultTenantId)
+      } else if (defaultRoomId) {
         const roomTenant = tenants.filter(t => t.roomId === defaultRoomId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
         setTenantId(roomTenant?.id || '')
       } else {
@@ -98,6 +101,12 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     if (direction === 'receivable' && !roomId) {
       showError(setError, '请选择房间')
+      return
+    }
+
+    // 应收账单必须归属租客（防止孤儿账单：有房间无租客，导致利润计算漏算）
+    if (direction === 'receivable' && !tenantId) {
+      showError(setError, '请选择租客（应收账单必须归属租客）')
       return
     }
 

@@ -49,6 +49,8 @@ export interface Bill {
   propertyId?: string
   roomId?: string
   tenantId?: string
+  /** 关联业主合同 ID（应付账单归属的具体合同，替代按日期范围猜测） */
+  landlordContractId?: string
   amount: number
   paidAmount?: number
   type: 'rent' | 'deposit' | 'agency' | 'sublease' | 'hygiene' | 'internet' | 'utilities' | 'other'
@@ -75,6 +77,10 @@ export interface LandlordContract {
   contractStart: string
   contractEnd: string
   status: 'active' | 'ended'
+  /** 结束原因：checkout=手动退租，renew=续约被替代。用于 UI 区分"已结束"与"已续约" */
+  endReason?: 'checkout' | 'renew'
+  /** 续约时指向上一个业主合同 ID，用于追踪续约链 */
+  previousContractId?: string
   createdAt: string
 }
 

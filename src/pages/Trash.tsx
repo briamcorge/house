@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { TrashType } from '../types'
 import ConfirmModal from '../components/ConfirmModal'
+import AlertModal from '../components/AlertModal'
 import { Trash2, RotateCcw, ChevronLeft, AlertTriangle, Search } from 'lucide-react'
 
 const typeLabels: Record<TrashType, string> = {
@@ -25,13 +26,38 @@ const allTypes: TrashType[] = ['property', 'room', 'tenant', 'landlord_contract'
 
 export default function Trash() {
   const navigate = useNavigate()
-  const { trash, restoreFromTrash, permanentlyDelete, emptyTrash } = useStore()
+  const { trash, tenants, rooms, landlordContracts, restoreFromTrash, permanentlyDelete, emptyTrash } = useStore()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false)
   const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TrashType | 'all'>('all')
+  const [restoreError, setRestoreError] = useState<string | null>(null)
+
+  // 恢复前校验：账单引用的租客/房间/业主合同必须存在，否则提示先恢复关联实体
+  const canRestore = (item: { type: TrashType; data: any }): string | null => {
+    if (item.type !== 'bill') return null
+    const b = item.data
+    if (b.tenantId && !tenants.some(t => t.id === b.tenantId)) return '该账单关联的租客已被彻底删除，请先恢复租客'
+    if (b.roomId && !rooms.some(r => r.id === b.roomId)) return '该账单关联的房间已被彻底删除，请先恢复房间'
+    if (b.landlordContractId && !landlordContracts.some(c => c.id === b.landlordContractId)) return '该账单关联的业主合同已被彻底删除，请先恢复业主合同'
+    return null
+  }
+
+  const handleRestore = (item: { id: string; type: TrashType; data: any }) => {
+    const err = canRestore(item)
+    if (err) { setRestoreError(err); return }
+    restoreFromTrash(item.id)
+  }
+
+  const handleBatchRestore = () => {
+    const items = trash.filter(t => selected.has(t.id))
+    const blocked = items.map(canRestore).find(Boolean)
+    if (blocked) { setRestoreError(blocked); return }
+    items.forEach(item => restoreFromTrash(item.id))
+    setSelected(new Set())
+  }
 
   const filteredTrash = useMemo(() => {
     return trash.filter(t => {
@@ -54,11 +80,6 @@ export default function Trash() {
   const selectAll = () => {
     if (selected.size === filteredTrash.length && filteredTrash.length > 0) setSelected(new Set())
     else setSelected(new Set(filteredTrash.map(t => t.id)))
-  }
-
-  const handleBatchRestore = () => {
-    selected.forEach(id => restoreFromTrash(id))
-    setSelected(new Set())
   }
 
   const handleBatchDelete = () => {
@@ -171,7 +192,7 @@ export default function Trash() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button
-                      onClick={() => restoreFromTrash(item.id)}
+                      onClick={() => handleRestore(item)}
                       className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600"
                       title="恢复"
                     >
@@ -226,6 +247,13 @@ export default function Trash() {
         title="永久删除确认"
         message="确定永久删除？"
         variant="danger"
+      />
+
+      <AlertModal
+        isOpen={restoreError !== null}
+        title="无法恢复"
+        message={restoreError || ''}
+        onClose={() => setRestoreError(null)}
       />
     </div>
   )

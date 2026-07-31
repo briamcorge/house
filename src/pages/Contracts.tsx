@@ -32,6 +32,9 @@ export default function Contracts() {
   // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
   const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
     t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
+  // 判断业主合同是否为续约旧合同（endReason='renew' 或 被其他合同的 previousContractId 指向）
+  const isRenewedContract = (c: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    c.endReason === 'renew' || landlordContracts.some(x => x.previousContractId === c.id)
 
   const getBillsForContract = (contract: { id: string; propertyId: string }, direction: 'payable' | 'receivable') => {
     return bills.filter(b => b.propertyId === contract.propertyId && b.direction === direction)
@@ -41,10 +44,10 @@ export default function Contracts() {
     return bills.filter(b => b.tenantId === tenantId && b.roomId === roomId && b.direction === 'receivable')
   }
 
-  const matchFilter = (status: 'active' | 'ended', endDate: string, filter: Filter) => {
+  const matchFilter = (status: 'active' | 'ended', endDate: string, filter: Filter, isRenewed?: boolean) => {
     if (filter === 'all') return true
     if (filter === 'active') return status === 'active'
-    if (filter === 'ended') return status === 'ended'
+    if (filter === 'ended') return status === 'ended' && !isRenewed
     if (filter === 'expiring') return status === 'active' && isExpiringSoon(endDate)
     if (filter === 'expired') return status === 'active' && isExpired(endDate)
     if (filter === 'attention') return status === 'active' && (isExpiringSoon(endDate) || isExpired(endDate))
@@ -58,7 +61,7 @@ export default function Contracts() {
 
   const filteredLandlord = useMemo(() =>
     landlordContracts.filter(c => {
-      if (!matchFilter(c.status, c.contractEnd, landlordFilter)) return false
+      if (!matchFilter(c.status, c.contractEnd, landlordFilter, isRenewedContract(c))) return false
       const prop = properties.find(p => p.id === c.propertyId)
       const text = `${c.landlordName || ''} ${c.displayId} ${c.landlordPhone || ''} ${prop?.address || ''}`
       return matchSearch(text)
@@ -68,7 +71,7 @@ export default function Contracts() {
 
   const filteredTenants = useMemo(() =>
     tenants.filter(t => {
-      if (!matchFilter(t.status, t.contractEnd, tenantFilter)) return false
+      if (!matchFilter(t.status, t.contractEnd, tenantFilter, isRenewedTenant(t))) return false
       const room = rooms.find(r => r.id === t.roomId)
       const prop = room ? properties.find(p => p.id === room.propertyId) : null
       const text = `${t.name} ${t.displayId} ${t.phone || ''} ${prop?.address || ''} ${room?.label || ''}`
@@ -138,7 +141,7 @@ export default function Contracts() {
                 expiring: landlordContracts.filter(c => c.status === 'active' && isExpiringSoon(c.contractEnd)).length,
                 expired: landlordContracts.filter(c => c.status === 'active' && isExpired(c.contractEnd)).length,
                 attention: landlordContracts.filter(c => c.status === 'active' && (isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd))).length,
-                ended: landlordContracts.filter(c => c.status === 'ended').length,
+                ended: landlordContracts.filter(c => c.status === 'ended' && !isRenewedContract(c)).length,
               }}
             />
             <div className="space-y-2">
@@ -164,7 +167,7 @@ export default function Contracts() {
                           {c.status === 'active' && daysLeft < 0 && (
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">已过期{Math.abs(daysLeft)}天</span>
                           )}
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{c.status === 'active' ? '执行中' : '已结束'}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedContract(c) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>{c.status === 'active' ? '执行中' : isRenewedContract(c) ? '已续约' : '已结束'}</span>
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1 space-y-0.5">
@@ -202,7 +205,7 @@ export default function Contracts() {
                 expiring: tenants.filter(t => t.status === 'active' && isExpiringSoon(t.contractEnd)).length,
                 expired: tenants.filter(t => t.status === 'active' && isExpired(t.contractEnd)).length,
                 attention: tenants.filter(t => t.status === 'active' && (isExpiringSoon(t.contractEnd) || isExpired(t.contractEnd))).length,
-                ended: tenants.filter(t => t.status === 'ended').length,
+                ended: tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length,
               }}
             />
             <div className="space-y-2">

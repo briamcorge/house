@@ -21,6 +21,9 @@ export default function RoomList() {
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
+  // 判断业主合同是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向的旧合同已被替代）
+  const isRenewedContract = (c: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    c.endReason === 'renew' || landlordContracts.some(x => x.previousContractId === c.id)
   const getTenantForRoom = (rid: string) => {
     const roomTenants = tenants.filter(t => t.roomId === rid)
     // 只返回在租的租客，空房间不展示旧租客信息（已退租的可在历史租客中查看）
@@ -122,15 +125,15 @@ export default function RoomList() {
                                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setEditContractId(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">编辑</button>
                                 {c.status === 'active' ? (
                                   <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="block w-full text-left px-3 py-1.5 text-xs text-orange-600 hover:bg-gray-50">退租</button>
-                                ) : (
+                                ) : !isRenewedContract(c) ? (
                                   <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); restoreLandlordContract(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">恢复</button>
-                                )}
+                                ) : null}
                                 <div className="border-t border-gray-50 my-1" />
                                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setContractConfirm({ id: c.id, action: 'delete' }) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">删除</button>
                               </div>
                             </>
                           )}
-                          <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full ml-1">{c.status === 'active' ? '执行中' : '已结束'}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ml-1 ${c.status === 'active' ? 'text-green-700 bg-green-100' : isRenewedContract(c) ? 'text-indigo-600 bg-indigo-100' : 'text-gray-500 bg-gray-100'}`}>{c.status === 'active' ? '执行中' : isRenewedContract(c) ? '已续约' : '已结束'}</span>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
@@ -289,17 +292,22 @@ export default function RoomList() {
         isOpen={editContractId !== null}
         onClose={() => setEditContractId(null)}
         onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           draftBills.forEach((bill) => {
-            addBill({ propertyId: propertyId!, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
+            addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
-          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
         }}
         onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
+          // 结束旧合同（续约被替代，不是退租）
+          const oldContract = landlordContracts.find(c => c.propertyId === propertyId && c.status === 'active')
+          if (oldContract) {
+            updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
+          }
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id })
           draftBills.forEach((bill) => {
-            addBill({ propertyId: propertyId!, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
+            addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
-          addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
           setEditContractId(null)
         }}
         propertyAddress={property?.address || ''}
@@ -326,8 +334,9 @@ export default function RoomList() {
         onConfirm={(refunds) => {
           if (!landlordCheckout) return
           const dt = refunds.checkoutDate
+          const cid = landlordCheckout.id
           if (refunds.depositRefund > 0) {
-            addBill({ propertyId: propertyId!, amount: -refunds.depositRefund, type: 'deposit', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: '退押金' })
+            addBill({ propertyId: propertyId!, landlordContractId: cid, amount: -refunds.depositRefund, type: 'deposit', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: '退押金' })
           }
           if (refunds.penalty > 0) {
             addBill({ propertyId: propertyId!, amount: refunds.penalty, type: 'other', status: 'paid', direction: 'receivable', paidDate: dt, dueDate: dt, description: '业主违约金' })
@@ -336,7 +345,7 @@ export default function RoomList() {
             const desc = refunds.rentRefundStart && refunds.rentRefundEnd
               ? `退租金 ${refunds.rentRefundStart} ~ ${refunds.rentRefundEnd}`
               : '退租金'
-            addBill({ propertyId: propertyId!, amount: -refunds.rentRefund, type: 'rent', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: desc, periodStart: refunds.rentRefundStart, periodEnd: refunds.rentRefundEnd })
+            addBill({ propertyId: propertyId!, landlordContractId: cid, amount: -refunds.rentRefund, type: 'rent', status: 'refunded', direction: 'payable', paidDate: dt, dueDate: dt, description: desc, periodStart: refunds.rentRefundStart, periodEnd: refunds.rentRefundEnd })
           }
           terminateLandlordContract(landlordCheckout.id)
           setLandlordCheckout(null)
