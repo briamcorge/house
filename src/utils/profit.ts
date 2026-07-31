@@ -73,18 +73,21 @@ function calcBillBasedRent(
   return { proratedRent, adjustment, overlapDays }
 }
 
-/** 判断账单是否与某业主周期重叠 — 按账单覆盖期匹配（优先字段，旧数据从 description 提取） */
+/** 判断账单是否与某业主周期重叠：
+ *  - 房租（rent）：按账单覆盖期匹配（房租分期收取，覆盖期与业主周期对齐）
+ *  - 其他（卫管费/违约金等一次性费用）：按应收日/实收日归属单一周期，避免跨周期重复计入
+ */
 function billOverlapsCycle(bill: Bill, cycleStart: string, cycleEnd: string): boolean {
   const period = getBillPeriod(bill)
-  if (period && bill.amount >= 0) {
-    // 正数账单按覆盖期匹配
+  if (period && bill.amount >= 0 && bill.type === 'rent') {
+    // 房租按覆盖期匹配
     const [bs, be] = period
     return bs <= cycleEnd && be >= cycleStart
   }
-  // 负数账单（退租金等）及无覆盖期的账单按应收日/实收日匹配
-  if (bill.dueDate >= cycleStart && bill.dueDate <= cycleEnd) return true
-  if (bill.paidDate && bill.paidDate >= cycleStart && bill.paidDate <= cycleEnd) return true
-  return false
+  // 负数账单（退租金等）、卫管费等一次性费用：按实收日归属单一周期（利润只算已收的钱）
+  // 实收日唯一，避免应收日与实收日跨周期导致同一笔账单重复计入；无实收日按应收日兜底
+  const matchDate = bill.paidDate || bill.dueDate
+  return matchDate >= cycleStart && matchDate <= cycleEnd
 }
 
 export interface FeeGroup {
@@ -175,14 +178,14 @@ export function calculatePeriodProfit(
       unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
     }
 
-    // 卫管费及其他收入：找该周期内已付的other/sublease/hygiene类型账单
+    // 卫管费及其他收入：一次性费用，按应收/实收日归属当前周期，全额计入不重复
     const otherFeeBills = periodBills.filter(b =>
       (b.type === 'other' || b.type === 'sublease' || b.type === 'hygiene') &&
       b.status === 'paid'
     )
     const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
 
-    // 生成费用明细清单（排除押金），按类型分组合并
+    // 生成费用明细清单（排除押金），按类型分组合并；非房租账单（卫管费等）按覆盖期分摊到周期
     const feeGroups = new Map<string, FeeGroup>()
     periodBills
       .filter(b => b.type !== 'deposit')

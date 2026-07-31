@@ -920,7 +920,7 @@ export default function More() {
                         disabled={profitExtracted}
                         onClick={() => {
                           const amount = parseFloat(profitAmount)
-                          if (!profitPropertyId || isNaN(amount) || amount <= 0) {
+                          if (!profitPropertyId || isNaN(amount)) {
                             setAlertState({ title: '提示', message: '请选择房源并输入有效金额', variant: 'error' })
                             return
                           }
