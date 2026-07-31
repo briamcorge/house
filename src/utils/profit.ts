@@ -50,7 +50,8 @@ function calcBillBasedRent(
       continue
     }
     const [bs, be] = period
-    // 正数房租账单的覆盖期不超过有效截止日（退租当日不占房）
+    // 房租交到日由账单事实决定：有退租金账单时，覆盖期不超过退租金起始日 - 1
+    // 无退租金账单则不截断（如黄健：已收账单覆盖期即房租交到日）
     const capEnd = effectiveEnd && be > effectiveEnd ? effectiveEnd : be
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
@@ -215,15 +216,11 @@ export function calculatePeriodProfit(
       })
     const feeBreakdown = Array.from(feeGroups.values())
 
-    // 逐张房租账单按覆盖期分摊，退租时截断至退租日
-    // 有效截止日 = effectiveEnd - 1（退租日当天不占房）
+    // 房租交到日由账单事实决定：退租金账单的起始日 - 1 = 房租实际交到的最后一天
+    // 退租办理日(effectiveEnd 字段)不代表房租交到日，不参与截断（用户明确要求）
+    // 无退租金账单（如黄健）→ 不截断，已收账单按覆盖期全额计算
     let effectiveEnd = ''
-    if (tenant.effectiveEnd) {
-      const d = new Date(tenant.effectiveEnd)
-      d.setDate(d.getDate() - 1)
-      effectiveEnd = d.toISOString().slice(0, 10)
-    } else if (tenant.status === 'ended') {
-      // 旧数据没有 effectiveEnd：从退租金账单推导
+    if (tenant.status === 'ended') {
       const refund = activeBills.find(b =>
         b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent'
       )

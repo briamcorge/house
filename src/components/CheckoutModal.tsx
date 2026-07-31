@@ -64,7 +64,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               退租日期
             </label>
             <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
-            <p className="text-xs text-gray-400 mt-1">实际退租日期，即账单的应收日/实付日</p>
+            <p className="text-xs text-gray-400 mt-1">办理退租手续的日期，不影响已收房租（以账单覆盖期为准）</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
