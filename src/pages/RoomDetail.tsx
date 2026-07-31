@@ -64,6 +64,10 @@ export default function RoomDetail() {
     if (!contractGenerations.has(t.id)) contractGenerations.set(t.id, 1)
   })
 
+  // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
+  const isRenewedTenant = (t: Tenant) =>
+    t.endReason === 'renew' || roomTenants.some(x => x.previousTenantId === t.id)
+
   const [checkoutTenant, setCheckoutTenant] = useState<Tenant | null>(null)
   const [isRenewal, setIsRenewal] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string; value: string } | null>(null)
@@ -259,8 +263,8 @@ export default function RoomDetail() {
                               <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded shrink-0">续{gen - 1}</span>
                             )}
                             <span className="text-xs text-gray-400 shrink-0">#{t.displayId}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                              {t.status === 'active' ? '在租' : '已退租'}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${t.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedTenant(t) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                              {t.status === 'active' ? '在租' : isRenewedTenant(t) ? '已续约' : '已退租'}
                             </span>
                           </div>
                           <div className="flex gap-1 shrink-0 items-center relative">
@@ -280,8 +284,12 @@ export default function RoomDetail() {
                                     </>
                                   ) : (
                                     <>
-                                      <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); restoreTenant(t.id, t.roomId) }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">恢复</button>
-                                      <div className="border-t border-gray-50 my-1" />
+                                      {!isRenewedTenant(t) && (
+                                        <>
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); const occupied = tenants.some(x => x.roomId === t.roomId && x.id !== t.id && x.status === 'active'); if (occupied) { setAlertState({ title: '无法恢复', message: `该房间已有在租租客，无法恢复` }) } else { restoreTenant(t.id, t.roomId) } }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">恢复</button>
+                                          <div className="border-t border-gray-50 my-1" />
+                                        </>
+                                      )}
                                       <button type="button" onClick={(e) => { e.stopPropagation(); setMenuOpenTenantId(null); setDeleteConfirm({ tenantId: t.id, isEnded: true }) }} className="block w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-gray-50">删除</button>
                                     </>
                                   )}
@@ -300,7 +308,7 @@ export default function RoomDetail() {
                           <div className="flex gap-3 mt-1.5 text-xs">
                             {tb.length > 0 && <span className="text-green-600">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>}
                             {pendingCount > 0 && <span className="text-orange-600">待收 {pendingCount} 笔</span>}
-                            {t.deposit ? <span className="text-blue-600">押金 ¥{t.deposit}</span> : null}
+                            {t.status === 'active' && t.deposit ? <span className="text-blue-600">押金 ¥{t.deposit}</span> : null}
                           </div>
                         )}
                       </div>
@@ -314,7 +322,7 @@ export default function RoomDetail() {
                               共 {tb.length} 条 ·
                               <span className="text-green-600 ml-1">已收 {paidCount} 笔 ¥{paidTotal.toFixed(0)}</span>
                               {pendingCount > 0 && <span className="text-orange-600 ml-1">待收 {pendingCount} 笔</span>}
-                              {t.deposit ? <span className="text-blue-600 ml-1">押金 ¥{t.deposit}</span> : null}
+                              {t.status === 'active' && t.deposit ? <span className="text-blue-600 ml-1">押金 ¥{t.deposit}</span> : null}
                             </span>
                             <button
                               type="button"

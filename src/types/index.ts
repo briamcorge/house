@@ -38,6 +38,8 @@ export interface Tenant {
   previousTenantId?: string
   /** 实际退租日（退租时填入，不退租则为空），用于利润计算无需从退款账单反推 */
   effectiveEnd?: string
+  /** 结束原因：checkout=手动退租，renew=续约被替代。用于 UI 区分"已退租"与"已续约" */
+  endReason?: 'checkout' | 'renew'
 }
 
 export type BillDirection = 'payable' | 'receivable'

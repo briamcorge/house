@@ -354,6 +354,10 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
   const q = query.toLowerCase()
   const typeLabelMap: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
+  // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
+  const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
+
   const matchedProps = properties.filter((p: Property) =>
     p.address.toLowerCase().includes(q) ||
     (p.description && p.description.toLowerCase().includes(q))
@@ -432,8 +436,8 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
                     <p className="text-xs font-medium text-gray-900 truncate">{t.name}</p>
                     <p className="text-[10px] text-gray-400 truncate">{prop?.address}{room ? ` - ${room.label}室` : ''}</p>
                   </div>
-                  <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {t.status === 'active' ? '在租' : '已退租'}
+                  <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedTenant(t) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                    {t.status === 'active' ? '在租' : isRenewedTenant(t) ? '已续约' : '已退租'}
                   </span>
                 </div>
               )

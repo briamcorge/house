@@ -21,6 +21,10 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
 
   if (!isOpen) return null
 
+  // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
+  const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -49,7 +53,7 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm text-gray-900">{t.name}</span>
                     <span className="text-[10px] text-gray-400">#{t.displayId}</span>
-                    <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">已退租</span>
+                    <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{isRenewedTenant(t) ? '已续约' : '已退租'}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-300" />
                 </div>
