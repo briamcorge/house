@@ -34,6 +34,8 @@ export default function LandlordContractDetailModal({
 }: LandlordContractDetailModalProps) {
   const [expanded, setExpanded] = useState(true)
 
+  if (!isOpen) return null
+
   const contractBills = bills
     .filter(b => b.direction === 'payable' && (b.landlordContractId === contract.id || (!b.landlordContractId && b.propertyId === contract.propertyId)))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
@@ -43,8 +45,6 @@ export default function LandlordContractDetailModal({
   const refundedBills = contractBills.filter(b => b.status === 'refunded')
   const refundedTotal = refundedBills.reduce((s, b) => s + b.amount, 0)
   const pendingCount = contractBills.filter(b => b.status === 'pending').length
-
-  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
