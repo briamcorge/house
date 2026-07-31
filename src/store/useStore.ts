@@ -284,7 +284,7 @@ export const useStore = create<AppStore>()(
           // 历史数据中已有 contractEnd 被修改过的，由 profit.ts 从退租金账单推导。
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'ended', effectiveEnd: checkoutDate } : t
+              t.id === id ? { ...t, status: 'ended', effectiveEnd: checkoutDate, endReason: 'checkout' as const } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'vacant' } : r
@@ -306,7 +306,7 @@ export const useStore = create<AppStore>()(
           }
           return {
             tenants: state.tenants.map((t) =>
-              t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined } : t
+              t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined, endReason: undefined } : t
             ),
             rooms: state.rooms.map((r) =>
               r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
@@ -434,7 +434,7 @@ export const useStore = create<AppStore>()(
           return {
             tenants: [
               ...state.tenants.map((t) =>
-                t.id === oldTenantId ? { ...t, status: 'ended' as const } : t
+                t.id === oldTenantId ? { ...t, status: 'ended' as const, endReason: 'renew' as const } : t
               ),
               newTenant,
             ],

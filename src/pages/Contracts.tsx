@@ -29,6 +29,9 @@ export default function Contracts() {
     const daysLeft = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     return daysLeft < 0
   }
+  // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
+  const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
+    t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
 
   const getBillsForContract = (contract: { id: string; propertyId: string }, direction: 'payable' | 'receivable') => {
     return bills.filter(b => b.propertyId === contract.propertyId && b.direction === direction)
@@ -226,7 +229,7 @@ export default function Contracts() {
                           {t.status === 'active' && daysLeft < 0 && (
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">已过期{Math.abs(daysLeft)}天</span>
                           )}
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{t.status === 'active' ? '在租' : '已退租'}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedTenant(t) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>{t.status === 'active' ? '在租' : isRenewedTenant(t) ? '已续约' : '已退租'}</span>
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1 space-y-0.5">
