@@ -304,6 +304,17 @@ export const useStore = create<AppStore>()(
             // 房间被占用，不恢复
             return state
           }
+          // 撤销退租时生成的账单：退押金/违约金/退租金/退其他
+          const checkoutBillIds = new Set(
+            state.bills
+              .filter(b => b.tenantId === id && (
+                b.description === '退押金' ||
+                b.description === '违约金' ||
+                b.description.startsWith('退租金') ||
+                (b.amount < 0 && b.type === 'other' && b.description.startsWith('退'))
+              ))
+              .map(b => b.id)
+          )
           return {
             tenants: state.tenants.map((t) =>
               t.id === id ? { ...t, status: 'active' as const, effectiveEnd: undefined, endReason: undefined } : t
@@ -311,6 +322,7 @@ export const useStore = create<AppStore>()(
             rooms: state.rooms.map((r) =>
               r.id === roomId && r.status === 'vacant' ? { ...r, status: 'occupied' as const } : r
             ),
+            bills: state.bills.filter(b => !checkoutBillIds.has(b.id)),
             auditLogs: recordLog(state, 'restore', 'tenant', id, `恢复租客`),
           }
         }),
@@ -510,12 +522,25 @@ export const useStore = create<AppStore>()(
         })),
 
       restoreLandlordContract: (id) =>
-        set((state) => ({
-          landlordContracts: state.landlordContracts.map((c) =>
-            c.id === id ? { ...c, status: 'active' as const, endReason: undefined } : c
-          ),
-          auditLogs: recordLog(state, 'restore', 'landlord_contract', id, `恢复业主合同`),
-        })),
+        set((state) => {
+          // 撤销退租时生成的账单：退押金/业主违约金/退租金
+          const checkoutBillIds = new Set(
+            state.bills
+              .filter(b => b.landlordContractId === id && (
+                b.description === '退押金' ||
+                b.description === '业主违约金' ||
+                b.description.startsWith('退租金')
+              ))
+              .map(b => b.id)
+          )
+          return {
+            landlordContracts: state.landlordContracts.map((c) =>
+              c.id === id ? { ...c, status: 'active' as const, endReason: undefined } : c
+            ),
+            bills: state.bills.filter(b => !checkoutBillIds.has(b.id)),
+            auditLogs: recordLog(state, 'restore', 'landlord_contract', id, `恢复业主合同`),
+          }
+        }),
 
       deleteTenantAndBills: (id, roomId) =>
         set((state) => {
