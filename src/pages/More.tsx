@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -82,6 +82,7 @@ export default function More() {
   const { user: currentUser, ready: supabaseReady } = useAuth()
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
+  const [showProfitRecords, setShowProfitRecords] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
@@ -867,44 +868,16 @@ export default function More() {
                       </>
                     )}
 
-                    {/* 已有提取记录 */}
+                    {/* 已有提取记录入口 */}
                     {profitPropertyId && propertyProfitRecords.length > 0 && (
-                      <div className="border-t border-gray-100 pt-3">
-                        <p className="text-xs text-gray-400 font-medium mb-2">已有提取记录</p>
-                        <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                          {propertyProfitRecords.map(r => (
-                            <div key={r.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
-                              <div className="flex items-center gap-1.5 text-gray-500 min-w-0">
-                                {r.status === 'withdrawn' ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
-                                ) : (
-                                  <Clock className="w-3 h-3 text-blue-500 shrink-0" />
-                                )}
-                                <span className="truncate">{r.cycleStart}~{r.cycleEnd}</span>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {r.extractedAt && <span className="text-gray-400">{r.extractedAt}</span>}
-                                <span className="font-medium text-gray-700">¥{r.profitAmount.toFixed(0)}</span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setConfirmAction({
-                                      title: '删除确认',
-                                      message: '确定删除这笔提取记录？',
-                                      variant: 'danger',
-                                      onAction: () => deleteProfitRecord(r.id),
-                                    })
-                                  }}
-                                  className="text-gray-300 hover:text-red-500 transition-colors"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowProfitRecords(true)}
+                        className="w-full py-2.5 px-3 bg-gray-50 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <History className="w-4 h-4" />
+                        查看提取记录（{propertyProfitRecords.length} 笔）
+                      </button>
                     )}
 
                     <div className="grid grid-cols-2 gap-2">
@@ -1048,6 +1021,67 @@ export default function More() {
               })}
               {depositBills.filter(b => b.direction === 'payable').length === 0 && (
                 <p className="text-center text-gray-400 py-8">暂无已付押金记录</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 利润提取记录弹窗 */}
+      {showProfitRecords && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowProfitRecords(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">提取记录</h3>
+              <button type="button" onClick={() => setShowProfitRecords(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              <div className="flex items-center justify-between bg-purple-50 rounded-xl p-3 mb-3">
+                <span className="text-sm font-medium text-purple-700">{propertyProfitRecords.length} 笔记录</span>
+                <span className="text-lg font-bold text-purple-700">¥{propertyProfitRecords.reduce((s, r) => s + r.profitAmount, 0).toFixed(0)}</span>
+              </div>
+              {propertyProfitRecords.map(r => (
+                <div key={r.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {r.status === 'withdrawn' ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      ) : (
+                        <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      )}
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.cycleStart} ~ {r.cycleEnd}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {r.extractedAt ? `提取日 ${r.extractedAt}` : '未提取'}
+                      {r.isManual ? ' · 手动' : ''}
+                      {r.remark ? ` · ${r.remark}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    <span className={`text-sm font-bold ${r.profitAmount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      ¥{r.profitAmount.toFixed(0)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmAction({
+                          title: '删除确认',
+                          message: '确定删除这笔提取记录？',
+                          variant: 'danger',
+                          onAction: () => deleteProfitRecord(r.id),
+                        })
+                      }}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {propertyProfitRecords.length === 0 && (
+                <p className="text-center text-gray-400 py-8">暂无提取记录</p>
               )}
             </div>
           </div>

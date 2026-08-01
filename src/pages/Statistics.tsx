@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, Building2, BarChart3, CalendarX2, HelpCircle } from 'lucide-react'
+import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, BarChart3, CalendarX2, HelpCircle, Building2, Search, X, Check } from 'lucide-react'
 import { calculatePropertyVacancy } from '../utils/vacancy'
 import AlertModal from '../components/AlertModal'
 
@@ -12,6 +12,10 @@ export default function Statistics() {
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear)
+  // 房源筛选：'' = 全部房源
+  const [selectedPropId, setSelectedPropId] = useState('')
+  const [showPropPicker, setShowPropPicker] = useState(false)
+  const [propSearch, setPropSearch] = useState('')
 
   // 提取所有出现过的年份（按 paidDate 或 dueDate）
   const availableYears = useMemo(() => {
@@ -103,9 +107,20 @@ export default function Statistics() {
   const [expandedPropId, setExpandedPropId] = useState<string | null>(null)
   const [showAvailableHelp, setShowAvailableHelp] = useState(false)
 
-  // 全部房源空置汇总
-  const totalVacancyDays = vacancyStats.reduce((s, v) => s + v.totalVacancyDays, 0)
-  const totalAvailableDays = vacancyStats.reduce((s, v) => s + v.totalAvailableDays, 0)
+  // 按选中房源过滤
+  const filteredPropertyStats = selectedPropId
+    ? propertyStats.filter(s => s.property.id === selectedPropId)
+    : propertyStats
+  const filteredVacancyStats = selectedPropId
+    ? vacancyStats.filter(v => v.propertyId === selectedPropId)
+    : vacancyStats
+  const selectedProp = properties.find(p => p.id === selectedPropId)
+
+  // 选中单个房源时，财务概览显示该房源数据；否则显示全局
+  const viewReceivable = selectedProp ? filteredPropertyStats[0]?.income ?? 0 : yearlyReceivablePaid
+  const viewPayable = selectedProp ? filteredPropertyStats[0]?.expense ?? 0 : yearlyPayablePaid
+  const viewRefund = selectedProp ? filteredPropertyStats[0]?.refund ?? 0 : yearlyRefund
+  const viewNet = selectedProp ? (filteredPropertyStats[0]?.net ?? 0) : netIncome
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -128,6 +143,22 @@ export default function Statistics() {
               </button>
             ))}
           </div>
+          {/* 房源筛选 */}
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => { setPropSearch(''); setShowPropPicker(true) }}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="truncate font-medium text-gray-700">
+                  {selectedProp ? selectedProp.address : '全部房源'}
+                </span>
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -137,7 +168,7 @@ export default function Statistics() {
           <div>
             <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              {selectedYear}年 财务概览
+              {selectedProp ? `${selectedProp.address} ` : ''}{selectedYear}年 财务概览
             </h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white">
@@ -145,105 +176,59 @@ export default function Statistics() {
                   <TrendingUp className="w-3 h-3" />
                   租客收入
                 </div>
-                <p className="text-xl font-bold">¥{yearlyReceivablePaid.toFixed(0)}</p>
+                <p className="text-xl font-bold">¥{viewReceivable.toFixed(0)}</p>
               </div>
               <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white">
                 <div className="flex items-center gap-1 text-blue-100 text-xs mb-1">
                   <TrendingDown className="w-3 h-3" />
                   业主支出
                 </div>
-                <p className="text-xl font-bold">¥{yearlyPayablePaid.toFixed(0)}</p>
+                <p className="text-xl font-bold">¥{viewPayable.toFixed(0)}</p>
               </div>
               <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white">
                 <div className="flex items-center gap-1 text-orange-100 text-xs mb-1">
                   <TrendingDown className="w-3 h-3" />
                   退款
                 </div>
-                <p className="text-xl font-bold">¥{yearlyRefund.toFixed(0)}</p>
+                <p className="text-xl font-bold">¥{viewRefund.toFixed(0)}</p>
               </div>
-              <div className={`bg-gradient-to-br ${netIncome >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-red-500 to-red-600'} rounded-2xl p-4 text-white`}>
+              <div className={`bg-gradient-to-br ${viewNet >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-red-500 to-red-600'} rounded-2xl p-4 text-white`}>
                 <div className="flex items-center gap-1 text-white text-opacity-80 text-xs mb-1">
                   <BarChart3 className="w-3 h-3" />
                   净收入
                 </div>
-                <p className="text-xl font-bold">¥{netIncome.toFixed(0)}</p>
+                <p className="text-xl font-bold">¥{viewNet.toFixed(0)}</p>
               </div>
             </div>
-          </div>
-
-          {/* 各房源收益对比 */}
-          <div>
-            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              房源收益对比
-            </h2>
-            {propertyStats.length === 0 ? (
-              <p className="text-sm text-gray-400 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">暂无房源</p>
-            ) : (
-              <div className="space-y-2">
-                {propertyStats.map(s => (
-                  <div
-                    key={s.property.id}
-                    onClick={() => navigate(`/properties/${s.property.id}`)}
-                    className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 cursor-pointer hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-sm text-gray-900">{s.property.address}</p>
-                        <p className="text-xs text-gray-400">{s.occupiedRooms}/{s.totalRooms} 出租中</p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-bold ${s.net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {s.net >= 0 ? '+' : ''}¥{s.net.toFixed(0)}
-                        </p>
-                        <p className="text-[10px] text-gray-400">净收入</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="bg-green-50 rounded p-1.5">
-                        <p className="text-green-600">收入</p>
-                        <p className="font-medium text-green-700">¥{s.income.toFixed(0)}</p>
-                      </div>
-                      <div className="bg-blue-50 rounded p-1.5">
-                        <p className="text-blue-600">支出</p>
-                        <p className="font-medium text-blue-700">¥{s.expense.toFixed(0)}</p>
-                      </div>
-                      <div className="bg-orange-50 rounded p-1.5">
-                        <p className="text-orange-600">退款</p>
-                        <p className="font-medium text-orange-700">¥{s.refund.toFixed(0)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* 空置统计 */}
           <div>
             <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
               <CalendarX2 className="w-5 h-5" />
-              {selectedYear}年 空置统计
+              {selectedProp ? `${selectedProp.address} ` : ''}{selectedYear}年 空置统计
             </h2>
-            {vacancyStats.length === 0 ? (
+            {filteredVacancyStats.length === 0 ? (
               <p className="text-sm text-gray-400 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">暂无房源（需有业主合同）</p>
             ) : (
               <div className="space-y-2">
-                {/* 汇总卡片 */}
+                {/* 汇总卡片（全部房源时显示总累计，单个房源时显示该房源累计） */}
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 text-white flex items-center justify-between">
                   <div>
-                    <p className="text-indigo-100 text-xs mb-1">累计空置</p>
-                    <p className="text-xl font-bold">{totalVacancyDays} 天</p>
+                    <p className="text-indigo-100 text-xs mb-1">{selectedProp ? '空置' : '累计空置'}</p>
+                    <p className="text-xl font-bold">{filteredVacancyStats.reduce((s, v) => s + v.totalVacancyDays, 0)} 天</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-indigo-100 text-xs mb-1">平均空置率</p>
+                    <p className="text-indigo-100 text-xs mb-1">空置率</p>
                     <p className="text-xl font-bold">
-                      {totalAvailableDays > 0 ? `${(totalVacancyDays / totalAvailableDays * 100).toFixed(1)}%` : '—'}
+                      {filteredVacancyStats.reduce((s, v) => s + v.totalAvailableDays, 0) > 0
+                        ? `${(filteredVacancyStats.reduce((s, v) => s + v.totalVacancyDays, 0) / filteredVacancyStats.reduce((s, v) => s + v.totalAvailableDays, 0) * 100).toFixed(1)}%`
+                        : '—'}
                     </p>
                   </div>
                 </div>
 
-                {vacancyStats.map(v => (
+                {filteredVacancyStats.map(v => (
                   <div key={v.propertyId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <button
                       type="button"
@@ -251,7 +236,7 @@ export default function Statistics() {
                       className="w-full p-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${expandedPropId === v.propertyId ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${(expandedPropId === v.propertyId || selectedPropId === v.propertyId) ? 'rotate-180' : ''}`} />
                         <div className="min-w-0">
                           <p className="font-medium text-sm text-gray-900 truncate">{v.propertyAddress}</p>
                           <p className="text-xs text-gray-400">自 {v.startDate} 起租 · 空置率 {(v.vacancyRate * 100).toFixed(1)}%</p>
@@ -262,7 +247,7 @@ export default function Statistics() {
                       </div>
                     </button>
 
-                    {expandedPropId === v.propertyId && (
+                    {(expandedPropId === v.propertyId || selectedPropId === v.propertyId) && (
                       <div className="px-3 pb-3 pt-0 border-t border-gray-50">
                         <table className="w-full text-sm">
                           <thead>
@@ -318,6 +303,58 @@ export default function Statistics() {
         title="可出租天数"
         message={'从业主起租日起至今日，该房间可出租的总天数。\n\n空置率 = 空置天数 ÷ 可出租天数'}
       />
+
+      {/* 房源选择弹窗 */}
+      {showPropPicker && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPicker(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">选择房源</h3>
+              <button type="button" onClick={() => setShowPropPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-3 border-b border-gray-50">
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                <input
+                  autoFocus
+                  value={propSearch}
+                  onChange={(e) => setPropSearch(e.target.value)}
+                  placeholder="搜索房源地址..."
+                  className="flex-1 bg-transparent outline-none text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              <button
+                type="button"
+                onClick={() => { setSelectedPropId(''); setShowPropPicker(false) }}
+                className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === '' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                <span>全部房源</span>
+                {selectedPropId === '' && <Check className="w-4 h-4 text-blue-600" />}
+              </button>
+              {properties
+                .filter(p => p.address.includes(propSearch.trim()))
+                .map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setSelectedPropId(p.id); setShowPropPicker(false) }}
+                    className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === p.id ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span className="truncate">{p.address}</span>
+                    {selectedPropId === p.id && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                  </button>
+                ))}
+              {properties.filter(p => p.address.includes(propSearch.trim())).length === 0 && (
+                <p className="text-center text-gray-400 py-8 text-sm">未找到匹配房源</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
