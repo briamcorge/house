@@ -143,7 +143,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         useStore.setState({
           properties: cloudData.properties,
           rooms: cloudData.rooms,
-          tenants: cloudData.tenants,
+          tenants: tenants,
           bills: bills || cloudData.bills,
           landlordContracts: cloudData.landlordContracts,
           profitRecords: cloudData.profitRecords,

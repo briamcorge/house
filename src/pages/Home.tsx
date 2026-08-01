@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
 import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText, Receipt } from 'lucide-react'
-import { formatMoney } from '../lib/utils'
+import { formatMoney, todayLocal } from '../lib/utils'
 import { Property, Room, Tenant, Bill, LandlordContract } from '../types'
 
 type AlertType = 'overdue' | 'expiring'
@@ -24,7 +24,7 @@ export default function Home() {
   // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
     const checkOverdue = () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocal()
       const currentBills = useStore.getState().bills
       for (const bill of currentBills) {
         if (bill.status === 'pending' && bill.dueDate < today) {
@@ -95,7 +95,7 @@ export default function Home() {
     bills.filter(b =>
       b.direction === 'receivable' &&
       !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
-      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < new Date().toISOString().slice(0, 10)))
+      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < todayLocal()))
     ),
     [bills, tenants]
   )

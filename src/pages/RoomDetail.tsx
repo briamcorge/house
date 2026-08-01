@@ -10,6 +10,7 @@ import AlertModal from '../components/AlertModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
+import { todayLocal, formatDateLocal } from '../lib/utils'
 
 export default function RoomDetail() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>()
@@ -95,7 +96,7 @@ export default function RoomDetail() {
   useEffect(() => {
     if (payConfirmBill) {
       setPayAmount(payConfirmBill.amount.toString())
-      setPayDate(new Date().toISOString().slice(0, 10))
+      setPayDate(todayLocal())
       // 从 description 提取原有效期
       const m = payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
       if (m) {
@@ -122,7 +123,7 @@ export default function RoomDetail() {
     const newEnd = new Date(start)
     newEnd.setDate(newEnd.getDate() + covered - 1)
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(newEnd.toISOString().slice(0, 10))
+    setPayPeriodEnd(formatDateLocal(newEnd))
   }
 
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
@@ -571,13 +572,13 @@ export default function RoomDetail() {
                         status: 'paid' as const,
                         direction: payConfirmBill.direction,
                         dueDate: payConfirmBill.dueDate,
-                        paidDate: payDate || new Date().toISOString().slice(0, 10),
+                        paidDate: payDate || todayLocal(),
                         description: newDesc,
                       })
                     } else {
                       updateBill(payConfirmBill.id, {
                         status: 'paid' as const,
-                        paidDate: payDate || new Date().toISOString().slice(0, 10),
+                        paidDate: payDate || todayLocal(),
                       })
                     }
                     setPayConfirmBill(null)
