@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, TrendingUp, TrendingDown, Building2, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, Building2, BarChart3, CalendarX2 } from 'lucide-react'
+import { calculatePropertyVacancy } from '../utils/vacancy'
 
 export default function Statistics() {
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts } = useStore()
 
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()
@@ -83,6 +84,26 @@ export default function Statistics() {
       }
     }).sort((a, b) => b.net - a.net)
   }, [properties, rooms, tenants, bills, selectedYear])
+
+  // 空置统计（按房源，展开房间明细）
+  const vacancyStats = useMemo(() => {
+    return properties
+      .map(p => calculatePropertyVacancy(
+        p.id,
+        p.address,
+        selectedYear,
+        rooms.filter(r => r.propertyId === p.id),
+        tenants.filter(t => rooms.some(r => r.id === t.roomId && r.propertyId === p.id)),
+        landlordContracts,
+      ))
+      .filter((v): v is NonNullable<typeof v> => v !== null)
+      .sort((a, b) => b.totalVacancyDays - a.totalVacancyDays)
+  }, [properties, rooms, tenants, landlordContracts, selectedYear])
+  const [expandedPropId, setExpandedPropId] = useState<string | null>(null)
+
+  // 全部房源空置汇总
+  const totalVacancyDays = vacancyStats.reduce((s, v) => s + v.totalVacancyDays, 0)
+  const totalAvailableDays = vacancyStats.reduce((s, v) => s + v.totalAvailableDays, 0)
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -190,6 +211,84 @@ export default function Statistics() {
                         <p className="font-medium text-orange-700">¥{s.refund.toFixed(0)}</p>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 空置统计 */}
+          <div>
+            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <CalendarX2 className="w-5 h-5" />
+              {selectedYear}年 空置统计
+            </h2>
+            {vacancyStats.length === 0 ? (
+              <p className="text-sm text-gray-400 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">暂无房源（需有业主合同）</p>
+            ) : (
+              <div className="space-y-2">
+                {/* 汇总卡片 */}
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 text-white flex items-center justify-between">
+                  <div>
+                    <p className="text-indigo-100 text-xs mb-1">累计空置</p>
+                    <p className="text-xl font-bold">{totalVacancyDays} 天</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-indigo-100 text-xs mb-1">平均空置率</p>
+                    <p className="text-xl font-bold">
+                      {totalAvailableDays > 0 ? `${(totalVacancyDays / totalAvailableDays * 100).toFixed(1)}%` : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {vacancyStats.map(v => (
+                  <div key={v.propertyId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPropId(expandedPropId === v.propertyId ? null : v.propertyId)}
+                      className="w-full p-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${expandedPropId === v.propertyId ? 'rotate-180' : ''}`} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-gray-900 truncate">{v.propertyAddress}</p>
+                          <p className="text-xs text-gray-400">自 {v.startDate} 起租 · 空置率 {(v.vacancyRate * 100).toFixed(1)}%</p>
+                        </div>
+                      </div>
+                      <div className={`text-lg font-bold shrink-0 ml-2 ${v.totalVacancyDays > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {v.totalVacancyDays} 天
+                      </div>
+                    </button>
+
+                    {expandedPropId === v.propertyId && (
+                      <div className="px-3 pb-3 pt-0 border-t border-gray-50">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs text-gray-400">
+                              <th className="text-left py-2 font-normal">房间</th>
+                              <th className="text-right py-2 font-normal">空置</th>
+                              <th className="text-right py-2 font-normal">可出租</th>
+                              <th className="text-right py-2 font-normal">空置率</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {v.rooms.map(r => (
+                              <tr key={r.roomId} className="border-t border-gray-50">
+                                <td className="py-2">
+                                  <span className="font-medium text-gray-800">{r.roomLabel}室</span>
+                                  <span className="text-xs text-gray-400 ml-1">{r.roomType}</span>
+                                </td>
+                                <td className={`py-2 text-right font-medium ${r.vacancyDays > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                  {r.vacancyDays} 天
+                                </td>
+                                <td className="py-2 text-right text-gray-500">{r.availableDays} 天</td>
+                                <td className="py-2 text-right text-gray-500">{(r.vacancyRate * 100).toFixed(1)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
