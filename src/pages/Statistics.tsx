@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, Building2, BarChart3, CalendarX2 } from 'lucide-react'
+import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, Building2, BarChart3, CalendarX2, HelpCircle } from 'lucide-react'
 import { calculatePropertyVacancy } from '../utils/vacancy'
+import AlertModal from '../components/AlertModal'
 
 export default function Statistics() {
   const navigate = useNavigate()
@@ -100,6 +101,7 @@ export default function Statistics() {
       .sort((a, b) => b.totalVacancyDays - a.totalVacancyDays)
   }, [properties, rooms, tenants, landlordContracts, selectedYear])
   const [expandedPropId, setExpandedPropId] = useState<string | null>(null)
+  const [showAvailableHelp, setShowAvailableHelp] = useState(false)
 
   // 全部房源空置汇总
   const totalVacancyDays = vacancyStats.reduce((s, v) => s + v.totalVacancyDays, 0)
@@ -267,7 +269,19 @@ export default function Statistics() {
                             <tr className="text-xs text-gray-400">
                               <th className="text-left py-2 font-normal">房间</th>
                               <th className="text-right py-2 font-normal">空置</th>
-                              <th className="text-right py-2 font-normal">可出租</th>
+                              <th className="text-right py-2 font-normal">
+                                <span className="inline-flex items-center gap-0.5">
+                                  可出租
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setShowAvailableHelp(true) }}
+                                    className="p-0.5 rounded-full hover:bg-gray-100 text-gray-300"
+                                    title="可出租天数说明"
+                                  >
+                                    <HelpCircle className="w-3.5 h-3.5" />
+                                  </button>
+                                </span>
+                              </th>
                               <th className="text-right py-2 font-normal">空置率</th>
                             </tr>
                           </thead>
@@ -297,6 +311,13 @@ export default function Statistics() {
 
         </div>
       </div>
+
+      <AlertModal
+        isOpen={showAvailableHelp}
+        onClose={() => setShowAvailableHelp(false)}
+        title="可出租天数"
+        message={'从业主起租日起至今日，该房间可出租的总天数。\n\n空置率 = 空置天数 ÷ 可出租天数'}
+      />
     </div>
   )
 }
