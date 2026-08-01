@@ -6,16 +6,13 @@ import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
+import { todayLocal, daysFromTodayLocal, formatDateLocal } from '../lib/utils'
 
 function getDaysAgo(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return d.toISOString().slice(0, 10)
+  return daysFromTodayLocal(-days)
 }
 function getDaysLater(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return daysFromTodayLocal(days)
 }
 
 export default function Bills() {
@@ -43,7 +40,7 @@ export default function Bills() {
   // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
     const checkOverdue = () => {
-      const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
       const { bills: currentBills, updateBill: updateCurrentBill } = useStore.getState()
       for (const bill of currentBills) {
         if (bill.status === 'pending' && bill.dueDate < today) {
@@ -60,7 +57,7 @@ export default function Bills() {
   useEffect(() => {
     if (payConfirmBill) {
       setPayAmount(payConfirmBill.amount.toString())
-      setPayDate(new Date().toISOString().slice(0, 10))
+      setPayDate(todayLocal())
       const m = payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
       if (m) {
         setPayPeriodStart(m[1])
@@ -85,7 +82,7 @@ export default function Bills() {
     const newEnd = new Date(start)
     newEnd.setDate(newEnd.getDate() + covered - 1)
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(newEnd.toISOString().slice(0, 10))
+    setPayPeriodEnd(formatDateLocal(newEnd))
   }
 
   const getPropertyAddress = (pid?: string) => {
@@ -158,7 +155,7 @@ export default function Bills() {
 
   const daysAgo = getDaysAgo(dayRange)
   const daysLater = getDaysLater(dayRange)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocal()
 
   const filteredBills = useMemo(() => {
     // 全局过滤：排除已作废的账单
@@ -265,6 +262,7 @@ export default function Bills() {
               const receivableUnpaid = bills.filter(b =>
                 b.direction === 'receivable' &&
                 b.status !== 'paid' &&
+                b.status !== 'refunded' &&
                 b.status !== 'cancelled' &&
                 !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
                 b.type !== 'deposit'
@@ -273,6 +271,7 @@ export default function Bills() {
               const payableUnpaid = bills.filter(b =>
                 b.direction === 'payable' &&
                 b.status !== 'paid' &&
+                b.status !== 'refunded' &&
                 b.status !== 'cancelled' &&
                 b.type !== 'deposit'
               ).reduce((s, b) => s + b.amount, 0)
@@ -740,13 +739,13 @@ export default function Bills() {
                       status: 'paid',
                       direction: payConfirmBill.direction,
                       dueDate: payConfirmBill.dueDate,
-                      paidDate: payDate || new Date().toISOString().slice(0, 10),
+                      paidDate: payDate || todayLocal(),
                       description: newDesc,
                     })
                   } else {
                     updateBill(payConfirmBill.id, {
                       status: 'paid',
-                      paidDate: payDate || new Date().toISOString().slice(0, 10),
+                      paidDate: payDate || todayLocal(),
                     })
                   }
                   setPayConfirmBill(null)

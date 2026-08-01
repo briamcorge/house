@@ -9,6 +9,7 @@ import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
+import { todayLocal } from '../lib/utils'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -91,7 +92,7 @@ export default function More() {
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
   const [profitResult, setProfitResult] = useState<PeriodProfitResult | null>(null)
   const [profitExtracted, setProfitExtracted] = useState(false)
-  const [profitExtractionDate, setProfitExtractionDate] = useState(new Date().toISOString().slice(0, 10))
+  const [profitExtractionDate, setProfitExtractionDate] = useState(todayLocal())
   const landlordPayableBills = profitPropertyId
     ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
     : []
@@ -219,7 +220,7 @@ export default function More() {
 
     // 生成文件 blob
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-    const fileName = `房屋管理数据_${new Date().toISOString().slice(0, 10)}.xlsx`
+    const fileName = `房屋管理数据_${todayLocal()}.xlsx`
 
     // 检测是否在 Capacitor 原生环境
     const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
