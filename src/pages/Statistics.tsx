@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Building2, BarChart3 } from 'lucide-react'
+import { ChevronLeft, TrendingUp, TrendingDown, Building2, BarChart3 } from 'lucide-react'
 
 export default function Statistics() {
   const navigate = useNavigate()
@@ -10,28 +10,6 @@ export default function Statistics() {
   // 默认显示当前年份
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState(currentYear)
-
-  // 月度房源净收益：月份列表
-  const [monthlyPropId, setMonthlyPropId] = useState<string | null>(null) // null = 全部房源
-  const allPropMonthKeys = useMemo(() => {
-    const keys = new Set<string>()
-    for (const b of bills) {
-      if (b.paidDate) keys.add(b.paidDate.slice(0, 7))
-      if (b.dueDate) keys.add(b.dueDate.slice(0, 7))
-    }
-    return Array.from(keys).sort((a, b) => a.localeCompare(b))
-  }, [bills])
-  const [propMonthIdx, setPropMonthIdx] = useState(0)
-  const currentPropMonth = allPropMonthKeys[propMonthIdx] || ''
-
-  useEffect(() => {
-    if (allPropMonthKeys.length > 0 && propMonthIdx === 0) {
-      // 默认跳转到本月
-      const todayStr = new Date().toISOString().slice(0, 7)
-      const idx = allPropMonthKeys.indexOf(todayStr)
-      setPropMonthIdx(idx >= 0 ? idx : allPropMonthKeys.length - 1)
-    }
-  }, [allPropMonthKeys])
 
   // 提取所有出现过的年份（按 paidDate 或 dueDate）
   const availableYears = useMemo(() => {
@@ -106,19 +84,6 @@ export default function Statistics() {
     }).sort((a, b) => b.net - a.net)
   }, [properties, rooms, tenants, bills, selectedYear])
 
-  // 去年数据（用于对比）
-  const prevYear = selectedYear - 1
-  const prevYearIncome = useMemo(() =>
-    bills.filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(prevYear.toString()))
-      .filter(b => b.type !== 'deposit')
-      .reduce((s, b) => s + b.amount, 0), [bills, prevYear])
-  const prevYearExpense = useMemo(() =>
-    bills.filter(b => b.direction === 'payable' && b.status === 'paid' && b.paidDate?.startsWith(prevYear.toString()))
-      .reduce((s, b) => s + b.amount, 0), [bills, prevYear])
-  const prevYearNet = prevYearIncome - prevYearExpense
-  const incomeChange = prevYearIncome > 0 ? ((yearlyReceivablePaid - prevYearIncome) / prevYearIncome * 100) : 0
-  const expenseChange = prevYearExpense > 0 ? ((yearlyPayablePaid - prevYearExpense) / prevYearExpense * 100) : 0
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-2">
@@ -183,48 +148,6 @@ export default function Statistics() {
             </div>
           </div>
 
-          {/* 年度对比 */}
-          {prevYearIncome > 0 || prevYearExpense > 0 ? (
-            <div>
-              <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                与{prevYear}年对比
-              </h2>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">收入</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">¥{prevYearIncome.toFixed(0)}</span>
-                    <span className="text-xs">→</span>
-                    <span className="text-sm font-bold text-green-700">¥{yearlyReceivablePaid.toFixed(0)}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${incomeChange >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {incomeChange >= 0 ? '+' : ''}{incomeChange.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">支出</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">¥{prevYearExpense.toFixed(0)}</span>
-                    <span className="text-xs">→</span>
-                    <span className="text-sm font-bold text-blue-700">¥{yearlyPayablePaid.toFixed(0)}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${expenseChange <= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {expenseChange >= 0 ? '+' : ''}{expenseChange.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                  <span className="text-sm text-gray-500">净收入</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">¥{prevYearNet.toFixed(0)}</span>
-                    <span className="text-xs">→</span>
-                    <span className={`text-sm font-bold ${netIncome >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>¥{netIncome.toFixed(0)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
           {/* 各房源收益对比 */}
           <div>
             <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
@@ -271,102 +194,6 @@ export default function Statistics() {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* 月度房源净收益 */}
-          <div>
-            <h2 className="text-base font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              月度房源净收益
-            </h2>
-
-            {/* 房源选择 */}
-            <div className="mb-2">
-              <select
-                value={monthlyPropId ?? ''}
-                onChange={(e) => setMonthlyPropId(e.target.value || null)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm appearance-none"
-              >
-                <option value="">全部房源</option>
-                {properties.map(p => (
-                  <option key={p.id} value={p.id}>{p.address}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 月份导航 */}
-            {allPropMonthKeys.length > 0 && (
-              <div className="flex items-center justify-between mb-2 bg-white rounded-xl shadow-sm border border-gray-100 p-3">
-                <button
-                  type="button"
-                  onClick={() => propMonthIdx > 0 && setPropMonthIdx(propMonthIdx - 1)}
-                  className={`p-2 rounded-lg ${propMonthIdx > 0 ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h3 className="text-base font-bold text-gray-800">
-                  {currentPropMonth ? `${currentPropMonth.slice(0, 4)}年${parseInt(currentPropMonth.slice(5, 7))}月` : ''}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => propMonthIdx < allPropMonthKeys.length - 1 && setPropMonthIdx(propMonthIdx + 1)}
-                  className={`p-2 rounded-lg ${propMonthIdx < allPropMonthKeys.length - 1 ? 'hover:bg-gray-100 text-gray-700' : 'text-gray-300 cursor-default'}`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {/* 月度收益计算 */}
-            {(() => {
-              if (!currentPropMonth) return <p className="text-sm text-gray-400 text-center py-4">暂无数据</p>
-
-              const monthBills = bills.filter(b => {
-                if (b.status !== 'paid' || !b.paidDate) return false
-                if (!b.paidDate.startsWith(currentPropMonth)) return false
-                if (monthlyPropId !== null) {
-                  // Check if bill belongs to this property
-                  if (b.propertyId === monthlyPropId) return true
-                  // Also check via room property
-                  if (b.roomId) {
-                    const room = rooms.find(r => r.id === b.roomId)
-                    if (room && room.propertyId === monthlyPropId) return true
-                  }
-                  return false
-                }
-                return true
-              })
-
-              const income = monthBills
-                .filter(b => b.direction === 'receivable')
-      .filter(b => b.type !== 'deposit')
-                .filter(b => b.amount >= 0)
-                .reduce((s, b) => s + b.amount, 0)
-              const expense = monthBills
-                .filter(b => b.direction === 'payable')
-                .reduce((s, b) => s + Math.abs(b.amount), 0)
-              const refund = monthBills
-                .filter(b => b.amount < 0)
-                .reduce((s, b) => s + Math.abs(b.amount), 0)
-              const net = income - expense - refund
-
-              return (
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white">
-                    <p className="text-green-100 text-xs mb-1">收入</p>
-                    <p className="text-lg font-bold">¥{income.toFixed(0)}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white">
-                    <p className="text-blue-100 text-xs mb-1">支出</p>
-                    <p className="text-lg font-bold">¥{expense.toFixed(0)}</p>
-                  </div>
-                  <div className={`bg-gradient-to-br ${net >= 0 ? 'from-emerald-500 to-emerald-600' : 'from-red-500 to-red-600'} rounded-2xl p-4 text-white`}>
-                    <p className="text-white text-opacity-80 text-xs mb-1">净收益</p>
-                    <p className="text-lg font-bold">{net >= 0 ? '+' : ''}¥{net.toFixed(0)}</p>
-                  </div>
-                </div>
-              )
-            })()}
           </div>
 
         </div>
