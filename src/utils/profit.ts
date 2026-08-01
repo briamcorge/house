@@ -13,10 +13,11 @@ function to360(s: string): { y: number; m: number; d: number } {
   return { y, m, d }
 }
 
-/** 30/360 间隔天数（包含两端）：Feb 28→30 后算差 */
+/** 30/360 间隔天数（包含两端）：Feb 28→30 后算差；日期颠倒（a > b）返回 0 防御 */
 function days360(a: string, b: string): number {
   const da = to360(a), db = to360(b)
-  return (db.y - da.y) * 360 + (db.m - da.m) * 30 + (db.d - da.d) + 1
+  const days = (db.y - da.y) * 360 + (db.m - da.m) * 30 + (db.d - da.d) + 1
+  return days > 0 ? days : 0
 }
 
 /** 取账单覆盖期：优先从 periodStart/periodEnd 字段，旧数据从 description 正则提取 */
@@ -58,6 +59,7 @@ function calcBillBasedRent(
     if (oStart > oEnd) continue
     const ovDays = days360(oStart, oEnd)
     const billDays = days360(bs, be)
+    if (billDays <= 0) continue
     proratedRent += bill.amount * ovDays / billDays
     // 正数账单才计入天数范围
     if (!earliestStart || bs < earliestStart) earliestStart = bs
@@ -159,9 +161,9 @@ export function calculatePeriodProfit(
       !(b.amount < 0 && b.type === 'rent') &&
       billOverlapsCycle(b, periodStart, periodEnd)
     )
-    // 已退租租客：排除未付的正数账单（这些是退租时没清理的遗留账单）
+    // 已退租租客：排除未付的正数账单（这些是退租时没清理的遗留账单，含待收和已逾期）
     if (tenant.status === 'ended') {
-      periodBills = periodBills.filter(b => !(b.amount > 0 && b.status === 'pending'))
+      periodBills = periodBills.filter(b => !(b.amount > 0 && (b.status === 'pending' || b.status === 'overdue')))
     }
 
     // 该周期内的房租账单

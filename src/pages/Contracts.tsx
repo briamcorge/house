@@ -37,7 +37,12 @@ export default function Contracts() {
     c.endReason === 'renew' || landlordContracts.some(x => x.previousContractId === c.id)
 
   const getBillsForContract = (contract: { id: string; propertyId: string }, direction: 'payable' | 'receivable') => {
-    return bills.filter(b => b.propertyId === contract.propertyId && b.direction === direction)
+    // 优先按 landlordContractId 精确匹配；老数据无 contractId 时按 propertyId 兜底
+    return bills.filter(b =>
+      b.direction === direction &&
+      (b.landlordContractId === contract.id ||
+        (!b.landlordContractId && b.propertyId === contract.propertyId))
+    )
   }
 
   const getBillsForTenant = (tenantId: string, roomId: string) => {
@@ -151,9 +156,9 @@ export default function Contracts() {
                 filteredLandlord.map(c => {
                   const prop = properties.find(p => p.id === c.propertyId)
                   const cBills = getBillsForContract(c, 'payable')
-                  const total = cBills.reduce((s, b) => s + b.amount, 0)
-                  const paid = cBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
-                  const unpaid = total - paid
+                  const paid = cBills.filter(b => b.status === 'paid' && b.amount > 0).reduce((s, b) => s + b.amount, 0)
+                  const refunded = cBills.filter(b => b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)).reduce((s, b) => s + Math.abs(b.amount), 0)
+                  const unpaid = cBills.filter(b => b.status !== 'paid' && b.status !== 'refunded' && b.amount > 0).reduce((s, b) => s + b.amount, 0)
                   const daysLeft = Math.ceil((new Date(c.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                   return (
                     <div key={c.id} onClick={() => { if (prop) navigate(`/properties/${c.propertyId}`) }} className="bg-white rounded-xl border border-gray-100 p-3 cursor-pointer hover:shadow-md transition-shadow">
@@ -181,6 +186,7 @@ export default function Contracts() {
                           <span className="text-gray-500"><BarChart3 className="w-3 h-3 inline mr-0.5" />{cBills.length}笔</span>
                           <span className="text-orange-600">未付 ¥{unpaid.toFixed(0)}</span>
                           <span className="text-blue-600">已付 ¥{paid.toFixed(0)}</span>
+                          {refunded > 0 && <span className="text-cyan-600">已退 ¥{refunded.toFixed(0)}</span>}
                         </div>
                       )}
                     </div>

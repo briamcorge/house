@@ -46,6 +46,7 @@ export default function Home() {
     bills.filter(b =>
       b.direction === 'receivable' &&
       b.status === 'overdue' &&
+      b.type !== 'deposit' &&
       !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended')
     ).reduce((s, b) => s + b.amount, 0),
     [bills, tenants]
@@ -94,6 +95,7 @@ export default function Home() {
   const overdueReceivable = useMemo(() =>
     bills.filter(b =>
       b.direction === 'receivable' &&
+      b.type !== 'deposit' &&
       !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
       (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < todayLocal()))
     ),
@@ -462,8 +464,8 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
                     <p className="text-xs font-medium text-gray-900 truncate">{typeLabelMap[b.type] || b.type}{b.description ? ` - ${b.description}` : ''}</p>
                     <p className="text-[10px] text-gray-400 truncate">¥{b.amount.toFixed(0)} · {t?.name || ''} · {b.dueDate}</p>
                   </div>
-                  <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${b.status === 'paid' ? 'bg-green-100 text-green-700' : b.status === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                    {b.status === 'paid' ? '已收' : b.status === 'overdue' ? '逾期' : '待收'}
+                  <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${b.status === 'paid' ? 'bg-green-100 text-green-700' : b.status === 'refunded' ? 'bg-blue-100 text-blue-600' : b.status === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                    {b.status === 'paid' ? '已收' : b.status === 'refunded' ? '已退还' : b.status === 'overdue' ? '逾期' : '待收'}
                   </span>
                 </div>
               )

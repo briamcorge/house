@@ -942,9 +942,28 @@ export default function More() {
               e.stopPropagation()
               setConfirmAction({
                 title: '清除数据',
-                message: '确定要清除本机数据吗？此操作不可恢复！',
+                message: '确定要清除本机数据吗？此操作不可恢复！\n\n云端数据将同步清空，无法找回！',
                 variant: 'danger',
-                onAction: () => clearAllData(),
+                confirmText: '确认清除',
+                onAction: () => {
+                  clearAllData()
+                  // 同步清空云端，防止下次启动又把旧数据拉回来
+                  if (isSupabaseConfigured()) {
+                    saveCloudData({
+                      properties: [],
+                      rooms: [],
+                      tenants: [],
+                      bills: [],
+                      landlordContracts: [],
+                      profitRecords: [],
+                      trash: [],
+                    }).then(ok => {
+                      if (!ok) {
+                        setAlertState({ title: '云端清除失败', message: '本机数据已清除，但云端清除失败（可能网络问题）。下次登录可能从云端恢复旧数据。', variant: 'error' })
+                      }
+                    })
+                  }
+                },
               })
             }}
             className="w-full bg-white rounded-2xl shadow-sm border border-red-100 p-4 flex items-center justify-center gap-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
