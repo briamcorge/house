@@ -3,7 +3,7 @@ import { PaymentMethod } from '../types'
 // ============================================================
 // 30/360 日期类型（纯30天月，不受真实日历限制）
 // ============================================================
-interface Date360 {
+export interface Date360 {
   y: number  // 年份
   m: number  // 月份 0-11
   d: number  // 日期 1-30（31号映射到30号）
@@ -24,7 +24,7 @@ function toDate360(date: Date): Date360 {
 }
 
 /** 从字符串"YYYY-MM-DD"解析 30/360 日期 */
-function parseDate360(s: string): Date360 {
+export function parseDate360(s: string): Date360 {
   const [y, m, d] = s.split('-').map(Number)
   const month = m - 1
   // 30/360规则：每月30天。2月28/29日视为30日，31日视为30日
@@ -72,7 +72,7 @@ function add30Days360(date: Date360, days: number): Date360 {
 }
 
 /** 30/360 日期差（exclusive）：dateA 到 dateB 有多少天 */
-function diffDays360(dateA: Date360, dateB: Date360): number {
+export function diffDays360(dateA: Date360, dateB: Date360): number {
   const years = dateB.y - dateA.y
   const months = dateB.m - dateA.m
   const days = dateB.d - dateA.d
