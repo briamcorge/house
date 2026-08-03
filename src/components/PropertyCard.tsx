@@ -32,6 +32,12 @@ export default function PropertyCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-900 text-sm truncate">{property.address}</span>
+            {property.houseType && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 shrink-0">{property.houseType}</span>
+            )}
+            {property.area != null && (
+              <span className="text-[10px] text-gray-400 shrink-0">{property.area}㎡</span>
+            )}
           </div>
           <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
             {(landlordName || landlordMonthlyRent) && (

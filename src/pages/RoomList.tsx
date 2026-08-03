@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { RoomLabel } from '../types'
+import { formatRoomLabel } from '../lib/utils'
 import RoomCard from '../components/RoomCard'
 import RoomModal from '../components/RoomModal'
 import TenantModal from '../components/TenantModal'
@@ -323,7 +324,7 @@ export default function RoomList() {
         isOpen={historyRoomId !== null}
         onClose={() => setHistoryRoomId(null)}
         tenants={tenants.filter(t => t.roomId === historyRoomId && t.status === 'ended')}
-        roomLabel={`${rooms.find(r => r.id === historyRoomId)?.label}室`}
+        roomLabel={formatRoomLabel(rooms.find(r => r.id === historyRoomId)?.label)}
       />
 
       <LandlordCheckoutModal
@@ -392,7 +393,7 @@ export default function RoomList() {
           if (roomDeleteConfirm) deleteRoom(roomDeleteConfirm.roomId)
         }}
         title="删除确认"
-        message={roomDeleteConfirm ? `确定删除${roomDeleteConfirm.label}室？` : ''}
+        message={roomDeleteConfirm ? `确定删除${formatRoomLabel(roomDeleteConfirm.label)}？` : ''}
         variant="danger"
       />
 

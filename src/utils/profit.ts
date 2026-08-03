@@ -1,5 +1,6 @@
 import { Tenant, Bill, Room } from '../types'
 import { add30Days, formatDate } from './calculator'
+import { formatRoomLabel } from '../lib/utils'
 
 /** 30/360 日期解析：每月30天，Feb 28→30，任何31→30 */
 function to360(s: string): { y: number; m: number; d: number } {
@@ -178,7 +179,7 @@ export function calculatePeriodProfit(
     const rentPaid = expectedRent > 0 && paidRent >= expectedRent - 0.01
     if (!rentPaid && expectedRent > 0) {
       const shortfall = expectedRent - paidRent
-      unpaidReasons.push(`${room?.label || '?'}室 ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
+      unpaidReasons.push(`${room?.label ? formatRoomLabel(room.label) : '?'} ${tenant.name} 还差 ¥${shortfall.toFixed(2)}`)
     }
 
     // 卫管费及其他收入：一次性费用，按应收/实收日归属当前周期，全额计入不重复

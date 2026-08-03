@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+﻿import { useMemo, useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
@@ -6,7 +6,7 @@ import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
-import { todayLocal, daysFromTodayLocal, formatDateLocal } from '../lib/utils'
+import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 
 function getDaysAgo(days: number): string {
   return daysFromTodayLocal(-days)
@@ -95,7 +95,7 @@ export default function Bills() {
     const room = rooms.find(r => r.id === rid)
     if (!room) return ''
     const prop = properties.find(p => p.id === room.propertyId)
-    return prop ? `${prop.address} - ${room.label}室` : `${room.label}室`
+    return prop ? `${prop.address} - ${formatRoomLabel(room.label)}` : `${formatRoomLabel(room.label)}`
   }
 
   const getTenantName = (tid?: string) => {

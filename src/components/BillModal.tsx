@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { Bill, Property, Tenant, Room, BillDirection } from '../types'
 import { X, Home, User, DollarSign, Calendar, FileText } from 'lucide-react'
 import { formatDate, add30Days } from '../utils/calculator'
+import { formatRoomLabel } from '../lib/utils'
 
 interface BillModalProps {
   isOpen: boolean
@@ -276,7 +277,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                     const prop = properties.find(p => p.id === r.propertyId)
                     return (
                       <option key={r.id} value={r.id}>
-                        {prop?.address} - {r.label}室
+                        {prop?.address} - {formatRoomLabel(r.label)}
                       </option>
                     )
                   })}

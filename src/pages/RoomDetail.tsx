@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Tenant, Bill } from '../types'
@@ -10,7 +10,7 @@ import AlertModal from '../components/AlertModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import { add30Days, formatDate } from '../utils/calculator'
-import { todayLocal, formatDateLocal } from '../lib/utils'
+import { todayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 
 export default function RoomDetail() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>()
@@ -162,7 +162,7 @@ export default function RoomDetail() {
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{property?.address} - {room.label} 室</h1>
+              <h1 className="text-xl font-bold text-gray-900 truncate">{property?.address} - {formatRoomLabel(room.label)}</h1>
               <p className="text-sm text-gray-500">{room.roomType}</p>
             </div>
             <div className="relative">
@@ -597,7 +597,7 @@ export default function RoomDetail() {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         tenants={roomTenants}
-        roomLabel={`${room.label}室`}
+        roomLabel={`${formatRoomLabel(room.label)}`}
         onViewTenant={(tenantId) => navigate(`/properties/${propertyId}/rooms/${roomId}`, { state: { selectedTenantId: tenantId } })}
       />
 
@@ -608,7 +608,7 @@ export default function RoomDetail() {
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">换房</h2>
               <p className="text-xs text-gray-400 mt-1">
-                {roomChangeTenant.name} — 当前：{rooms.find(r => r.id === roomChangeTenant.roomId)?.label || '?'}室
+                {roomChangeTenant.name} — 当前：{formatRoomLabel(rooms.find(r => r.id === roomChangeTenant.roomId)?.label) || '?'}
               </p>
             </div>
             <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
@@ -625,7 +625,7 @@ export default function RoomDetail() {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <span className="font-medium text-sm">{r.label}室</span>
+                    <span className="font-medium text-sm">{formatRoomLabel(r.label)}</span>
                     <span className={`ml-2 text-xs ${r.status === 'vacant' ? 'text-green-600' : 'text-orange-600'}`}>
                       {r.status === 'vacant' ? '空置' : '已入住'}
                     </span>
@@ -655,7 +655,7 @@ export default function RoomDetail() {
                   setShowRoomChange(false)
                   setRoomChangeTenant(null)
                   setRoomChangeTarget('')
-                  setAlertState({ title: '成功', message: `已将 ${roomChangeTenant.name} 从 ${oldRoom?.label||'?'}室 换到 ${newRoom?.label||'?'}室` })
+                  setAlertState({ title: '成功', message: `已将 ${roomChangeTenant.name} 从 ${formatRoomLabel(oldRoom?.label) || '?'} 换到 ${formatRoomLabel(newRoom?.label) || '?'}` })
                 }}
                 className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-colors ${
                   roomChangeTarget

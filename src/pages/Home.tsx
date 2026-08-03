@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
 import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText, Receipt } from 'lucide-react'
-import { formatMoney, todayLocal } from '../lib/utils'
+import { formatMoney, todayLocal, formatRoomLabel } from '../lib/utils'
 import { Property, Room, Tenant, Bill, LandlordContract } from '../types'
 
 type AlertType = 'overdue' | 'expiring'
@@ -286,7 +286,7 @@ export default function Home() {
                           <p className="text-xs text-gray-400 truncate">
                             {isRefund ? '退款' : ({ rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' } as Record<string, string>)[b.type] || '其他费用'}
                             {tenant && tenant.displayId && ` #${tenant.displayId}`}
-                            {room && ` · ${room.label}室`}
+                            {room && ` · ${formatRoomLabel(room.label)}`}
                             {b.description && ` · ${b.description}`}
                           </p>
                         </div>
@@ -436,7 +436,7 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
                   <div className="w-6 h-6 bg-green-100 rounded flex items-center justify-center shrink-0"><Users className="w-3 h-3 text-green-600" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-900 truncate">{t.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{prop?.address}{room ? ` - ${room.label}室` : ''}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{prop?.address}{room ? ` - ${formatRoomLabel(room.label)}` : ''}</p>
                   </div>
                   <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedTenant(t) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
                     {t.status === 'active' ? '在租' : isRenewedTenant(t) ? '已续约' : '已退租'}

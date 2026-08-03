@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Shield, Mail, Loader2, ChevronDown, ChevronUp, Search, Ban, CheckCircle, ChevronRight } from 'lucide-react'
 import { getAllUserData, checkIsAdmin, getCurrentUser, setUserDisabled } from '../lib/supabase'
+import { formatRoomLabel } from '../lib/utils'
 
 interface UserData {
   user_id: string
@@ -237,7 +238,14 @@ export default function Admin() {
                               className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 mb-1 text-left transition-colors"
                             >
                               <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-gray-900">{p.address}</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {p.address}
+                                  {(p.houseType || p.area != null) && (
+                                    <span className="ml-1.5 text-xs text-gray-400">
+                                      {p.houseType || ''}{p.area != null ? ` ${p.area}㎡` : ''}
+                                    </span>
+                                  )}
+                                </p>
                                 <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                               </div>
                               <p className="text-xs text-gray-400">
@@ -253,7 +261,7 @@ export default function Admin() {
                                   return (
                                     <div key={r.id} className="bg-white border border-gray-100 rounded-lg px-3 py-1.5">
                                       <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-gray-700">{r.label}室 ({r.roomType})</span>
+                                        <span className="text-xs font-medium text-gray-700">{formatRoomLabel(r.label)} ({r.roomType})</span>
                                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.status === 'occupied' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                           {r.status === 'occupied' ? '已租' : '空置'}
                                         </span>

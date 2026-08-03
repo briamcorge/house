@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
 import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
 import { useStore } from '../store/useStore'
+import { formatRoomLabel } from '../lib/utils'
 
 interface TenantModalProps {
   isOpen: boolean
@@ -126,7 +127,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     const room = rooms.find(r => r.id === rid)
     if (!room) return ''
     const prop = properties.find(p => p.id === room.propertyId)
-    return prop ? `${prop.address} - ${room.label}室` : `${room.label}室`
+    return prop ? `${prop.address} - ${formatRoomLabel(room.label)}` : `${formatRoomLabel(room.label)}`
   }
 
   const selectedRoom = rooms.find(r => r.id === roomId)
