@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PaymentMethod } from '../types'
 import { X, Calendar, DollarSign, ChevronRight, ChevronLeft, User, Phone } from 'lucide-react'
-import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
+import { formatDate, generateRentBills, DraftBill, add30Days, parseDate360, diffDays360 } from '../utils/calculator'
 
 interface LandlordContractModalProps {
   isOpen: boolean
@@ -125,24 +125,27 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       paymentMethod,
       0 // 业主合同无提前付款
     )
-    // 免租期扣减：按合同起租周年归属。第N年（0-based）的免租期从该年第1期账单扣减
+    // 免租期扣减：按合同起租周年归属，每年免租天数从该年第1期账单起逐期消费（跨期不丢金额）
     const perYear = getVacancyPerYearDays()
     if (perYear && perYear.length > 0) {
-      const totalPeriodDays = 360  // 每年360天（30/360）
+      const periodsPerYear = paymentMethod === 'monthly' ? 12
+        : paymentMethod === 'bi-monthly' ? 6
+        : paymentMethod === 'quarterly' ? 4
+        : paymentMethod === 'semi-annual' ? 2 : 1
+      const remaining = [...perYear]  // 每期消费后更新剩余免租天数
       bills.forEach((bill, idx) => {
         if (bill.type !== 'rent') return
-        // 该账单周期开始的周年序号：期数/每年期数（按月付12期/年、季付4期/年）
-        const periodsPerYear = paymentMethod === 'monthly' ? 12
-          : paymentMethod === 'bi-monthly' ? 6
-          : paymentMethod === 'quarterly' ? 4
-          : paymentMethod === 'semi-annual' ? 2 : 1
         const yearIdx = Math.floor(idx / periodsPerYear)
-        const days = perYear[yearIdx] || perYear[perYear.length - 1] || 0
-        if (days > 0) {
-          const deduct = calcVacancyAmount(rent, days)
-          bill.amount = Math.max(0, Math.round((bill.amount - deduct) * 100) / 100)
-          bill.description = `${bill.description}（含免租${days}天）`
-        }
+        // 只在该年有免租额度的年份消费；无定义(undefined)时 fallback 到最后一年，0 则跳过
+        const allowance = remaining[yearIdx] ?? remaining[remaining.length - 1] ?? 0
+        if (allowance <= 0) return
+        // 该期实际天数（30/360）
+        const periodDays = 1 + diffDays360(parseDate360(bill.periodStart), parseDate360(bill.periodEnd))
+        const daysToDeduct = Math.min(allowance, periodDays)
+        const deduct = calcVacancyAmount(rent, daysToDeduct)
+        bill.amount = Math.max(0, Math.round((bill.amount - deduct) * 100) / 100)
+        bill.description = `${bill.description}（含免租${daysToDeduct}天）`
+        remaining[yearIdx] = allowance - daysToDeduct
       })
     }
     // 有押金则加入账单列表（放在首位，但不占用期数编号）
@@ -462,7 +465,13 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   ))}
                   <button
                     type="button"
-                    onClick={() => setVacancyYearList([...vacancyYearList, ''])}
+                    onClick={() => {
+                      setVacancyYearList([...vacancyYearList, ''])
+                      // 添加年份时自动延长合同结束日一年（30/360：+360天）
+                      if (contractEnd) {
+                        setContractEnd(formatDate(add30Days(new Date(contractEnd), 360)))
+                      }
+                    }}
                     className="text-xs text-blue-600 hover:text-blue-700"
                   >
                     + 添加年份
