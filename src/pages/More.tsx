@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -84,6 +84,7 @@ export default function More() {
   // 利润提取
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [showProfitRecords, setShowProfitRecords] = useState(false)
+  const [showBillPicker, setShowBillPicker] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
@@ -572,6 +573,41 @@ export default function More() {
     e.target.value = ''
   }
 
+  /** 选中业主账单期数后的处理（复用于 select 和弹窗选择） */
+  const handleBillSelect = (billId: string) => {
+    setProfitBillId(billId)
+    setProfitExtracted(false)
+    if (billId) {
+      const bill = bills.find(b => b.id === billId)
+      if (bill?.description) {
+        const m = bill.description.match(/第\d+期 .+? (\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
+        if (m) {
+          const start = m[1], end = m[2]
+          setProfitCycleStart(start)
+          setProfitCycleEnd(end)
+          const alreadyExtracted = profitRecords.some(r =>
+            r.propertyId === profitPropertyId &&
+            r.cycleStart === start &&
+            r.cycleEnd === end
+          )
+          setProfitExtracted(alreadyExtracted)
+          const propRooms = rooms.filter(r => r.propertyId === profitPropertyId)
+          const propTenants = tenants.filter(t => propRooms.some(r => r.id === t.roomId))
+          const result = calculatePeriodProfit(start, end, bill.amount, propTenants, propRooms, bills)
+          setProfitResult(result)
+          if (!alreadyExtracted) {
+            setProfitAmount(String(Math.round(result.profitAmount)))
+          }
+        }
+      }
+    } else {
+      setProfitCycleStart('')
+      setProfitCycleEnd('')
+      setProfitResult(null)
+      setProfitAmount('')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
@@ -774,53 +810,18 @@ export default function More() {
                       ))}
                     </select>
 
-                    <select
-                      value={profitBillId}
-                      onChange={(e) => {
-                        const billId = e.target.value
-                        setProfitBillId(billId)
-                        setProfitExtracted(false)
-                        if (billId) {
-                          const bill = bills.find(b => b.id === billId)
-                          if (bill?.description) {
-                            const m = bill.description.match(/第\d+期 .+? (\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
-                            if (m) {
-                              const start = m[1], end = m[2]
-                              setProfitCycleStart(start)
-                              setProfitCycleEnd(end)
-                              // 检查该周期是否已提取过利润
-                              const alreadyExtracted = profitRecords.some(r =>
-                                r.propertyId === profitPropertyId &&
-                                r.cycleStart === start &&
-                                r.cycleEnd === end
-                              )
-                              setProfitExtracted(alreadyExtracted)
-                              // 自动计算该周期利润
-                              const propRooms = rooms.filter(r => r.propertyId === profitPropertyId)
-                              const propTenants = tenants.filter(t => propRooms.some(r => r.id === t.roomId))
-                              const result = calculatePeriodProfit(start, end, bill.amount, propTenants, propRooms, bills)
-                              setProfitResult(result)
-                              if (!alreadyExtracted) {
-                                setProfitAmount(String(Math.round(result.profitAmount)))
-                              }
-                            }
-                          }
-                        } else {
-                          setProfitCycleStart('')
-                          setProfitCycleEnd('')
-                          setProfitResult(null)
-                          setProfitAmount('')
-                        }
-                      }}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                    <button
+                      type="button"
+                      onClick={() => setShowBillPicker(true)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-left flex items-center justify-between"
                     >
-                      <option value="">选择业主账单期数</option>
-                      {landlordPayableBills.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.description} — ¥{b.amount.toFixed(0)}
-                        </option>
-                      ))}
-                    </select>
+                      <span className={profitBillId ? 'text-gray-900' : 'text-gray-400'}>
+                        {profitBillId
+                          ? landlordPayableBills.find(b => b.id === profitBillId)?.description || '选择业主账单期数'
+                          : '选择业主账单期数'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
 
                     {profitCycleStart && profitCycleEnd && (
                       <>
@@ -1180,6 +1181,52 @@ export default function More() {
               ))}
               {propertyProfitRecords.length === 0 && (
                 <p className="text-center text-gray-400 py-8">暂无提取记录</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 业主账单期数选择弹窗 */}
+      {showBillPicker && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowBillPicker(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[60vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">选择业主账单期数</h3>
+              <button type="button" onClick={() => setShowBillPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {landlordPayableBills.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm">暂无业主账单</div>
+              ) : (
+                landlordPayableBills.map((b) => {
+                  const desc = b.description || ''
+                  // 解析描述：提取期数信息、日期范围、免租标注
+                  const periodMatch = desc.match(/(第\d+期\s+\S+)/)
+                  const dateMatch = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+                  const vacancyMatch = desc.match(/（含免租(\d+)天）/)
+                  const isSelected = profitBillId === b.id
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => { handleBillSelect(b.id); setShowBillPicker(false) }}
+                      className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${isSelected ? 'bg-blue-50' : 'active:bg-gray-50'}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {periodMatch?.[1] || desc.slice(0, 30)} {dateMatch ? `${dateMatch[1]} ~ ${dateMatch[2]}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {vacancyMatch ? `含免租${vacancyMatch[1]}天 · ` : ''}¥{b.amount.toFixed(0)}
+                        </p>
+                      </div>
+                      {isSelected && <CheckCircle className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                    </button>
+                  )
+                })
               )}
             </div>
           </div>

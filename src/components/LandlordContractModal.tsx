@@ -8,6 +8,7 @@ interface LandlordContractModalProps {
   onClose: () => void
   onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
   onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
+  onEditContract?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
   onSaveEdit?: (landlordName?: string, landlordPhone?: string) => void
   propertyAddress: string
   existingRent?: number
@@ -19,6 +20,7 @@ interface LandlordContractModalProps {
   existingPhone?: string
   existingVacancyAllowance?: number | number[]
   isSimpleEdit?: boolean
+  isEditMode?: boolean
   isRenewal?: boolean
 }
 
@@ -37,7 +39,7 @@ function showError(setter: (msg: string) => void, msg: string) {
   setTimeout(() => setter(''), 5000)
 }
 
-export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, existingVacancyAllowance, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
+export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onEditContract, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, existingVacancyAllowance, isSimpleEdit, isEditMode, isRenewal }: LandlordContractModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [landlordName, setLandlordName] = useState('')
@@ -148,44 +150,41 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
         remaining[yearIdx] = allowance - daysToDeduct
       })
     }
-    // 有押金则加入账单列表（放在首位，但不占用期数编号）
-    const depositVal = parseFloat(deposit)
-    if (!isNaN(depositVal) && depositVal > 0) {
-      if (isRenewal) {
-        // 续约：比较新旧押金，只生成差额账单（跟租客逻辑一致）
-        const oldDeposit = existingDeposit || 0
-        const diff = depositVal - oldDeposit
-        if (diff > 0) {
-          bills.unshift({
-            type: 'deposit',
-            amount: diff,
-            dueDate: contractStart,
-            periodStart: contractStart,
-            periodEnd: contractEnd,
-            description: '押金补收',
-          })
-        } else if (diff < 0) {
-          bills.unshift({
-            type: 'deposit',
-            amount: diff,
-            dueDate: contractStart,
-            periodStart: contractStart,
-            periodEnd: contractEnd,
-            description: '退押金',
-          })
-        }
-        // diff === 0: 无变化，不生成账单
-      } else {
-        // 新合同：生成全额押金账单
+    // 押金：新合同/编辑生成全额；续约按新旧押金差额生成调整账单（旧合同保留，押金延续）
+    const depositVal = parseFloat(deposit) || 0
+    const oldDeposit = existingDeposit || 0
+    if (isRenewal && !isEditMode) {
+      const diff = Math.round((depositVal - oldDeposit) * 100) / 100
+      if (diff > 0) {
         bills.unshift({
           type: 'deposit',
-          amount: depositVal,
+          amount: diff,
           dueDate: contractStart,
           periodStart: contractStart,
           periodEnd: contractEnd,
-          description: '押金',
+          description: '押金补收',
+        })
+      } else if (diff < 0) {
+        bills.unshift({
+          type: 'deposit',
+          amount: diff,
+          dueDate: contractStart,
+          periodStart: contractStart,
+          periodEnd: contractEnd,
+          description: '退押金',
         })
       }
+      // diff === 0: 无变化，不生成账单
+    } else if (depositVal > 0) {
+      // 新合同/编辑：生成全额押金账单
+      bills.unshift({
+        type: 'deposit',
+        amount: depositVal,
+        dueDate: contractStart,
+        periodStart: contractStart,
+        periodEnd: contractEnd,
+        description: '押金',
+      })
     }
     setDraftBills(bills)
     setBillKey(k => k + 1)
@@ -225,7 +224,9 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       allowance === null ? undefined
         : allowance.length === 1 ? allowance[0]
         : allowance
-    if (existingRent !== undefined) {
+    if (isEditMode) {
+      onEditContract?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
+    } else if (existingRent !== undefined) {
       onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
     } else {
       onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
@@ -257,7 +258,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            {isSimpleEdit ? '编辑合同' : existingRent !== undefined ? '代理续约' : '房屋代理合同'}
+            {isSimpleEdit ? '编辑合同' : isEditMode ? '编辑合同' : existingRent !== undefined ? '代理续约' : '房屋代理合同'}
           </h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5 text-gray-500" />
@@ -280,7 +281,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
 
             <div className="bg-blue-50 rounded-xl p-3">
               <p className="text-sm text-blue-700 font-medium">{propertyAddress}</p>
-              <p className="text-xs text-blue-500 mt-1">{isSimpleEdit ? '编辑业主信息' : existingRent !== undefined ? '代理续约（应付）' : '房屋代理合同（应付）'}</p>
+              <p className="text-xs text-blue-500 mt-1">{isSimpleEdit ? '编辑业主信息' : isEditMode ? '编辑合同（应付）' : existingRent !== undefined ? '代理续约（应付）' : '房屋代理合同（应付）'}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -294,7 +295,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   value={landlordName}
                   onChange={(e) => setLandlordName(e.target.value)}
                   placeholder="例如：王房东"
-                  disabled={!!existingRent && !isSimpleEdit}
+                  disabled={!!existingRent && !isSimpleEdit && !isEditMode}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                   required
                 />
@@ -310,7 +311,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   onChange={(e) => setLandlordPhone(e.target.value)}
                   placeholder="13800138000"
                   maxLength={11}
-                  disabled={!!existingRent && !isSimpleEdit}
+                  disabled={!!existingRent && !isSimpleEdit && !isEditMode}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
@@ -395,22 +396,21 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
             </div>
 
             {/* 免租期（空置期）：业主给的免租天数 */}
-            <div className="bg-blue-50/50 rounded-xl p-3 space-y-3">
+            <div className="bg-blue-50/50 rounded-xl p-2.5 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-gray-700">
                   免租期（业主给的免租天数）
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                <label className="flex items-center gap-1 text-xs text-gray-500">
                   <input
                     type="checkbox"
                     checked={vacancyPerYear}
                     onChange={(e) => setVacancyPerYear(e.target.checked)}
                     className="accent-blue-900"
                   />
-                  按年分别设置
+                  按年设置
                 </label>
               </div>
-              <p className="text-xs text-gray-400">免租期金额将从对应期数的应付账单中扣除，不影响利润提取计算</p>
 
               {!vacancyPerYear ? (
                 <div className="flex gap-2">
@@ -422,7 +422,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     min="0"
                     className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  {[30, 60, 90].map(d => (
+                  {[30].map(d => (
                     <button
                       key={d}
                       type="button"
@@ -606,7 +606,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                 onClick={handleConfirm}
                 className="flex-[2] py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
               >
-                {existingRent !== undefined ? '保存合同修改' : '确认生成应付账单'}
+                {isEditMode ? '保存修改并生成新账单' : existingRent !== undefined ? '保存合同修改' : '确认生成应付账单'}
               </button>
             </div>
           </div>

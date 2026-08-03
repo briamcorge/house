@@ -18,7 +18,7 @@ import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } 
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, restoreLandlordContract, editTenantContract, createTenantContract, deleteRoom } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, addRoom, addTenant, addBill, deleteBill, addLandlordContract, updateLandlordContract, deleteLandlordContract, terminateLandlordContract, restoreLandlordContract, editTenantContract, createTenantContract, deleteRoom } = useStore()
 
   const property = properties.find(p => p.id === propertyId)
   const propertyRooms = rooms.filter(r => r.propertyId === propertyId)
@@ -38,6 +38,7 @@ export default function RoomList() {
   const [roomMenu, setRoomMenu] = useState<string | null>(null)
   const [summaryRoomId, setSummaryRoomId] = useState<string | null>(null)
   const [editContractId, setEditContractId] = useState<string | null>(null)
+  const [renewContractId, setRenewContractId] = useState<string | null>(null)
   const [historyRoomId, setHistoryRoomId] = useState<string | null>(null)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: 'name' | 'phone'; value: string } | null>(null)
   const [editInlineValue, setEditInlineValue] = useState('')
@@ -124,6 +125,9 @@ export default function RoomList() {
                               <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); }} />
                               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 min-w-[88px]" onClick={e => e.stopPropagation()}>
                                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setEditContractId(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">编辑</button>
+                                {c.status === 'active' && (
+                                  <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); setRenewContractId(c.id) }} className="block w-full text-left px-3 py-1.5 text-xs text-blue-600 hover:bg-gray-50">续约</button>
+                                )}
                                 {c.status === 'active' ? (
                                   <button type="button" onClick={e => { e.stopPropagation(); setMenuOpenContractId(null); if (c.deposit) setLandlordCheckout({ id: c.id, name: c.landlordName || '业主', deposit: c.deposit }); else setContractConfirm({ id: c.id, action: 'terminate' }) }} className="block w-full text-left px-3 py-1.5 text-xs text-orange-600 hover:bg-gray-50">退租</button>
                                 ) : !isRenewedContract(c) ? (
@@ -290,18 +294,20 @@ export default function RoomList() {
         roomId={summaryRoomId || undefined}
       />
       <LandlordContractModal
-        isOpen={editContractId !== null}
-        onClose={() => setEditContractId(null)}
+        isOpen={editContractId !== null || renewContractId !== null}
+        onClose={() => { setEditContractId(null); setRenewContractId(null) }}
         onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
           const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
-          setEditContractId(null)
+          setEditContractId(null); setRenewContractId(null)
         }}
         onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
-          // 结束旧合同（续约被替代，不是退租）
-          const oldContract = landlordContracts.find(c => c.propertyId === propertyId && c.status === 'active')
+          const cid = renewContractId
+          if (!cid) return
+          // 续约：旧合同被替代（不是退租），新建合同并绑定
+          const oldContract = landlordContracts.find(c => c.id === cid)
           if (oldContract) {
             updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
           }
@@ -309,16 +315,39 @@ export default function RoomList() {
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
-          setEditContractId(null)
+          setEditContractId(null); setRenewContractId(null)
         }}
+        onEditContract={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+          const cid = editContractId
+          if (!cid) return
+          // 编辑合同：原地更新合同字段（不结束旧合同、不新建合同）
+          updateLandlordContract(cid, {
+            monthlyRent: rent || 0,
+            landlordName: name,
+            landlordPhone: phone,
+            contractStart: cs,
+            contractEnd: ce,
+            deposit,
+            vacancyAllowance,
+          })
+          // 老账单全部删除（含已收/已付，由用户手动重新认账）
+          bills.filter(b => b.landlordContractId === cid).forEach(b => deleteBill(b.id))
+          // 生成新账单（含押金全额/调整）
+          draftBills.forEach((bill) => {
+            addBill({ propertyId: propertyId!, landlordContractId: cid, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
+          })
+          setEditContractId(null); setRenewContractId(null)
+        }}
+        isEditMode={editContractId !== null}
+        isRenewal={renewContractId !== null}
         propertyAddress={property?.address || ''}
-        existingRent={editContractId ? landlordContracts.find(c => c.id === editContractId)?.monthlyRent : undefined}
-        existingPaymentMethod={editContractId ? landlordContracts.find(c => c.id === editContractId)?.paymentMethod : undefined}
-        existingStart={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractStart : undefined}
-        existingEnd={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractEnd : undefined}
-        existingDeposit={editContractId ? landlordContracts.find(c => c.id === editContractId)?.deposit : undefined}
-        existingVacancyAllowance={editContractId ? landlordContracts.find(c => c.id === editContractId)?.vacancyAllowance : undefined}
-        existingName={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordName : undefined}
+        existingRent={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.monthlyRent : undefined}
+        existingPaymentMethod={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.paymentMethod : undefined}
+        existingStart={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.contractStart : undefined}
+        existingEnd={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.contractEnd : undefined}
+        existingDeposit={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.deposit : undefined}
+        existingVacancyAllowance={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.vacancyAllowance : undefined}
+        existingName={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.landlordName : undefined}
         existingPhone={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordPhone : undefined}
       />
       <HistoryTenantsModal
