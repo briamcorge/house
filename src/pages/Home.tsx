@@ -3,11 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
-import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText, Receipt } from 'lucide-react'
+import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText } from 'lucide-react'
 import { formatMoney, todayLocal, formatRoomLabel } from '../lib/utils'
-import { Property, Room, Tenant, Bill, LandlordContract } from '../types'
+import { Property, Room, Tenant, LandlordContract } from '../types'
+import { pinyin } from 'pinyin-pro'
 
-type AlertType = 'overdue' | 'expiring'
+/** 拼音匹配辅助：返回字符串的全拼 + 首字母（小写、无空格），用于模糊搜索 */
+const pinyinKeys = (s: string) => {
+  const full = pinyin(s, { toneType: 'none', type: 'array' }).join('').toLowerCase()
+  const initials = pinyin(s, { pattern: 'first', toneType: 'none', type: 'array' }).join('').toLowerCase()
+  return `${full} ${initials}`
+}
+/** 判断查询词 q（已小写）是否匹配文本（支持中文子串/全拼/首字母） */
+const matchText = (text: string, q: string) => {
+  const t = text.toLowerCase()
+  return t.includes(q) || pinyinKeys(text).includes(q)
+}
+
+type AlertType = 'expiring'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -92,17 +105,6 @@ export default function Home() {
     [landlordContracts]
   )
 
-  const overdueReceivable = useMemo(() =>
-    bills.filter(b =>
-      b.direction === 'receivable' &&
-      b.type !== 'deposit' &&
-      !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended') &&
-      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate < todayLocal()))
-    ),
-    [bills, tenants]
-  )
-  const overdueReceivableTotal = overdueReceivable.reduce((s, b) => s + b.amount, 0)
-
   const expiringSoon = (expiringTenants.length + expiringLandlords.length) > 0
   const hasExpired = (expiredTenants.length + expiredLandlords.length) > 0
 
@@ -152,7 +154,6 @@ export default function Home() {
               properties={properties}
               rooms={rooms}
               tenants={tenants}
-              bills={bills}
               landlordContracts={landlordContracts}
               navigate={navigate}
             />
@@ -164,18 +165,6 @@ export default function Home() {
         <div className="max-w-md mx-auto">
           {/* 告警横幅 */}
           <div className="mb-2 space-y-2">
-            {!dismissedAlerts.has('overdue') && overdueReceivable.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-red-800">{overdueReceivable.length} 笔账单已逾期</p>
-                    <p className="text-xs text-red-600 mt-0.5">合计 ¥{formatMoney(overdueReceivableTotal)}，请尽快处理</p>
-                </div>
-                <button type="button" onClick={() => dismissAlert('overdue')} className="text-red-400 hover:text-red-600 shrink-0">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
             {!dismissedAlerts.has('expiring') && (expiringSoon || hasExpired) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 space-y-2">
                 {expiringSoon && (
@@ -347,54 +336,35 @@ interface SearchResultsProps {
   properties: Property[]
   rooms: Room[]
   tenants: Tenant[]
-  bills: Bill[]
   landlordContracts: LandlordContract[]
   navigate: ReturnType<typeof useNavigate>
 }
 
-function SearchResults({ query, properties, rooms, tenants, bills, landlordContracts, navigate }: SearchResultsProps) {
+function SearchResults({ query, properties, rooms, tenants, landlordContracts, navigate }: SearchResultsProps) {
   const q = query.toLowerCase()
-  const typeLabelMap: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
   // 判断租客是否为续约旧合同（endReason='renew' 或 被其他合同的 previousTenantId 指向）
   const isRenewedTenant = (t: { id: string; endReason?: 'renew' | 'checkout' }) =>
     t.endReason === 'renew' || tenants.some(x => x.previousTenantId === t.id)
 
   const matchedProps = properties.filter((p: Property) =>
-    p.address.toLowerCase().includes(q) ||
-    (p.description && p.description.toLowerCase().includes(q))
+    matchText(p.address, q) ||
+    (p.description && matchText(p.description, q))
   )
 
   const matchedTenants = tenants.filter((t: Tenant) =>
-    t.name.toLowerCase().includes(q) ||
+    matchText(t.name, q) ||
     (t.phone && t.phone.includes(q)) ||
     (t.displayId && t.displayId.toLowerCase().includes(q))
   )
 
-  const matchedRooms = rooms.filter((r: Room) =>
-    r.label.toLowerCase().includes(q) ||
-    r.roomType.toLowerCase().includes(q)
-  )
-  for (const mr of matchedRooms) {
-    const ts = tenants.filter((t: Tenant) => t.roomId === mr.id)
-    for (const t of ts) {
-      if (!matchedTenants.find((mt: Tenant) => mt.id === t.id)) matchedTenants.push(t)
-    }
-  }
-
-  const matchedBills = bills.filter((b: Bill) =>
-    (b.description && b.description.toLowerCase().includes(q)) ||
-    b.amount.toString().includes(q) ||
-    (typeLabelMap[b.type] && typeLabelMap[b.type].includes(q))
-  ).slice(0, 5)
-
   const matchedLandlords = landlordContracts.filter((c: LandlordContract) =>
-    (c.landlordName && c.landlordName.toLowerCase().includes(q)) ||
+    (c.landlordName && matchText(c.landlordName, q)) ||
     (c.landlordPhone && c.landlordPhone.includes(q)) ||
     (c.displayId && c.displayId.toLowerCase().includes(q))
   )
 
-  const hasResults = matchedProps.length > 0 || matchedTenants.length > 0 || matchedBills.length > 0 || matchedLandlords.length > 0
+  const hasResults = matchedProps.length > 0 || matchedTenants.length > 0 || matchedLandlords.length > 0
   if (!hasResults) {
     return <div className="text-center py-6 text-sm text-gray-400 rounded-xl bg-white shadow-sm border border-gray-100">未找到匹配结果</div>
   }
@@ -440,32 +410,6 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
                   </div>
                   <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${t.status === 'active' ? 'bg-green-100 text-green-700' : isRenewedTenant(t) ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
                     {t.status === 'active' ? '在租' : isRenewedTenant(t) ? '已续约' : '已退租'}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {matchedBills.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-gray-500">账单 ({matchedBills.length})</span>
-            <button onClick={() => navigate('/bills')} className="text-xs text-blue-600 hover:underline">查看全部</button>
-          </div>
-          <div className="space-y-1">
-            {matchedBills.map((b: Bill) => {
-              const t = b.tenantId ? tenants.find((t: Tenant) => t.id === b.tenantId) : null
-              return (
-                <div key={b.id} onClick={() => { const r = b.roomId ? rooms.find((r: Room) => r.id === b.roomId) : null; const p = r ? properties.find((p: Property) => p.id === r.propertyId) : null; if (r) navigate(`/properties/${p?.id}/rooms/${r.id}`) }} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center shrink-0"><Receipt className="w-3 h-3 text-purple-600" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-900 truncate">{typeLabelMap[b.type] || b.type}{b.description ? ` - ${b.description}` : ''}</p>
-                    <p className="text-[10px] text-gray-400 truncate">¥{b.amount.toFixed(0)} · {t?.name || ''} · {b.dueDate}</p>
-                  </div>
-                  <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full ${b.status === 'paid' ? 'bg-green-100 text-green-700' : b.status === 'refunded' ? 'bg-blue-100 text-blue-600' : b.status === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                    {b.status === 'paid' ? '已收' : b.status === 'refunded' ? '已退还' : b.status === 'overdue' ? '逾期' : '待收'}
                   </span>
                 </div>
               )

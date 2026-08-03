@@ -1076,7 +1076,7 @@ export default function More() {
                   <div key={b.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} {room ? `- ${room.label}` : ''}</p>
-                      <p className="text-xs text-gray-500">{tenant?.name || ''}{b.amount < 0 ? '（退押金）' : ''}</p>
+                      <p className="text-xs text-gray-500">{tenant?.name || ''}{b.amount < 0 ? '（退押金）' : ''} · {b.amount < 0 ? '已退' : '实收'} {b.paidDate || b.dueDate}</p>
                     </div>
                     <span className={`text-sm font-bold ml-2 ${b.amount < 0 ? 'text-red-600' : 'text-gray-900'}`}>{b.amount < 0 ? '-' : ''}¥{Math.abs(b.amount).toFixed(0)}</span>
                   </div>
@@ -1112,7 +1112,7 @@ export default function More() {
                   <div key={b.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{prop?.address || ''} {room ? `- ${room.label}` : ''}</p>
-                      <p className="text-xs text-gray-500">业主押金</p>
+                      <p className="text-xs text-gray-500">{b.amount < 0 ? '业主退押金' : '业主押金'} · {b.amount < 0 ? '已退' : '实付'} {b.paidDate || b.dueDate}</p>
                     </div>
                     <span className="text-sm font-bold ml-2 text-gray-900">¥{Math.abs(b.amount).toFixed(0)}</span>
                   </div>
