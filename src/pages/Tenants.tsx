@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
 import { Tenant } from '../types'
@@ -10,10 +10,12 @@ import { Search, Edit2, Trash2, MoreVertical, User, Phone, Home, Calendar } from
 
 export default function Tenants() {
   const { tenants, properties, rooms, updateTenant, deleteTenant } = useStore()
+  const location = useLocation()
+  const initState = (location.state as { filter?: 'all' | 'active' | 'ended' | 'renewed' } | null)?.filter
   const [showModal, setShowModal] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>()
   const [tenantMenu, setTenantMenu] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'ended' | 'renewed'>(initState || 'active')
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ tenantId: string; roomId: string } | null>(null)
   const navigate = useNavigate()
@@ -25,7 +27,8 @@ export default function Tenants() {
   const filteredTenants = tenants.filter(t =>
     statusFilter === 'all' ? true
       : statusFilter === 'active' ? t.status === 'active'
-        : t.status === 'ended' && !isRenewedTenant(t)
+        : statusFilter === 'renewed' ? t.status === 'ended' && isRenewedTenant(t)
+          : t.status === 'ended' && !isRenewedTenant(t)
   )
 
   const getRoomInfo = (roomId: string) => {
@@ -76,11 +79,11 @@ export default function Tenants() {
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-4">租客管理</h1>
           <div className="flex gap-2">
-            {(['all', 'active', 'ended'] as const).map(f => (
+            {(['all', 'active', 'renewed', 'ended'] as const).map(f => (
               <button key={f} onClick={() => setStatusFilter(f)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === f ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
               >
-                {f === 'all' ? '全部' : f === 'active' ? '在租' : '已退租'}（{f === 'all' ? tenants.length : f === 'active' ? tenants.filter(t => t.status === 'active').length : tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length}）
+                {f === 'all' ? '全部' : f === 'active' ? '在租' : f === 'renewed' ? '已续约' : '已退租'}（{f === 'all' ? tenants.length : f === 'active' ? tenants.filter(t => t.status === 'active').length : f === 'renewed' ? tenants.filter(t => t.status === 'ended' && isRenewedTenant(t)).length : tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length}）
               </button>
             ))}
           </div>

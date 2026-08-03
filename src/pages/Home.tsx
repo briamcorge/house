@@ -425,7 +425,7 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-medium text-gray-500">租客 ({matchedTenants.length})</span>
-            <button onClick={() => navigate('/tenants')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+            <button onClick={() => navigate('/tenants', { state: { filter: 'all' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
             {matchedTenants.slice(0, 5).map((t: Tenant) => {
@@ -478,13 +478,13 @@ function SearchResults({ query, properties, rooms, tenants, bills, landlordContr
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-medium text-gray-500">业主合同 ({matchedLandlords.length})</span>
-            <button onClick={() => navigate('/contracts')} className="text-xs text-blue-600 hover:underline">查看全部</button>
+            <button onClick={() => navigate('/contracts', { state: { filter: 'all' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
           </div>
           <div className="space-y-1">
             {matchedLandlords.slice(0, 5).map((c: LandlordContract) => {
               const prop = properties.find((p: Property) => p.id === c.propertyId)
               return (
-                <div key={c.id} onClick={() => navigate('/contracts')} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <div key={c.id} onClick={() => navigate('/contracts', { state: { filter: 'all' } })} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <div className="w-6 h-6 bg-orange-100 rounded flex items-center justify-center shrink-0"><FileText className="w-3 h-3 text-orange-600" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-900 truncate">{c.landlordName || '业主'} #{c.displayId}</p>

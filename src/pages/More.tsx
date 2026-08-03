@@ -907,7 +907,39 @@ export default function More() {
                       </>
                     )}
 
-                    {/* 已有提取记录入口 */}
+                    {/* 最近提取记录（直接显示最近 2 次，更多则点击查看全部） */}
+                    {profitPropertyId && propertyProfitRecords.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                          <History className="w-3.5 h-3.5" />
+                          最近提取
+                        </p>
+                        {propertyProfitRecords.slice(0, 2).map(r => (
+                          <div key={r.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                {r.status === 'withdrawn' ? (
+                                  <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                ) : (
+                                  <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                )}
+                                <p className="text-sm font-medium text-gray-900 truncate">{r.cycleStart} ~ {r.cycleEnd}</p>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {r.extractedAt ? `提取日 ${r.extractedAt}` : '未提取'}
+                                {r.isManual ? ' · 手动' : ''}
+                                {r.remark ? ` · ${r.remark}` : ''}
+                              </p>
+                            </div>
+                            <span className={`text-sm font-bold ml-2 shrink-0 ${r.profitAmount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              ¥{r.profitAmount.toFixed(0)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 更多提取记录入口（始终提供，供删除/查看全部） */}
                     {profitPropertyId && propertyProfitRecords.length > 0 && (
                       <button
                         type="button"
@@ -915,7 +947,7 @@ export default function More() {
                         className="w-full py-2.5 px-3 bg-gray-50 text-gray-600 rounded-xl font-medium text-sm hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5"
                       >
                         <History className="w-4 h-4" />
-                        查看提取记录（{propertyProfitRecords.length} 笔）
+                        {propertyProfitRecords.length > 2 ? `查看全部记录（${propertyProfitRecords.length} 笔）` : '管理提取记录'}
                       </button>
                     )}
 
