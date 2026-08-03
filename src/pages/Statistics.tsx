@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, BarChart3, CalendarX2, HelpCircle, Building2, Search, X, Check } from 'lucide-react'
 import { calculatePropertyVacancy } from '../utils/vacancy'
+import { formatRoomLabel } from '../lib/utils'
 import AlertModal from '../components/AlertModal'
 
 export default function Statistics() {
@@ -274,7 +275,7 @@ export default function Statistics() {
                             {v.rooms.map(r => (
                               <tr key={r.roomId} className="border-t border-gray-50">
                                 <td className="py-2">
-                                  <span className="font-medium text-gray-800">{r.roomLabel}室</span>
+                                  <span className="font-medium text-gray-800">{formatRoomLabel(r.roomLabel)}</span>
                                   <span className="text-xs text-gray-400 ml-1">{r.roomType}</span>
                                 </td>
                                 <td className={`py-2 text-right font-medium ${r.vacancyDays > 0 ? 'text-red-600' : 'text-emerald-600'}`}>

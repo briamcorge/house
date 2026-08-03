@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
+import { formatRoomLabel } from '../lib/utils'
 import { Tenant } from '../types'
 import TenantModal from '../components/TenantModal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -32,7 +33,7 @@ export default function Tenants() {
     if (!room) return { label: '未知房间', address: '' }
     const prop = properties.find(p => p.id === room.propertyId)
     return {
-      label: `${room.label}室`,
+      label: formatRoomLabel(room.label),
       address: prop?.address || '',
     }
   }

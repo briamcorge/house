@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Property } from '../types'
 import { X, Building2 } from 'lucide-react'
+import ConfirmModal from './ConfirmModal'
 
 interface PropertyModalProps {
   isOpen: boolean
@@ -9,6 +10,10 @@ interface PropertyModalProps {
   editingProperty?: Property
 }
 
+const houseTypes = ['一居', '两居', '三居', '开间']
+
+const CUSTOM = '__custom__'
+
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
   setTimeout(() => setter(''), 5000)
@@ -16,15 +21,26 @@ function showError(setter: (msg: string) => void, msg: string) {
 
 export default function PropertyModal({ isOpen, onClose, onSave, editingProperty }: PropertyModalProps) {
   const [address, setAddress] = useState('')
+  const [houseType, setHouseType] = useState('一居')
+  const [area, setArea] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+
+  // 户型是否在预设内（不在 → 自定义输入）
+  const isPresetHouseType = houseTypes.includes(houseType)
+  const houseSelectValue = isPresetHouseType ? houseType : CUSTOM
 
   useEffect(() => {
     if (editingProperty) {
       setAddress(editingProperty.address)
+      setHouseType(editingProperty.houseType || '一居')
+      setArea(editingProperty.area ? String(editingProperty.area) : '')
       setDescription(editingProperty.description || '')
     } else {
       setAddress('')
+      setHouseType('一居')
+      setArea('')
       setDescription('')
     }
     setError('')
@@ -40,11 +56,17 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
   }, [onClose])
 
   const isDirty = editingProperty
-    ? address !== editingProperty.address || description !== (editingProperty.description || '')
-    : address !== '' || description !== ''
+    ? address !== editingProperty.address ||
+      houseType !== (editingProperty.houseType || '一居') ||
+      area !== (editingProperty.area ? String(editingProperty.area) : '') ||
+      description !== (editingProperty.description || '')
+    : address !== '' || houseType !== '一居' || area !== '' || description !== ''
 
   const handleClose = () => {
-    if (isDirty && !confirm('有未保存的修改，确定要放弃吗？')) return
+    if (isDirty) {
+      setShowCloseConfirm(true)
+      return
+    }
     onClose()
   }
 
@@ -56,7 +78,18 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
       return
     }
 
-    onSave({ address: address.trim(), description: description.trim() || undefined })
+    const areaNum = area.trim() ? Number(area) : undefined
+    if (area.trim() && (isNaN(areaNum!) || areaNum! <= 0)) {
+      showError(setError, '请输入有效的面积（正数，单位平方米）')
+      return
+    }
+
+    onSave({
+      address: address.trim(),
+      houseType: houseType.trim() || undefined,
+      area: areaNum,
+      description: description.trim() || undefined,
+    })
     onClose()
   }
 
@@ -94,6 +127,49 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">户型</label>
+              <select
+                value={houseSelectValue}
+                onChange={(e) => {
+                  if (e.target.value === CUSTOM) {
+                    setHouseType(isPresetHouseType ? '' : houseType)
+                  } else {
+                    setHouseType(e.target.value)
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {houseTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+                <option value={CUSTOM}>自定义…</option>
+              </select>
+              {houseSelectValue === CUSTOM && (
+                <input
+                  type="text"
+                  value={houseType}
+                  onChange={(e) => setHouseType(e.target.value)}
+                  placeholder="如：四居、复式"
+                  className="mt-2 w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">面积（㎡）</label>
+              <input
+                type="number"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="如：89"
+                min="0"
+                step="0.1"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">备注（选填）</label>
             <textarea
@@ -122,6 +198,15 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        isOpen={showCloseConfirm}
+        onClose={() => setShowCloseConfirm(false)}
+        onConfirm={() => { setShowCloseConfirm(false); onClose() }}
+        title="放弃修改"
+        message="有未保存的修改，确定要放弃吗？"
+        variant="default"
+      />
     </div>
   )
 }

@@ -2,10 +2,14 @@ export interface Property {
   id: string
   address: string
   description?: string
+  /** 户型：一居/两居/三居/开间 等（房源级，整租房直接使用） */
+  houseType?: string
+  /** 面积（平方米） */
+  area?: number
   createdAt: string
 }
 
-export type RoomLabel = 'A' | 'B' | 'C' | 'D' | 'E'
+export type RoomLabel = 'A' | 'B' | 'C' | 'D' | 'E' | '整租'
 
 export interface Room {
   id: string

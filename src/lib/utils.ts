@@ -20,10 +20,16 @@ export function todayLocal(): string {
 export function daysFromTodayLocal(days: number): string {
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return todayLocal()
+  return formatDateLocal(d)
 }
 
 /** Date 对象转本地日期 YYYY-MM-DD */
 export function formatDateLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** 房间编号显示：整租不带"室"后缀，其余显示 "A室" 等 */
+export function formatRoomLabel(label?: string): string {
+  if (!label) return ''
+  return label === '整租' ? '整租' : `${label}室`
 }

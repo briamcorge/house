@@ -1,5 +1,5 @@
-import { Room, Tenant } from '../types'
-import { cn } from '../lib/utils'
+﻿import { Room, Tenant } from '../types'
+import { cn, formatRoomLabel } from '../lib/utils'
 import { User, Calendar, DollarSign } from 'lucide-react'
 
 interface RoomCardProps {
@@ -27,7 +27,7 @@ export default function RoomCard({ room, tenant, billSummary, onClick, onClickBi
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-sm">{room.label} 室</span>
+            <span className="font-semibold text-gray-900 text-sm">{formatRoomLabel(room.label)}</span>
             <span className={cn(
               'px-1.5 py-0.5 rounded text-[10px] font-medium',
               room.status === 'occupied' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'

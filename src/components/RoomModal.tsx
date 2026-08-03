@@ -11,9 +11,12 @@ interface RoomModalProps {
   usedLabels: RoomLabel[]
 }
 
-const allLabels: RoomLabel[] = ['A', 'B', 'C', 'D', 'E']
+const allLabels: RoomLabel[] = ['A', 'B', 'C', 'D', 'E', '整租']
 
-const roomTypes = ['主卧', '次卧', '小卧', '隔阳', '隔明', '暗间', '独卫']
+// 整租：户型为几居/开间
+const wholeRentTypes = ['一居', '两居', '三居', '开间']
+// 分租：房间类型
+const sharedRentTypes = ['主卧', '次卧', '小卧', '隔阳', '隔明', '暗间', '独卫']
 
 const CUSTOM = '__custom__'
 
@@ -27,11 +30,22 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
   const [roomType, setRoomType] = useState('主卧')
   const [error, setError] = useState('')
 
+  // 整租：无编号，类型为一居/两居/三居/开间；分租：编号 A-E，类型为主卧等
+  const isWholeRent = label === '整租'
+  const roomTypes = isWholeRent ? wholeRentTypes : sharedRentTypes
+
   // 房间类型是否在预设列表内（不在 → 走自定义输入模式）
   const isPresetType = roomTypes.includes(roomType)
   const selectValue = isPresetType ? roomType : CUSTOM
 
   const availableLabels = allLabels.filter(l => !usedLabels.includes(l) || editingRoom?.label === l)
+
+  // 切换编号时：若当前类型不在新模式预设中，自动切到该模式默认类型
+  const handleLabelChange = (l: RoomLabel) => {
+    setLabel(l)
+    const types = l === '整租' ? wholeRentTypes : sharedRentTypes
+    if (!types.includes(roomType)) setRoomType(types[0])
+  }
 
   useEffect(() => {
     const avail = allLabels.filter(l => !usedLabels.includes(l) || editingRoom?.label === l)
@@ -105,22 +119,22 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
             </label>
             {editingRoom ? (
               <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 font-medium">
-                {editingRoom.label} 室
+                {editingRoom.label === '整租' ? '整租' : `${editingRoom.label} 室`}
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {availableLabels.map((l) => (
                   <button
                     key={l}
                     type="button"
-                    onClick={() => setLabel(l)}
-                    className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                    onClick={() => handleLabelChange(l)}
+                    className={`flex-1 min-w-[48px] py-3 rounded-xl font-medium transition-all ${
                       label === l
                         ? 'bg-blue-100 text-blue-700 border-2 border-blue-500'
                         : 'bg-gray-100 text-gray-600 border-2 border-transparent'
                     }`}
                   >
-                    {l} 室
+                    {l === '整租' ? '整租' : `${l} 室`}
                   </button>
                 ))}
               </div>
@@ -151,7 +165,7 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
                 type="text"
                 value={roomType}
                 onChange={(e) => setRoomType(e.target.value)}
-                placeholder="请输入房间类型，如：一居、二居、整租"
+                placeholder={isWholeRent ? '请输入房间类型，如：四居、五居' : '请输入房间类型，如：一居、整租'}
                 className="mt-2 w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             )}

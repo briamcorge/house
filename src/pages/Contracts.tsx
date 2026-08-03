@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, BarChart3 } from 'lucide-react'
+import { formatRoomLabel } from '../lib/utils'
 
 type Filter = 'all' | 'active' | 'ended' | 'expiring' | 'expired' | 'attention'
 
@@ -242,7 +243,7 @@ export default function Contracts() {
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                        {prop && <div className="flex items-center gap-1"><Home className="w-3 h-3" />{prop.address} - {room?.label}室</div>}
+                        {prop && <div className="flex items-center gap-1"><Home className="w-3 h-3" />{prop.address} - {formatRoomLabel(room?.label)}</div>}
                         {t.phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3" />{t.phone}</div>}
                         <div className="flex items-center gap-1"><Calendar className="w-3 h-3" />{t.contractStart} ~ {t.contractEnd}</div>
                         <div>¥{t.monthlyRent}/月</div>

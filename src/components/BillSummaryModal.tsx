@@ -1,7 +1,8 @@
-import { useMemo, useEffect } from 'react'
+﻿import { useMemo, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { Bill } from '../types'
 import { X, Calendar } from 'lucide-react'
+import { formatRoomLabel } from '../lib/utils'
 
 interface BillSummaryModalProps {
   isOpen: boolean
@@ -51,7 +52,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
     const room = rooms.find(r => r.id === rid)
     if (!room) return ''
     const prop = properties.find(p => p.id === room.propertyId)
-    return prop ? `${prop.address} - ${room.label}室` : `${room.label}室`
+    return prop ? `${prop.address} - ${formatRoomLabel(room.label)}` : `${formatRoomLabel(room.label)}`
   }
 
   const getPropertyAddress = (pid?: string) => {
