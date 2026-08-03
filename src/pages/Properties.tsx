@@ -144,31 +144,6 @@ export default function Properties() {
                             <User className="w-4 h-4" />
                             编辑业主
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const lc = landlordContracts.filter(c => c.propertyId === property.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-                              const pb = bills.filter(b => b.propertyId === property.id && b.direction === 'payable')
-                              const origEnd = lc?.contractEnd || pb.sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.dueDate || ''
-                              const newStart = formatDate(add30Days(new Date(origEnd), 1))
-                              setLandlordEdit({
-                                pid: property.id,
-                                rent: lc?.monthlyRent || Math.round(pb.reduce((s, b) => s + b.amount, 0) / Math.max(1, pb.length) / 3),
-                                method: lc?.paymentMethod || 'quarterly',
-                                start: newStart,
-                                end: formatDate(add30Days(new Date(newStart), 359)),
-                                name: lc?.landlordName || undefined,
-                                phone: lc?.landlordPhone || undefined,
-                                deposit: lc?.deposit,
-                                vacancyAllowance: lc?.vacancyAllowance,
-                              })
-                              setPropertyMenu(null)
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
-                          >
-                            <FileText className="w-4 h-4" />
-                            代理续约
-                          </button>
                         </>
                       ) : (
                         <button
