@@ -122,10 +122,12 @@ export default function More() {
   }
 
   const activeTenants = tenants.filter(t => t.status === 'active')
-  const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable').reduce((s, b) => s + Number(b.amount), 0)
-  const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable').reduce((s, b) => s + Number(b.amount), 0)
-  const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable')
-  const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable')
+  // 已收租户押金：仅统计已收(paid)与已退(refunded 负数抵减)的押金账单；pending/overdue 未收的不计入
+  const depositPaidStatuses = new Set(['paid', 'refunded'])
+  const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
+  const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
+  const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status))
+  const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status))
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
@@ -1075,7 +1077,7 @@ export default function More() {
                   </div>
                 )
               })}
-              {depositBills.filter(b => b.direction === 'payable').length === 0 && (
+              {paidDepositBills.length === 0 && (
                 <p className="text-center text-gray-400 py-8">暂无已付押金记录</p>
               )}
             </div>
