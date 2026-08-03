@@ -4,15 +4,15 @@ import { useStore } from '../store/useStore'
 import { ChevronLeft, FileText, User, Phone, Calendar, Home, Search, BarChart3 } from 'lucide-react'
 import { formatRoomLabel } from '../lib/utils'
 
-type Filter = 'all' | 'active' | 'ended' | 'expiring' | 'expired' | 'attention'
+type Filter = 'all' | 'active' | 'ended' | 'renewed' | 'expiring' | 'expired' | 'attention'
 
 export default function Contracts() {
   const navigate = useNavigate()
   const location = useLocation()
   const { landlordContracts, properties, tenants, rooms, bills } = useStore()
   const initState = (location.state as { filter?: Filter } | null)?.filter
-  const [landlordFilter, setLandlordFilter] = useState<Filter>(initState || 'all')
-  const [tenantFilter, setTenantFilter] = useState<Filter>(initState || 'all')
+  const [landlordFilter, setLandlordFilter] = useState<Filter>(initState || 'active')
+  const [tenantFilter, setTenantFilter] = useState<Filter>(initState || 'active')
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
@@ -54,6 +54,7 @@ export default function Contracts() {
     if (filter === 'all') return true
     if (filter === 'active') return status === 'active'
     if (filter === 'ended') return status === 'ended' && !isRenewed
+    if (filter === 'renewed') return status === 'ended' && isRenewed
     if (filter === 'expiring') return status === 'active' && isExpiringSoon(endDate)
     if (filter === 'expired') return status === 'active' && isExpired(endDate)
     if (filter === 'attention') return status === 'active' && (isExpiringSoon(endDate) || isExpired(endDate))
@@ -93,6 +94,7 @@ export default function Contracts() {
         { key: 'active' as const, label: '执行中' },
         { key: 'expiring' as const, label: '30天内到期' },
         { key: 'expired' as const, label: '已过期' },
+        { key: 'renewed' as const, label: '已续约' },
         { key: 'ended' as const, label: '已结束' },
       ] as const).map(f => (
         <button key={f.key} onClick={() => onChange(f.key)}
@@ -147,6 +149,7 @@ export default function Contracts() {
                 expiring: landlordContracts.filter(c => c.status === 'active' && isExpiringSoon(c.contractEnd)).length,
                 expired: landlordContracts.filter(c => c.status === 'active' && isExpired(c.contractEnd)).length,
                 attention: landlordContracts.filter(c => c.status === 'active' && (isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd))).length,
+                renewed: landlordContracts.filter(c => c.status === 'ended' && isRenewedContract(c)).length,
                 ended: landlordContracts.filter(c => c.status === 'ended' && !isRenewedContract(c)).length,
               }}
             />
@@ -212,6 +215,7 @@ export default function Contracts() {
                 expiring: tenants.filter(t => t.status === 'active' && isExpiringSoon(t.contractEnd)).length,
                 expired: tenants.filter(t => t.status === 'active' && isExpired(t.contractEnd)).length,
                 attention: tenants.filter(t => t.status === 'active' && (isExpiringSoon(t.contractEnd) || isExpired(t.contractEnd))).length,
+                renewed: tenants.filter(t => t.status === 'ended' && isRenewedTenant(t)).length,
                 ended: tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length,
               }}
             />

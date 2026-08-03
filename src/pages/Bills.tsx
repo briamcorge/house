@@ -33,7 +33,7 @@ export default function Bills() {
   const [payPeriodStart, setPayPeriodStart] = useState('')
   const [payPeriodEnd, setPayPeriodEnd] = useState('')
   const [showAllBills, setShowAllBills] = useState(false)
-  const [dayRange, setDayRange] = useState(30)
+  const [dayRange, setDayRange] = useState(7)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
 
