@@ -15,6 +15,8 @@ const allLabels: RoomLabel[] = ['A', 'B', 'C', 'D', 'E']
 
 const roomTypes = ['主卧', '次卧', '小卧', '隔阳', '隔明', '暗间', '独卫']
 
+const CUSTOM = '__custom__'
+
 function showError(setter: (msg: string) => void, msg: string) {
   setter(msg)
   setTimeout(() => setter(''), 5000)
@@ -24,6 +26,10 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
   const [label, setLabel] = useState<RoomLabel>('A')
   const [roomType, setRoomType] = useState('主卧')
   const [error, setError] = useState('')
+
+  // 房间类型是否在预设列表内（不在 → 走自定义输入模式）
+  const isPresetType = roomTypes.includes(roomType)
+  const selectValue = isPresetType ? roomType : CUSTOM
 
   const availableLabels = allLabels.filter(l => !usedLabels.includes(l) || editingRoom?.label === l)
 
@@ -60,7 +66,7 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
       return
     }
     if (!roomType) {
-      showError(setError, '请选择房间类型')
+      showError(setError, isPresetType ? '请选择房间类型' : '请输入房间类型')
       return
     }
 
@@ -124,14 +130,31 @@ export default function RoomModal({ isOpen, onClose, onSave, propertyId, editing
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">房间类型</label>
             <select
-              value={roomType}
-              onChange={(e) => setRoomType(e.target.value)}
+              value={selectValue}
+              onChange={(e) => {
+                // 选择"自定义"时保留当前输入值；选择预设项时直接使用
+                if (e.target.value === CUSTOM) {
+                  setRoomType(isPresetType ? '' : roomType)
+                } else {
+                  setRoomType(e.target.value)
+                }
+              }}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
               {roomTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
+              <option value={CUSTOM}>自定义…</option>
             </select>
+            {selectValue === CUSTOM && (
+              <input
+                type="text"
+                value={roomType}
+                onChange={(e) => setRoomType(e.target.value)}
+                placeholder="请输入房间类型，如：一居、二居、整租"
+                className="mt-2 w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
