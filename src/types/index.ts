@@ -89,6 +89,13 @@ export interface LandlordContract {
   previousContractId?: string
   /** 退租时被删除的未付账单暂存（恢复合同时找回），仅已退租的合同可能有 */
   pendingBills?: Bill[]
+  /**
+   * 免租期（空置期）：业主给二房东的免租天数，只影响应付业主的租金，与实际空置统计无关
+   * - number：每年统一（如 30）
+   * - number[]：按合同年度分别设定，[第1年, 第2年, 第3年...]（如 [30, 15, 30]）
+   * - undefined：无免租期
+   */
+  vacancyAllowance?: number | number[]
   createdAt: string
 }
 

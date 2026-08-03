@@ -292,20 +292,20 @@ export default function RoomList() {
       <LandlordContractModal
         isOpen={editContractId !== null}
         onClose={() => setEditContractId(null)}
-        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
-          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit })
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
           setEditContractId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
           // 结束旧合同（续约被替代，不是退租）
           const oldContract = landlordContracts.find(c => c.propertyId === propertyId && c.status === 'active')
           if (oldContract) {
             updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
           }
-          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id })
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
@@ -317,6 +317,7 @@ export default function RoomList() {
         existingStart={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractStart : undefined}
         existingEnd={editContractId ? landlordContracts.find(c => c.id === editContractId)?.contractEnd : undefined}
         existingDeposit={editContractId ? landlordContracts.find(c => c.id === editContractId)?.deposit : undefined}
+        existingVacancyAllowance={editContractId ? landlordContracts.find(c => c.id === editContractId)?.vacancyAllowance : undefined}
         existingName={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordName : undefined}
         existingPhone={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordPhone : undefined}
       />

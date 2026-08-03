@@ -6,8 +6,8 @@ import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/ca
 interface LandlordContractModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number) => void
-  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number) => void
+  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
+  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
   onSaveEdit?: (landlordName?: string, landlordPhone?: string) => void
   propertyAddress: string
   existingRent?: number
@@ -17,6 +17,7 @@ interface LandlordContractModalProps {
   existingDeposit?: number
   existingName?: string
   existingPhone?: string
+  existingVacancyAllowance?: number | number[]
   isSimpleEdit?: boolean
   isRenewal?: boolean
 }
@@ -36,7 +37,7 @@ function showError(setter: (msg: string) => void, msg: string) {
   setTimeout(() => setter(''), 5000)
 }
 
-export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
+export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, existingVacancyAllowance, isSimpleEdit, isRenewal }: LandlordContractModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [landlordName, setLandlordName] = useState('')
@@ -58,6 +59,10 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
   const [billKey, setBillKey] = useState(0)
   const [deposit, setDeposit] = useState('')
+  // 免租期（空置期）：业主给的免租天数。null=无；数字=每年统一；数组=按年
+  const [vacancyPerYear, setVacancyPerYear] = useState(false)
+  const [vacancyDays, setVacancyDays] = useState('')           // 每年统一天数
+  const [vacancyYearList, setVacancyYearList] = useState<string[]>([''])  // 按年设置 [第1年, 第2年...]
 
   useEffect(() => {
     if (isOpen) {
@@ -75,11 +80,40 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       }
       setPaymentMethod(existingPaymentMethod || 'monthly')
       setDeposit(existingDeposit?.toString() || '')
+      // 预填免租期
+      if (Array.isArray(existingVacancyAllowance)) {
+        setVacancyPerYear(true)
+        setVacancyDays('')
+        setVacancyYearList(existingVacancyAllowance.map(String))
+      } else if (typeof existingVacancyAllowance === 'number' && existingVacancyAllowance > 0) {
+        setVacancyPerYear(false)
+        setVacancyDays(String(existingVacancyAllowance))
+        setVacancyYearList([''])
+      } else {
+        setVacancyPerYear(false)
+        setVacancyDays('')
+        setVacancyYearList([''])
+      }
       setError('')
       setDraftBills([])
       setBillKey(0)
     }
-  }, [isOpen, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit])
+  }, [isOpen, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, existingVacancyAllowance])
+
+  /** 解析免租期配置：统一数字 或 按年数组 → 每年免租天数数组 */
+  const getVacancyPerYearDays = (): number[] | null => {
+    if (vacancyPerYear) {
+      const list = vacancyYearList.map(v => parseFloat(v) || 0)
+      if (list.every(d => d === 0)) return null  // 全为空 = 无免租期
+      return list
+    }
+    const v = parseFloat(vacancyDays)
+    return v > 0 ? [v] : null
+  }
+
+  /** 计算该合同每年的免租金额：免租天数÷30×月租（向上取整到分） */
+  const calcVacancyAmount = (rent: number, days: number): number =>
+    Math.round(days / 30 * rent * 100) / 100
 
   const regenerateBills = () => {
     const rent = parseFloat(monthlyRent)
@@ -91,6 +125,26 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       paymentMethod,
       0 // 业主合同无提前付款
     )
+    // 免租期扣减：按合同起租周年归属。第N年（0-based）的免租期从该年第1期账单扣减
+    const perYear = getVacancyPerYearDays()
+    if (perYear && perYear.length > 0) {
+      const totalPeriodDays = 360  // 每年360天（30/360）
+      bills.forEach((bill, idx) => {
+        if (bill.type !== 'rent') return
+        // 该账单周期开始的周年序号：期数/每年期数（按月付12期/年、季付4期/年）
+        const periodsPerYear = paymentMethod === 'monthly' ? 12
+          : paymentMethod === 'bi-monthly' ? 6
+          : paymentMethod === 'quarterly' ? 4
+          : paymentMethod === 'semi-annual' ? 2 : 1
+        const yearIdx = Math.floor(idx / periodsPerYear)
+        const days = perYear[yearIdx] || perYear[perYear.length - 1] || 0
+        if (days > 0) {
+          const deduct = calcVacancyAmount(rent, days)
+          bill.amount = Math.max(0, Math.round((bill.amount - deduct) * 100) / 100)
+          bill.description = `${bill.description}（含免租${days}天）`
+        }
+      })
+    }
     // 有押金则加入账单列表（放在首位，但不占用期数编号）
     const depositVal = parseFloat(deposit)
     if (!isNaN(depositVal) && depositVal > 0) {
@@ -163,10 +217,15 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       showError(setError, '未生成账单，请返回检查')
       return
     }
+    const allowance = getVacancyPerYearDays()
+    const allowanceVal: number | number[] | undefined =
+      allowance === null ? undefined
+        : allowance.length === 1 ? allowance[0]
+        : allowance
     if (existingRent !== undefined) {
-      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined)
+      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
     } else {
-      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined)
+      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
     }
     onClose()
   }
@@ -330,6 +389,86 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   <option key={pm.value} value={pm.value}>{pm.label}</option>
                 ))}
               </select>
+            </div>
+
+            {/* 免租期（空置期）：业主给的免租天数 */}
+            <div className="bg-blue-50/50 rounded-xl p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">
+                  免租期（业主给的免租天数）
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={vacancyPerYear}
+                    onChange={(e) => setVacancyPerYear(e.target.checked)}
+                    className="accent-blue-900"
+                  />
+                  按年分别设置
+                </label>
+              </div>
+              <p className="text-xs text-gray-400">免租期金额将从对应期数的应付账单中扣除，不影响利润提取计算</p>
+
+              {!vacancyPerYear ? (
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={vacancyDays}
+                    onChange={(e) => setVacancyDays(e.target.value)}
+                    placeholder="无"
+                    min="0"
+                    className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {[30, 60, 90].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setVacancyDays(String(d))}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${vacancyDays === String(d) ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {d}天
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {vacancyYearList.map((v, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-12 shrink-0">第{i + 1}年</span>
+                      <input
+                        type="number"
+                        value={v}
+                        onChange={(e) => {
+                          const next = [...vacancyYearList]
+                          next[i] = e.target.value
+                          setVacancyYearList(next)
+                        }}
+                        placeholder="无"
+                        min="0"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-400">天</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (vacancyYearList.length <= 1) return
+                          setVacancyYearList(vacancyYearList.filter((_, j) => j !== i))
+                        }}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setVacancyYearList([...vacancyYearList, ''])}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    + 添加年份
+                  </button>
+                </div>
+              )}
             </div>
             </>)}
             

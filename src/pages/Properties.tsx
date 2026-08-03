@@ -19,7 +19,7 @@ export default function Properties() {
   const [propertyMenu, setPropertyMenu] = useState<string | null>(null)
   const [landlordPropertyId, setLandlordPropertyId] = useState<string | null>(null)
   const [summaryPropertyId, setSummaryPropertyId] = useState<string | null>(null)
-  const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string; deposit?: number } | null>(null)
+  const [landlordEdit, setLandlordEdit] = useState<{ pid: string; rent: number; method: import('../types').PaymentMethod; start: string; end: string; name?: string; phone?: string; deposit?: number; vacancyAllowance?: number | number[] } | null>(null)
   const [simpleEdit, setSimpleEdit] = useState<{ pid: string; name?: string; phone?: string } | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [deleteStep1, setDeleteStep1] = useState<string | null>(null)
@@ -160,6 +160,7 @@ export default function Properties() {
                                 name: lc?.landlordName || undefined,
                                 phone: lc?.landlordPhone || undefined,
                                 deposit: lc?.deposit,
+                                vacancyAllowance: lc?.vacancyAllowance,
                               })
                               setPropertyMenu(null)
                             }}
@@ -232,7 +233,7 @@ export default function Properties() {
       <LandlordContractModal
         isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
         onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
-        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit) => {
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
           const contractId = addLandlordContract({
             propertyId: landlordPropertyId!,
             landlordName: name,
@@ -243,6 +244,7 @@ export default function Properties() {
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
             deposit: deposit,
+            vacancyAllowance,
           })
           draftBills.forEach((bill) => {
             addBill({
@@ -260,7 +262,7 @@ export default function Properties() {
           })
           setLandlordPropertyId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
           const pid = landlordEdit?.pid
           if (!pid) return
           const now = new Date().toISOString().slice(0, 7)
@@ -280,6 +282,7 @@ export default function Properties() {
             status: 'active',
             deposit: deposit,
             previousContractId: oldContract?.id,
+            vacancyAllowance,
           })
           draftBills.forEach((bill) => {
             addBill({
@@ -305,6 +308,7 @@ export default function Properties() {
         existingName={landlordEdit?.name || simpleEdit?.name}
         existingPhone={landlordEdit?.phone || simpleEdit?.phone}
         existingDeposit={landlordEdit?.deposit}
+        existingVacancyAllowance={landlordEdit?.vacancyAllowance}
         isSimpleEdit={simpleEdit !== null}
         isRenewal={landlordEdit !== null}
         onSaveEdit={(name, phone) => {

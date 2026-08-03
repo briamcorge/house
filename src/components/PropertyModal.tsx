@@ -83,6 +83,11 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
       showError(setError, '请输入有效的面积（正数，单位平方米）')
       return
     }
+    // 面积最多允许 2 位小数（如 58.56）
+    if (area.trim() && !/^\d+(\.\d{1,2})?$/.test(area.trim())) {
+      showError(setError, '面积最多保留 2 位小数（如 58.56）')
+      return
+    }
 
     onSave({
       address: address.trim(),
@@ -162,9 +167,10 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
                 type="number"
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
-                placeholder="如：89"
+                placeholder="如：58.56"
                 min="0"
-                step="0.1"
+                step="0.01"
+                inputMode="decimal"
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
