@@ -13,6 +13,8 @@ interface AppStore {
   landlordContracts: LandlordContract[]
   trash: TrashItem[]
   auditLogs: AuditLogEntry[]
+  settings: { showPropertyBills: boolean }
+  setSettings: (partial: Partial<{ showPropertyBills: boolean }>) => void
 
   addProperty: (property: Omit<Property, 'id' | 'createdAt'>) => void
   updateProperty: (id: string, property: Partial<Property>) => void
@@ -118,6 +120,9 @@ export const useStore = create<AppStore>()(
       profitRecords: [],
       trash: [],
       auditLogs: [],
+      settings: { showPropertyBills: true },
+
+      setSettings: (partial) => set((state) => ({ settings: { ...state.settings, ...partial } })),
 
       addProperty: (property) =>
         set((state) => {
@@ -668,7 +673,7 @@ export const useStore = create<AppStore>()(
   },
   {
     name: 'property-manager-data',
-    version: 7,
+    version: 8,
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
@@ -778,6 +783,10 @@ export const useStore = create<AppStore>()(
           return c ? { ...b, landlordContractId: c.id } : b
         })
         state = { ...state, bills }
+      }
+      // v7→v8: 添加用户设置，默认 showPropertyBills（不覆盖已有值）
+      if (version <= 7) {
+        state = { ...state, settings: { showPropertyBills: true, ...(state.settings as Record<string, unknown> || {}) } }
       }
       return state as unknown as AppStore
     },

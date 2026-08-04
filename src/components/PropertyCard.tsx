@@ -11,11 +11,12 @@ interface PropertyCardProps {
   billPayable?: { paid: number; total: number }
   onClick?: () => void
   onClickBill?: () => void
+  showBills?: boolean
 }
 
 export default function PropertyCard({
   property, roomCount, occupiedCount, landlordName, landlordMonthlyRent,
-  billReceivable, billPayable, onClick, onClickBill,
+  billReceivable, billPayable, onClick, onClickBill, showBills,
 }: PropertyCardProps) {
   const hasTenantBills = billReceivable && billReceivable.total > 0
   const hasLandlordBills = billPayable && billPayable.total > 0
@@ -52,7 +53,7 @@ export default function PropertyCard({
         </div>
       </div>
 
-      {(hasTenantBills || hasLandlordBills) && (
+      {showBills !== false && (hasTenantBills || hasLandlordBills) && (
         <div
           onClick={(e) => { e.stopPropagation(); onClickBill?.() }}
           className="px-3 py-1.5 bg-gray-50 border-t border-gray-100 text-xs cursor-pointer hover:bg-gray-100 transition-colors space-y-0.5"

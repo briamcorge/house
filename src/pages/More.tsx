@@ -72,7 +72,7 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord, deleteProfitRecord } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord, deleteProfitRecord, settings, setSettings } = useStore()
 ;(window as any).__store = useStore
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
@@ -680,6 +680,34 @@ export default function More() {
                 <p className="text-blue-200 text-xs">已付业主押金</p>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 设置 */}
+      <div className="px-4 mt-3">
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">设置</h3>
+            {(() => {
+              const showBills = settings?.showPropertyBills ?? true
+              return (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">显示房源账目</span>
+                    <button
+                      role="switch"
+                      aria-checked={showBills}
+                      onClick={() => setSettings({ showPropertyBills: !showBills })}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${showBills ? 'bg-blue-900' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showBills ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">关闭后，房源管理页将不再显示每套房源的收款/付款账目</p>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>
