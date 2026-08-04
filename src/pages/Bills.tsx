@@ -5,7 +5,7 @@ import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, User, ChevronLeft, Droplets, Zap, Flame, Receipt, FileText, AlertTriangle, Wifi, Sparkles, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, Home, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 
 function getDaysAgo(days: number): string {
@@ -116,11 +116,6 @@ export default function Bills() {
     hygiene: '卫管费', internet: '网费', utilities: '水电燃气费',
     other: '其他费用'
   }
-  const typeIcons: Record<string, typeof Home> = {
-    rent: FileText, deposit: Banknote, agency: Handshake, sublease: ArrowLeftRight,
-    hygiene: Sparkles, internet: Wifi, utilities: Zap,
-    other: Receipt
-  }
 
   const statusClasses: Record<string, string> = {
     pending: 'bg-orange-100 text-orange-700',
@@ -136,16 +131,6 @@ export default function Bills() {
     if (status === 'pending') return dir === 'receivable' ? '未收' : '未付'
     if (status === 'cancelled') return '已作废'
     return '已逾期'
-  }
-
-  const directionLabels: Record<string, string> = {
-    receivable: '租客',
-    payable: '业主',
-  }
-
-  const directionClasses: Record<string, string> = {
-    receivable: 'bg-blue-50 text-blue-700',
-    payable: 'bg-orange-50 text-orange-700',
   }
 
   // Filter and sort bills
@@ -460,29 +445,24 @@ export default function Bills() {
                     displayBills.map((bill) => {
                     const tenantName = getTenantName(bill.tenantId)
                     const landlordName = getLandlordName(bill.direction, bill.propertyId)
+                    const isOverdue = bill.status === 'overdue' || (bill.status === 'pending' && bill.dueDate < today)
+                    const dateColor = isOverdue ? 'text-red-600' :
+                      bill.status === 'pending' ? (bill.direction === 'receivable' ? 'text-blue-900' : 'text-orange-600') :
+                      'text-gray-500'
                     return (
                       <div key={bill.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className={`w-5 h-5 rounded flex items-center justify-center ${bill.type === 'rent' ? 'bg-blue-100 text-blue-600' : bill.type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : bill.type === 'agency' ? 'bg-amber-100 text-amber-600' : bill.type === 'sublease' ? 'bg-violet-100 text-violet-600' : bill.type === 'hygiene' ? 'bg-pink-100 text-pink-600' : bill.type === 'internet' ? 'bg-purple-100 text-purple-600' : bill.type === 'utilities' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600'}`}>
-                                {(() => { const Icon = typeIcons[bill.type] || Receipt; return <Icon className="w-3 h-3" /> })()}
-                              </div>
-                              <h3 className="font-semibold text-gray-900">{typeLabels[bill.type]}</h3>
-                              {bill.status !== 'pending' && (
-                                <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                                  bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                                }`}>
-                                  {bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
-                                </span>
-                              )}
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${directionClasses[bill.direction]}`}>
-                                {directionLabels[bill.direction]}
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <span className={`text-lg font-bold ${dateColor}`}>
+                              {bill.direction === 'payable' ? '应付日' : '应收日'} {bill.dueDate}
+                            </span>
+                            {bill.status !== 'pending' && (
+                              <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
+                                bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                              }`}>
+                                {bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
                               </span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-xl font-bold text-blue-900">¥{bill.amount.toFixed(2)}</p>
-                            </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             {bill.status === 'refunded' ? (
@@ -537,32 +517,42 @@ export default function Bills() {
                             </div>
                           </div>
                         </div>
-                        
+
+                        <p className="text-2xl font-bold text-blue-900 mb-2">¥{bill.amount.toFixed(2)}</p>
+
                         <div className="space-y-1.5">
                           {bill.description && (
                             <div className="text-xs text-gray-500 leading-tight">{bill.description}</div>
                           )}
                           {bill.direction === 'payable' && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Home className="w-4 h-4 text-gray-400" />
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
+                              <Home className="w-4 h-4 text-gray-400 shrink-0" />
                               <span>{getPropertyAddress(bill.propertyId)}</span>
+                              {(landlordName || typeLabels[bill.type]) && (
+                                <>
+                                  <span className="text-gray-300">·</span>
+                                  <span className="font-medium text-gray-800">{landlordName || typeLabels[bill.type]}</span>
+                                  {landlordName && <span className="text-gray-500">{typeLabels[bill.type]}</span>}
+                                </>
+                              )}
                             </div>
                           )}
                           {bill.direction === 'receivable' && bill.roomId && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Home className="w-4 h-4 text-gray-400" />
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
+                              <Home className="w-4 h-4 text-gray-400 shrink-0" />
                               <span>{getRoomInfo(bill.roomId)}</span>
+                              {(tenantName || typeLabels[bill.type]) && (
+                                <>
+                                  <span className="text-gray-300">·</span>
+                                  <span className="font-medium text-gray-800">{tenantName || typeLabels[bill.type]}</span>
+                                  {tenantName && <span className="text-gray-500">{typeLabels[bill.type]}</span>}
+                                </>
+                              )}
                             </div>
                           )}
-                          {(tenantName || landlordName) && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span>{tenantName || landlordName}</span>
-                              <span className="text-gray-300">·</span>
-                              <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
-                              {bill.paidDate && bill.status === 'paid' && (
-                                <span className="text-green-600 ml-1">实付：{bill.paidDate}</span>
-                              )}
+                          {bill.paidDate && bill.status === 'paid' && (
+                            <div className="flex items-center gap-1.5 text-sm text-green-600">
+                              <span>✓ 实付：{bill.paidDate}</span>
                             </div>
                           )}
                         </div>

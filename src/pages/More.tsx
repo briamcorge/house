@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, Info } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -65,6 +65,12 @@ const menuItems: MenuItem[] = [
   },
   {
     icon: Settings,
+    label: '设置',
+    description: '应用设置',
+    color: 'gray'
+  },
+  {
+    icon: Info,
     label: '关于',
     description: '版本信息',
     color: 'gray'
@@ -78,6 +84,7 @@ export default function More() {
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
   const [showPaidDepositList, setShowPaidDepositList] = useState(false)
   const { user: currentUser, ready: supabaseReady } = useAuth()
@@ -684,34 +691,6 @@ export default function More() {
         </div>
       </div>
 
-      {/* 设置 */}
-      <div className="px-4 mt-3">
-        <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">设置</h3>
-            {(() => {
-              const showBills = settings?.showPropertyBills ?? true
-              return (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">显示房源账目</span>
-                    <button
-                      role="switch"
-                      aria-checked={showBills}
-                      onClick={() => setSettings({ showPropertyBills: !showBills })}
-                      className={`w-11 h-6 rounded-full transition-colors relative ${showBills ? 'bg-blue-900' : 'bg-gray-300'}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showBills ? 'translate-x-5' : ''}`} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">关闭后，房源管理页将不再显示每套房源的收款/付款账目</p>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-      </div>
-
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto space-y-3">
           {menuItems.map((item, index) => {
@@ -719,6 +698,7 @@ export default function More() {
               const isBackup = item.label === '数据备份'
               const isAbout = item.label === '关于'
               const isProfit = item.label === '利润提取'
+              const isSettings = item.label === '设置'
               
               return (
                 <div key={index}>
@@ -730,10 +710,11 @@ export default function More() {
                     if (item.path) navigate(item.path)
                     else if (isBackup) setShowBackup(!showBackup)
                     else if (isProfit) setShowProfitForm(!showProfitForm)
+                    else if (isSettings) setShowSettings(!showSettings)
                     else if (isAbout) setShowAbout(!showAbout)
                     else setAlertState({ title: '提示', message: `${item.label}功能开发中...`, variant: 'info' })
                   }}
-                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout ? 'rounded-b-none border-b-0' : ''}`}
+                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings ? 'rounded-b-none border-b-0' : ''}`}
                 >
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
                     <Icon className="w-6 h-6" />
@@ -742,7 +723,7 @@ export default function More() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-500">{item.description}</p>
                   </div>
-                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout ? 'rotate-90' : ''}`}>
+                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings ? 'rotate-90' : ''}`}>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -795,6 +776,29 @@ export default function More() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+                {isSettings && showSettings && (
+                  <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
+                    {(() => {
+                      const showBills = settings?.showPropertyBills ?? true
+                      return (
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">显示房源账目</span>
+                            <button
+                              role="switch"
+                              aria-checked={showBills}
+                              onClick={() => setSettings({ showPropertyBills: !showBills })}
+                              className={`w-11 h-6 rounded-full transition-colors relative ${showBills ? 'bg-blue-900' : 'bg-gray-300'}`}
+                            >
+                              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showBills ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">关闭后，房源管理页将不再显示每套房源的收款/付款账目</p>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
                 {isAbout && showAbout && (

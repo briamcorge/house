@@ -6,6 +6,8 @@ interface CheckoutModalProps {
   onClose: () => void
   tenantName: string
   deposit?: number
+  /** 该租客已收房租的覆盖期结束日（房租实际交到日），用于自动填充退租金结束日 */
+  rentPaidEnd?: string
   onConfirm: (refunds: { depositRefund: number; rentRefund: number; otherRefund: number; otherName: string; penalty: number; checkoutDate: string; rentRefundStart: string; rentRefundEnd: string }) => void
 }
 
@@ -14,7 +16,7 @@ function todayStr() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
 }
 
-export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, onConfirm }: CheckoutModalProps) {
+export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, rentPaidEnd, onConfirm }: CheckoutModalProps) {
   const [depositRefund, setDepositRefund] = useState(deposit?.toString() || '0')
   const [rentRefund, setRentRefund] = useState('0')
   const [otherName, setOtherName] = useState('')
@@ -58,16 +60,14 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
             <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              退租日期
-            </label>
-            <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
-            <p className="text-xs text-gray-400 mt-1">办理退租手续的日期，不影响已收房租（以账单覆盖期为准）</p>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                退租日期
+              </label>
+              <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <DollarSign className="w-4 h-4 inline mr-1" />
@@ -75,6 +75,17 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               </label>
               <input type="number" value={depositRefund} onChange={e => setDepositRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
               {deposit && <p className="text-xs text-gray-400 mt-1">原押金 ¥{deposit}</p>}
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 -mt-2">退租日期为办理退租手续的日期，不影响已收房租（以账单覆盖期为准）</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                退还租金
+              </label>
+              <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { if (rentPaidEnd && rentPaidEnd >= checkoutDate) { setRentRefundEnd(rentPaidEnd) } else { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -84,14 +95,6 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
               <p className="text-xs text-gray-400 mt-1">违约不退还的押金、转租费</p>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              退还租金
-            </label>
-            <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
           </div>
 
           {parseFloat(rentRefund) > 0 && (
@@ -142,6 +145,14 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, on
               }
               if (deposit && d > deposit) {
                 showError('押金退还不能超过 ¥' + deposit)
+                return
+              }
+              if (r > 0 && (!rentRefundStart || !rentRefundEnd)) {
+                showError('填写退还租金后，请填写退款开始日和结束日')
+                return
+              }
+              if (r > 0 && rentRefundStart > rentRefundEnd) {
+                showError('退款开始日不能晚于结束日')
                 return
               }
               onConfirm({ depositRefund: d, rentRefund: r, otherRefund: o, otherName, penalty: p, checkoutDate, rentRefundStart, rentRefundEnd })

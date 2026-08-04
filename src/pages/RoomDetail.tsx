@@ -437,6 +437,13 @@ export default function RoomDetail() {
         onClose={() => setCheckoutTenant(null)}
         tenantName={checkoutTenant?.name || ''}
         deposit={checkoutTenant?.deposit}
+        rentPaidEnd={(() => {
+          if (!checkoutTenant) return undefined
+          // 房租实际交到日 = 该租客已收(paid)房租账单中最大的覆盖期结束日
+          return bills
+            .filter(b => b.tenantId === checkoutTenant.id && b.type === 'rent' && b.status === 'paid' && b.amount > 0 && b.periodEnd)
+            .reduce<string | undefined>((max, b) => !max || b.periodEnd! > max ? b.periodEnd! : max, undefined)
+        })()}
         onConfirm={(refunds) => {
           if (!checkoutTenant) return
           const checkoutDate = refunds.checkoutDate
