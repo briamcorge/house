@@ -258,13 +258,6 @@ export async function getAllUserData(): Promise<{ user_id: string; email: string
   return data as any[]
 }
 
-// 更新当前用户最后活跃时间
-export async function updateLastActive(): Promise<void> {
-  const sb = getSupabase()
-  if (!sb) return
-  try { await sb.rpc('update_last_active') } catch {}
-}
-
 // 管理员停用/启用用户
 export async function setUserDisabled(userId: string, disabled: boolean): Promise<boolean> {
   const sb = getSupabase()
