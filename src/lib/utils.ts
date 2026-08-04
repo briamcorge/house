@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { pinyin } from 'pinyin-pro'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -32,4 +33,22 @@ export function formatDateLocal(d: Date): string {
 export function formatRoomLabel(label?: string): string {
   if (!label) return ''
   return label === '整租' ? '整租' : `${label}室`
+}
+
+/** 拼音匹配辅助：返回字符串的全拼 + 首字母（小写、无空格），用于模糊搜索 */
+export function pinyinKeys(s: string): string {
+  const full = pinyin(s, { toneType: 'none', type: 'array' }).join('').toLowerCase()
+  const initials = pinyin(s, { pattern: 'first', toneType: 'none', type: 'array' }).join('').toLowerCase()
+  return `${full} ${initials}`
+}
+
+/** 判断查询词 q（已小写）是否匹配文本（支持中文子串/全拼/首字母） */
+export function matchText(text: string, q: string): boolean {
+  const t = text.toLowerCase()
+  return t.includes(q) || pinyinKeys(text).includes(q)
+}
+
+/** 拼音排序键：返回全拼小写，用于列表排序 */
+export function pinyinSortKey(s: string): string {
+  return pinyin(s, { toneType: 'none', type: 'array' }).join('').toLowerCase()
 }

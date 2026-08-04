@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { ChevronLeft, ChevronDown, TrendingUp, TrendingDown, BarChart3, CalendarX2, HelpCircle, Building2, Search, X, Check } from 'lucide-react'
 import { calculatePropertyVacancy } from '../utils/vacancy'
-import { formatRoomLabel } from '../lib/utils'
+import { formatRoomLabel, pinyinSortKey } from '../lib/utils'
 import AlertModal from '../components/AlertModal'
 
 export default function Statistics() {
@@ -107,6 +107,12 @@ export default function Statistics() {
   }, [properties, rooms, tenants, landlordContracts, selectedYear])
   const [expandedPropId, setExpandedPropId] = useState<string | null>(null)
   const [showAvailableHelp, setShowAvailableHelp] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(5)
+
+  // 筛选条件变化时重置分页
+  useEffect(() => {
+    setVisibleCount(5)
+  }, [selectedYear, selectedPropId])
 
   // 按选中房源过滤
   const filteredPropertyStats = selectedPropId
@@ -229,7 +235,7 @@ export default function Statistics() {
                   </div>
                 </div>
 
-                {filteredVacancyStats.map(v => (
+                {filteredVacancyStats.slice(0, visibleCount).map(v => (
                   <div key={v.propertyId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <button
                       type="button"
@@ -291,6 +297,15 @@ export default function Statistics() {
                     )}
                   </div>
                 ))}
+                {filteredVacancyStats.length > visibleCount && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(c => c + 5)}
+                    className="w-full py-3 bg-white border border-gray-200 rounded-xl text-sm text-blue-600 font-medium hover:bg-blue-50 transition-colors"
+                  >
+                    加载更多（还有 {filteredVacancyStats.length - visibleCount} 个房源）
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -336,7 +351,7 @@ export default function Statistics() {
                 <span>全部房源</span>
                 {selectedPropId === '' && <Check className="w-4 h-4 text-blue-600" />}
               </button>
-              {properties
+              {[...properties].sort((a, b) => pinyinSortKey(a.address).localeCompare(pinyinSortKey(b.address)))
                 .filter(p => p.address.includes(propSearch.trim()))
                 .map(p => (
                   <button
@@ -349,7 +364,7 @@ export default function Statistics() {
                     {selectedPropId === p.id && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                   </button>
                 ))}
-              {properties.filter(p => p.address.includes(propSearch.trim())).length === 0 && (
+              {[...properties].sort((a, b) => pinyinSortKey(a.address).localeCompare(pinyinSortKey(b.address))).filter(p => p.address.includes(propSearch.trim())).length === 0 && (
                 <p className="text-center text-gray-400 py-8 text-sm">未找到匹配房源</p>
               )}
             </div>

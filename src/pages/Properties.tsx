@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Property } from '../types'
@@ -9,11 +9,12 @@ import BillSummaryModal from '../components/BillSummaryModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { add30Days, formatDate } from '../utils/calculator'
+import { pinyinSortKey, matchText } from '../lib/utils'
 import { Edit2, Trash2, MoreVertical, Plus, Search, FileText, User } from 'lucide-react'
 
 export default function Properties() {
   const navigate = useNavigate()
-  const { properties, rooms, tenants, bills, landlordContracts, addProperty, updateProperty, deleteProperty, addBill, addLandlordContract, updateLandlordContract } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, settings, addProperty, updateProperty, deleteProperty, addBill, addLandlordContract, updateLandlordContract } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editingProperty, setEditingProperty] = useState<Property | undefined>()
   const [propertyMenu, setPropertyMenu] = useState<string | null>(null)
@@ -24,6 +25,7 @@ export default function Properties() {
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
   const [deleteStep1, setDeleteStep1] = useState<string | null>(null)
   const [deleteStep2, setDeleteStep2] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const getRoomCount = (propertyId: string) =>
     rooms.filter(r => r.propertyId === propertyId).length
@@ -37,6 +39,15 @@ export default function Properties() {
     setEditingProperty(undefined)
     setShowModal(false)
   }
+
+  const sortedProps = useMemo(() =>
+    [...properties].sort((a, b) => pinyinSortKey(a.address).localeCompare(pinyinSortKey(b.address))),
+    [properties]
+  )
+
+  const filteredProps = searchQuery.trim()
+    ? sortedProps.filter(p => matchText(p.address, searchQuery.trim().toLowerCase()))
+    : sortedProps
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -59,10 +70,28 @@ export default function Properties() {
         </div>
       </div>
 
+      <div className="px-4 pt-3 pb-0">
+        <div className="max-w-md mx-auto">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="搜索地址..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
           <div className="space-y-3">
-            {properties.map((property) => (
+            {filteredProps.map((property) => (
               <div key={property.id} className="relative group">
                 <PropertyCard
                   property={property}
@@ -91,6 +120,7 @@ export default function Properties() {
                     return total > 0 ? { paid, total } : undefined
                   })()}
                   onClickBill={() => setSummaryPropertyId(property.id)}
+                  showBills={settings?.showPropertyBills ?? true}
                 />
                 <div className="absolute top-3 right-3">
                   <button
@@ -192,6 +222,11 @@ export default function Properties() {
                 </div>
                 <p className="text-gray-500">暂无房源</p>
                 <p className="text-sm text-gray-400 mt-1">点击右上角添加房源</p>
+              </div>
+            )}
+            {properties.length > 0 && filteredProps.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-400">未找到匹配房源</p>
               </div>
             )}
           </div>

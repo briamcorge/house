@@ -4,21 +4,8 @@ import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import BillChart from '../components/BillChart'
 import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText } from 'lucide-react'
-import { formatMoney, todayLocal, formatRoomLabel } from '../lib/utils'
+import { formatMoney, todayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
 import { Property, Room, Tenant, LandlordContract } from '../types'
-import { pinyin } from 'pinyin-pro'
-
-/** 拼音匹配辅助：返回字符串的全拼 + 首字母（小写、无空格），用于模糊搜索 */
-const pinyinKeys = (s: string) => {
-  const full = pinyin(s, { toneType: 'none', type: 'array' }).join('').toLowerCase()
-  const initials = pinyin(s, { pattern: 'first', toneType: 'none', type: 'array' }).join('').toLowerCase()
-  return `${full} ${initials}`
-}
-/** 判断查询词 q（已小写）是否匹配文本（支持中文子串/全拼/首字母） */
-const matchText = (text: string, q: string) => {
-  const t = text.toLowerCase()
-  return t.includes(q) || pinyinKeys(text).includes(q)
-}
 
 type AlertType = 'expiring'
 
