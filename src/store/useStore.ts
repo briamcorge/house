@@ -700,7 +700,7 @@ export const useStore = create<AppStore>()(
           }
           return { ...b, type }
         })
-        return { ...state, bills } as AppStore
+        state = { ...state, bills }
       }
       // v2→v3: 已退租租客的未付账单删除 + contractEnd 修正
       if (version <= 2) {

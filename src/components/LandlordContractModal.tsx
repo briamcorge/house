@@ -254,7 +254,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -265,10 +265,10 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
             </button>
           </div>
           <div className="flex items-center gap-2 mt-3">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${isSimpleEdit ? 'bg-blue-900 text-white' : step === 'info' ? 'bg-blue-900 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${isSimpleEdit ? 'bg-blue-600 text-white' : step === 'info' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
             <span className="text-xs text-gray-400">合同信息</span>
             {!isSimpleEdit && (<><div className="w-8 h-px bg-gray-300" />
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'preview' ? 'bg-blue-900 text-white' : 'bg-gray-200 text-gray-400'}`}>2</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'preview' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>2</span>
             <span className="text-xs text-gray-400">确认账单</span></>)}
           </div>
         </div>
@@ -406,7 +406,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     type="checkbox"
                     checked={vacancyPerYear}
                     onChange={(e) => setVacancyPerYear(e.target.checked)}
-                    className="accent-blue-900"
+                    className="accent-blue-600"
                   />
                   按年设置
                 </label>
@@ -427,7 +427,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                       key={d}
                       type="button"
                       onClick={() => setVacancyDays(String(d))}
-                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${vacancyDays === String(d) ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${vacancyDays === String(d) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                     >
                       {d}天
                     </button>
@@ -448,7 +448,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         }}
                         placeholder="无"
                         min="0"
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <span className="text-xs text-gray-400">天</span>
                       <button
@@ -533,7 +533,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
               {draftBills.map((bill, i) => (
-                <div key={`${billKey}-${i}`} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
+                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${bill.type === 'deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                       {bill.type === 'deposit' ? '押金' : '房租'}
@@ -547,7 +547,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div>
@@ -556,7 +556,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
                         step="0.01"
                       />
                     </div>
@@ -567,7 +567,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         defaultValue={bill.periodStart}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div>
@@ -577,7 +577,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                         defaultValue={bill.periodEnd}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                   </div>

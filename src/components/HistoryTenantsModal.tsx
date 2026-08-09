@@ -12,12 +12,13 @@ interface HistoryTenantsModalProps {
 
 export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabel, onViewTenant }: HistoryTenantsModalProps) {
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -29,7 +30,7 @@ export default function HistoryTenantsModal({ isOpen, onClose, tenants, roomLabe
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">历史租客 - {roomLabel}</h2>

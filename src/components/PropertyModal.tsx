@@ -48,12 +48,13 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
 
   // ESC键关闭
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   const isDirty = editingProperty
     ? address !== editingProperty.address ||
@@ -102,7 +103,7 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={handleClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">{editingProperty ? '编辑房源' : '添加房源'}</h2>

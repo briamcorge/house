@@ -621,7 +621,7 @@ export default function More() {
         <div className="max-w-md mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-3">更多</h1>
 
-          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl p-4">
             {/* 已登录用户信息（在蓝色卡片内） */}
             {isSupabaseConfigured() && currentUser && (
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/20">
@@ -790,7 +790,7 @@ export default function More() {
                               role="switch"
                               aria-checked={showBills}
                               onClick={() => setSettings({ showPropertyBills: !showBills })}
-                              className={`w-11 h-6 rounded-full transition-colors relative ${showBills ? 'bg-blue-900' : 'bg-gray-300'}`}
+                              className={`w-11 h-6 rounded-full transition-colors relative ${showBills ? 'bg-blue-600' : 'bg-gray-300'}`}
                             >
                               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showBills ? 'translate-x-5' : ''}`} />
                             </button>
@@ -834,7 +834,7 @@ export default function More() {
                         setProfitAmount('')
                         setProfitExtracted(false)
                       }}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">选择房源</option>
                       {properties.map((p) => (
@@ -845,7 +845,7 @@ export default function More() {
                     <button
                       type="button"
                       onClick={() => setShowBillPicker(true)}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-left flex items-center justify-between"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between"
                     >
                       <span className={profitBillId ? 'text-gray-900' : 'text-gray-400'}>
                         {profitBillId
@@ -932,7 +932,7 @@ export default function More() {
                               value={profitAmount}
                               onChange={(e) => setProfitAmount(e.target.value)}
                               placeholder="利润金额"
-                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                           <div>
@@ -941,7 +941,7 @@ export default function More() {
                               type="date"
                               value={profitExtractionDate}
                               onChange={(e) => setProfitExtractionDate(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                         </div>
@@ -1088,7 +1088,7 @@ export default function More() {
       {/* 押金明细弹窗 */}
       {showDepositList && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">押金明细</h3>
               <button type="button" onClick={() => setShowDepositList(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -1125,7 +1125,7 @@ export default function More() {
       {/* 已付押金明细弹窗 */}
       {showPaidDepositList && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPaidDepositList(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">已付押金明细</h3>
               <button type="button" onClick={() => setShowPaidDepositList(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -1161,7 +1161,7 @@ export default function More() {
       {/* 利润提取记录弹窗 */}
       {showProfitRecords && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowProfitRecords(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">提取记录</h3>
               <button type="button" onClick={() => setShowProfitRecords(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -1222,7 +1222,7 @@ export default function More() {
       {/* 业主账单期数选择弹窗 */}
       {showBillPicker && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowBillPicker(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[60vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">选择业主账单期数</h3>
               <button type="button" onClick={() => setShowBillPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">

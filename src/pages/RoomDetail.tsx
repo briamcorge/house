@@ -241,7 +241,7 @@ export default function RoomDetail() {
                   const isExpanded = expandedContracts.has(t.id)
 
                   return (
-                    <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
+                    <div key={t.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
                       {/* 合同头部 — 点击展开/折叠账单 */}
                       <div
                         onClick={() => toggleContract(t.id)}
@@ -256,7 +256,7 @@ export default function RoomDetail() {
                               <input type="text" value={inlineValue} onChange={e => setInlineValue(e.target.value)}
                                 onBlur={() => { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}
                                 onKeyDown={e => { if (e.key === 'Enter') { if (inlineValue.trim()) updateTenant(t.id, { name: inlineValue.trim() }); setInlineEdit(null) }}}
-                                className="w-20 px-1 py-0.5 border border-blue-300 rounded text-sm font-medium" autoFocus onClick={e => e.stopPropagation()} />
+                                className="w-20 px-1 py-0.5 border border-blue-300 rounded text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus onClick={e => e.stopPropagation()} />
                             ) : (
                               <span onClick={(e) => { e.stopPropagation(); setInlineValue(t.name); setInlineEdit({ id: t.id, field: 'name', value: t.name }) }} className="font-medium text-sm cursor-pointer hover:text-blue-600 truncate">{t.name}</span>
                             )}
@@ -333,7 +333,7 @@ export default function RoomDetail() {
                               <Plus className="w-3 h-3" />添加账单
                             </button>
                           </div>
-                          <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                          <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
                             {tb.length === 0 ? (
                               <div className="p-4 text-center text-xs text-gray-400">暂无账单</div>
                             ) : (
@@ -483,7 +483,7 @@ export default function RoomDetail() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">总金额</span>
-                  <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-blue-600">¥{payConfirmBill.amount.toFixed(2)}</span>
                 </div>
                 {payConfirmBill.description && (
                   <div className="flex justify-between">
@@ -508,7 +508,7 @@ export default function RoomDetail() {
                       const v = parseFloat(e.target.value)
                       if (v > 0 && v < payConfirmBill.amount) autoFillPayPeriod(v)
                     }}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                     min="0"
                     max={payConfirmBill.amount}
@@ -520,7 +520,7 @@ export default function RoomDetail() {
                     type="date"
                     value={payDate}
                     onChange={(e) => setPayDate(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -530,11 +530,11 @@ export default function RoomDetail() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">开始日</label>
-                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">结束日</label>
-                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               )}
@@ -618,18 +618,23 @@ export default function RoomDetail() {
                 {roomChangeTenant.name} — 当前：{formatRoomLabel(rooms.find(r => r.id === roomChangeTenant.roomId)?.label) || '?'}
               </p>
             </div>
-            <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+            <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
               {rooms
                 .filter(r => r.propertyId === propertyId && r.id !== roomId)
-                .map(r => (
+                .map(r => {
+                  const occupied = r.status === 'occupied'
+                  return (
                   <button
                     key={r.id}
                     type="button"
+                    disabled={occupied}
                     onClick={() => setRoomChangeTarget(r.id)}
                     className={`w-full text-left p-3 rounded-xl border transition-colors ${
-                      roomChangeTarget === r.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                      occupied
+                        ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                        : roomChangeTarget === r.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <span className="font-medium text-sm">{formatRoomLabel(r.label)}</span>
@@ -638,7 +643,8 @@ export default function RoomDetail() {
                     </span>
                     {r.roomType && <span className="ml-2 text-xs text-gray-400">{r.roomType}</span>}
                   </button>
-                ))}
+                  )
+                })}
               {rooms.filter(r => r.propertyId === propertyId && r.id !== roomId).length === 0 && (
                 <p className="text-sm text-gray-400 text-center py-4">该房源没有其他房间可选</p>
               )}

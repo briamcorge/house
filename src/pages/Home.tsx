@@ -108,7 +108,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-4 pb-8">
+      <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-600 px-4 pt-4 pb-8">
           <div className="max-w-md mx-auto">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -122,7 +122,7 @@ export default function Home() {
                   placeholder="搜索..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-7 py-2 bg-white/15 backdrop-blur border border-white/20 rounded-lg text-sm text-white placeholder-blue-300 focus:outline-none focus:bg-white/25 focus:border-white/40"
+                  className="w-full pl-8 pr-7 py-2 bg-white/15 backdrop-blur border border-white/20 rounded-xl text-sm text-white placeholder-blue-300 focus:outline-none focus:bg-white/25 focus:border-white/40"
                 />
               {searchQuery && (
                 <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-300 hover:text-white text-sm">✕</button>
@@ -289,7 +289,7 @@ export default function Home() {
 function SkeletonHome() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 animate-pulse">
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 px-4 pt-4 pb-8">
+      <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-600 px-4 pt-4 pb-8">
         <div className="max-w-md mx-auto">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2">

@@ -77,7 +77,7 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
           <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
           <h2 className="text-lg font-bold text-gray-900 mb-2">密码重置成功</h2>
@@ -91,7 +91,7 @@ function PasswordResetPage({ onComplete }: { onComplete: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
         <h2 className="text-lg font-bold text-gray-900 text-center mb-2">设置新密码</h2>
         <p className="text-sm text-gray-500 text-center mb-5">请为你的账号设置一个新密码</p>
@@ -416,7 +416,7 @@ export default function App() {
       ) : passwordResetMode && currentUser ? (
         <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />
       ) : isSupabaseConfigured() && !authReady ? (
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
             <p className="text-white/60 text-sm">加载中...</p>

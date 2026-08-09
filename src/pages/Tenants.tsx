@@ -81,7 +81,7 @@ export default function Tenants() {
           <div className="flex gap-2">
             {(['all', 'active', 'renewed', 'ended'] as const).map(f => (
               <button key={f} onClick={() => setStatusFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === f ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
               >
                 {f === 'all' ? '全部' : f === 'active' ? '在租' : f === 'renewed' ? '已续约' : '已退租'}（{f === 'all' ? tenants.length : f === 'active' ? tenants.filter(t => t.status === 'active').length : f === 'renewed' ? tenants.filter(t => t.status === 'ended' && isRenewedTenant(t)).length : tenants.filter(t => t.status === 'ended' && !isRenewedTenant(t)).length}）
               </button>

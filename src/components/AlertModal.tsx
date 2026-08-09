@@ -11,12 +11,13 @@ interface AlertModalProps {
 
 export default function AlertModal({ isOpen, onClose, title, message, variant = 'info' }: AlertModalProps) {
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -52,7 +53,7 @@ export default function AlertModal({ isOpen, onClose, title, message, variant = 
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-blue-900 text-sm font-medium text-white hover:bg-blue-800 transition-colors"
+            className="w-full py-2.5 rounded-xl bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
           >
             确定
           </button>

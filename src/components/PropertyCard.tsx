@@ -23,7 +23,7 @@ export default function PropertyCard({
 
   return (
     <div
-      className="bg-white rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
       onClick={onClick}
     >
       <div className="flex items-center gap-3 px-3 py-2.5">
