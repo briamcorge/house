@@ -70,13 +70,20 @@ function createId(): string {
 
 function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
   const items = prefix === 'DL' ? state.landlordContracts : state.tenants
+  const trashType: TrashType = prefix === 'DL' ? 'landlord_contract' : 'tenant'
+  const regex = new RegExp(`^${prefix}-(\\d+)$`)
   let maxNum = 0
-  for (const item of items) {
-    const match = item.displayId.match(new RegExp(`^${prefix}-(\\d+)$`))
+  const scan = (displayId: string) => {
+    const match = displayId.match(regex)
     if (match) {
       const num = parseInt(match[1], 10)
       if (num > maxNum) maxNum = num
     }
+  }
+  // 同时扫描回收站中可恢复的同类型条目，避免恢复后 displayId 重复
+  for (const item of items) scan(item.displayId)
+  for (const item of state.trash) {
+    if (item.type === trashType) scan(item.data.displayId)
   }
   return `${prefix}-${String(maxNum + 1).padStart(4, '0')}`
 }
@@ -232,6 +239,11 @@ export const useStore = create<AppStore>()(
           const tenant = state.tenants.find(t => t.id === tenantId)
           if (!tenant || tenant.roomId === newRoomId) return state
           const oldRoomId = tenant.roomId
+          // 检查新房间是否已被其他活跃租客占用（防止一间房两个活跃租客）
+          const newRoomOccupied = state.tenants.some(t =>
+            t.roomId === newRoomId && t.id !== tenantId && t.status === 'active'
+          )
+          if (newRoomOccupied) return state
           const oldRoom = state.rooms.find(r => r.id === oldRoomId)
           const newRoom = state.rooms.find(r => r.id === newRoomId)
           // 更新租客 roomId
@@ -311,7 +323,12 @@ export const useStore = create<AppStore>()(
             // 房间被占用，不恢复
             return state
           }
+          const tenant = state.tenants.find(t => t.id === id)
           // 撤销退租时生成的账单：退押金/违约金/退租金/退其他
+          // 退租账单由 CheckoutModal 在退租日生成（dueDate/paidDate 均为退租日 = effectiveEnd），
+          // 因此仅删除退租日当天及之后生成的账单，避免误删合同期内同名的合法账单（如中途违约金）。
+          // 历史数据缺少 effectiveEnd 时退回旧行为：仅按描述匹配。
+          const effectiveEnd = tenant?.effectiveEnd
           const checkoutBillIds = new Set(
             state.bills
               .filter(b => b.tenantId === id && (
@@ -319,11 +336,10 @@ export const useStore = create<AppStore>()(
                 b.description === '违约金' ||
                 b.description.startsWith('退租金') ||
                 (b.amount < 0 && b.type === 'other' && b.description.startsWith('退'))
-              ))
+              ) && (!effectiveEnd || (b.paidDate || b.dueDate) >= effectiveEnd))
               .map(b => b.id)
           )
           // 找回退租时暂存的未付账单（未来期数）
-          const tenant = state.tenants.find(t => t.id === id)
           const pendingBills = tenant?.pendingBills || []
           return {
             tenants: state.tenants.map((t) =>
@@ -372,7 +388,7 @@ export const useStore = create<AppStore>()(
           return {
             bills: state.bills.filter((b) => b.id !== id),
             trash: bill ? [...state.trash, { id: createId(), type: 'bill' as const, originalId: id, data: bill, label: `¥${bill.amount} ${bill.type}`, deletedAt: new Date().toISOString().slice(0, 10) }] : state.trash,
-            auditLogs: recordLog(state, 'delete', 'bill', id, `¥${bill.amount}`),
+            auditLogs: recordLog(state, 'delete', 'bill', id, bill ? `¥${bill.amount}` : ''),
           }
         }),
 
@@ -638,6 +654,17 @@ export const useStore = create<AppStore>()(
             if (b.roomId && !state.rooms.some(r => r.id === b.roomId)) return state
             if (b.landlordContractId && !state.landlordContracts.some(c => c.id === b.landlordContractId)) return state
           }
+          // 恢复房间时校验所属房源存在（防止孤儿房间）
+          if (item.type === 'room') {
+            const r = data as Room
+            if (!state.properties.some(p => p.id === r.propertyId)) return state
+          }
+          // 恢复租客时校验房间存在且未被其他活跃租客占用（防止孤儿租客/双重占用）
+          if (item.type === 'tenant') {
+            const t = data as Tenant
+            if (!state.rooms.some(r => r.id === t.roomId)) return state
+            if (state.tenants.some(x => x.roomId === t.roomId && x.id !== t.id && x.status === 'active')) return state
+          }
           const log = recordLog(state, 'restore', item.type, item.originalId, `恢复 ${item.label}`)
           switch (item.type) {
             case 'property':
@@ -689,7 +716,9 @@ export const useStore = create<AppStore>()(
           auditLogs: [],
         } as AppStore
       }
-      if (version === 1) {
+      if (version <= 1) {
+        // v1→v2: 水电燃气类型合并 + 押金类型识别
+        // 注意：不能 return，必须继续执行后续迁移链（v2→v8）
         const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
           let type = b.type as string
           if (type === 'water' || type === 'electric' || type === 'gas') {

@@ -37,12 +37,15 @@ export default function Contracts() {
   const isRenewedContract = (c: { id: string; endReason?: 'renew' | 'checkout' }) =>
     c.endReason === 'renew' || landlordContracts.some(x => x.previousContractId === c.id)
 
-  const getBillsForContract = (contract: { id: string; propertyId: string }, direction: 'payable' | 'receivable') => {
-    // 优先按 landlordContractId 精确匹配；老数据无 contractId 时按 propertyId 兜底
+  const getBillsForContract = (contract: { id: string; propertyId: string; contractStart: string; contractEnd: string }, direction: 'payable' | 'receivable') => {
+    // 优先按 landlordContractId 精确匹配；老数据无 contractId 时按 propertyId + dueDate 在合同日期范围内兜底
     return bills.filter(b =>
       b.direction === direction &&
       (b.landlordContractId === contract.id ||
-        (!b.landlordContractId && b.propertyId === contract.propertyId))
+        (!b.landlordContractId &&
+          b.propertyId === contract.propertyId &&
+          b.dueDate >= contract.contractStart &&
+          b.dueDate <= contract.contractEnd))
     )
   }
 

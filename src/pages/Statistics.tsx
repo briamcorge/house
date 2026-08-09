@@ -25,16 +25,16 @@ export default function Statistics() {
     years.add(currentYear - 1)
     for (const b of bills) {
       if (b.paidDate) years.add(parseInt(b.paidDate.slice(0, 4)))
-      years.add(parseInt(b.dueDate.slice(0, 4)))
+      if (b.dueDate) years.add(parseInt(b.dueDate.slice(0, 4)))
     }
-    return Array.from(years).sort((a, b) => b - a)
+    return Array.from(years).filter(y => !Number.isNaN(y)).sort((a, b) => b - a)
   }, [bills, currentYear])
 
   // 该年已收 (租客已付，排除押金相关)
   const yearlyReceivablePaid = useMemo(() => {
     return bills
       .filter(b => b.direction === 'receivable' && b.status === 'paid' && b.paidDate?.startsWith(selectedYear.toString()))
-      .filter(b => b.type !== 'deposit')
+      .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
@@ -62,7 +62,8 @@ export default function Statistics() {
       const propTenants = tenants.filter(t => propRooms.some(r => r.id === t.roomId) && t.status === 'active')
 
       const propBills = bills.filter(b => {
-        if (b.paidDate && !b.paidDate.startsWith(selectedYear.toString())) return false
+        // 与全局口径一致：已收/已付/已退账单必须 paidDate 在选中年份内才计入
+        if ((b.status === 'paid' || b.status === 'refunded') && !b.paidDate?.startsWith(selectedYear.toString())) return false
         if (b.propertyId === p.id) return true
         if (b.roomId && propRooms.some(r => r.id === b.roomId)) return true
         return false
@@ -70,7 +71,7 @@ export default function Statistics() {
 
       const income = propBills
         .filter(b => b.direction === 'receivable' && b.status === 'paid')
-        .filter(b => b.type !== 'deposit')
+        .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
         .reduce((s, b) => s + b.amount, 0)
       const expense = propBills
         .filter(b => b.direction === 'payable' && b.status === 'paid')

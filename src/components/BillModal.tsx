@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Bill, Property, Tenant, Room, BillDirection } from '../types'
 import { X, Home, User, DollarSign, Calendar, FileText } from 'lucide-react'
 import { formatDate, add30Days } from '../utils/calculator'
@@ -17,12 +17,17 @@ interface BillModalProps {
   defaultDirection?: BillDirection
 }
 
-function showError(setter: (msg: string) => void, msg: string) {
-  setter(msg)
-  setTimeout(() => setter(''), 5000)
-}
-
 export default function BillModal({ isOpen, onClose, onSave, properties, rooms, tenants, editingBill, defaultRoomId, defaultTenantId, defaultDirection }: BillModalProps) {
+  // 错误提示定时清理（组件卸载或重新打开时不再触发 setState）
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
+
+  function showError(setter: (msg: string) => void, msg: string) {
+    setter(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setter(''), 5000)
+  }
+
   const [direction, setDirection] = useState<BillDirection>('receivable')
   const [propertyId, setPropertyId] = useState('')
   const [roomId, setRoomId] = useState('')
@@ -117,6 +122,10 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       showError(setError, '请输入有效的金额')
       return
     }
+    if (amountNum <= 0) {
+      showError(setError, '请输入大于 0 的金额')
+      return
+    }
 
     if (!dueDate) {
       showError(setError, '请选择应付/应收日期')
@@ -126,6 +135,18 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
     if (status === 'paid' && !paidDate) {
       showError(setError, '请选择实际付款/收款日期')
       return
+    }
+
+    if (paidAmount) {
+      const paidAmtNum = parseFloat(paidAmount)
+      if (isNaN(paidAmtNum) || paidAmtNum <= 0) {
+        showError(setError, '实收金额必须大于 0')
+        return
+      }
+      if (paidAmtNum > amountNum) {
+        showError(setError, '实收金额不能大于账单金额')
+        return
+      }
     }
 
     const baseData = {

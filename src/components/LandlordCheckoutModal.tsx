@@ -1,4 +1,4 @@
-import { useState , useEffect } from 'react'
+import { useState , useEffect, useRef } from 'react'
 import { X, DollarSign, Calendar } from 'lucide-react'
 
 interface LandlordCheckoutModalProps {
@@ -24,16 +24,21 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
+
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
 
   function showError(msg: string) {
     setError(msg)
-    setTimeout(() => setError(''), 5000)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setError(''), 5000)
   }
 
   if (!isOpen) return null

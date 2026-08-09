@@ -555,18 +555,40 @@ export default function RoomDetail() {
                   type="button"
                   onClick={() => {
                     const paidAmt = payAmount !== '' ? parseFloat(payAmount) : undefined
-                    if (paidAmt !== undefined && paidAmt > payConfirmBill.amount) {
-                      setAlertState({ title: '提示', message: '收款金额不能大于账单金额' })
+                    // 校验：金额必须 > 0 且 ≤ 账单金额（负数会静默标成全额已收，0 会被当作部分收款）
+                    if (paidAmt !== undefined && (isNaN(paidAmt) || paidAmt <= 0 || paidAmt > payConfirmBill.amount)) {
+                      setAlertState({ title: '提示', message: '请输入大于 0 且不超过账单金额的有效金额' })
                       return
                     }
                     const isPartial = paidAmt !== undefined && paidAmt > 0 && paidAmt < payConfirmBill.amount
                     if (isPartial) {
                       const remaining = payConfirmBill.amount - paidAmt
-                      updateBill(payConfirmBill.id, { amount: remaining, paidDate: undefined })
+                      // 剩余未收期间 = 本次收款结束日的次日 ~ 原账单结束日；无期间输入时无法得知拆分，保留原元数据
+                      let remainingRange: { start: string; end: string } | undefined
+                      if (payPeriodStart && payPeriodEnd) {
+                        const origEnd = payConfirmBill.periodEnd ||
+                          payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[2]
+                        if (origEnd) {
+                          const d = new Date(payPeriodEnd)
+                          d.setDate(d.getDate() + 1)
+                          remainingRange = { start: formatDateLocal(d), end: origEnd }
+                        }
+                      }
+                      const baseDesc = payConfirmBill.description || ''
+                      updateBill(payConfirmBill.id, {
+                        amount: remaining,
+                        paidDate: undefined,
+                        ...(remainingRange
+                          ? {
+                              periodStart: remainingRange.start,
+                              periodEnd: remainingRange.end,
+                              description: baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, `${remainingRange.start} ~ ${remainingRange.end}`),
+                            }
+                          : {}),
+                      })
                       const periodDesc = payPeriodStart && payPeriodEnd
                         ? `${payPeriodStart} ~ ${payPeriodEnd}`
                         : undefined
-                      const baseDesc = payConfirmBill.description || ''
                       const newDesc = periodDesc
                         ? baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, periodDesc)
                         : baseDesc
@@ -581,6 +603,9 @@ export default function RoomDetail() {
                         dueDate: payConfirmBill.dueDate,
                         paidDate: payDate || todayLocal(),
                         description: newDesc,
+                        periodStart: payPeriodStart || payConfirmBill.periodStart,
+                        periodEnd: payPeriodEnd || payConfirmBill.periodEnd,
+                        landlordContractId: payConfirmBill.landlordContractId,
                       })
                     } else {
                       updateBill(payConfirmBill.id, {
