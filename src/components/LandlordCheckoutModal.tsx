@@ -61,7 +61,7 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
               <Calendar className="w-4 h-4 inline mr-1" />
               退租日期
             </label>
-            <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-gray-400 mt-1">实际退租日期，即账单的应收日/实付日</p>
           </div>
 
@@ -70,7 +70,7 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
               <DollarSign className="w-4 h-4 inline mr-1" />
               退还押金
             </label>
-            <input type="number" value={depositRefund} onChange={e => setDepositRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <input type="number" value={depositRefund} onChange={e => setDepositRefund(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             {deposit && <p className="text-xs text-gray-400 mt-1">原押金 ¥{deposit}</p>}
           </div>
 
@@ -79,7 +79,7 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
               <DollarSign className="w-4 h-4 inline mr-1" />
               违约金（可选）
             </label>
-            <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <input type="number" value={penalty} onChange={e => setPenalty(e.target.value)} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-gray-400 mt-1">业主违约扣下的押金，作为收入</p>
           </div>
 
@@ -88,18 +88,18 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
               <DollarSign className="w-4 h-4 inline mr-1" />
               退还租金
             </label>
-            <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+            <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           {parseFloat(rentRefund) > 0 && (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">退款开始日</label>
-                <input type="date" value={rentRefundStart} onChange={e => setRentRefundStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                <input type="date" value={rentRefundStart} onChange={e => setRentRefundStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">退款结束日</label>
-                <input type="date" value={rentRefundEnd} onChange={e => setRentRefundEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                <input type="date" value={rentRefundEnd} onChange={e => setRentRefundEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
           )}

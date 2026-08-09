@@ -79,7 +79,7 @@ export default function RoomList() {
                 setEditingRoomId(null);
                 setShowModal(true)
               }}
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-900 text-white rounded-xl text-xs font-medium hover:bg-blue-800 transition-colors shrink-0"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
             >
                <Plus className="w-3.5 h-3.5" />
                添加
@@ -113,7 +113,7 @@ export default function RoomList() {
                             <input type="text" value={editInlineValue} onChange={e => setEditInlineValue(e.target.value)}
                               onBlur={() => { if (editInlineValue.trim()) updateLandlordContract(c.id, { landlordName: editInlineValue.trim() }); setInlineEdit(null) }}
                               onKeyDown={e => { if (e.key === 'Enter') { if (editInlineValue.trim()) updateLandlordContract(c.id, { landlordName: editInlineValue.trim() }); setInlineEdit(null) }}}
-                              className="w-24 px-1 py-0.5 border border-blue-300 rounded text-sm" autoFocus />
+                              className="w-24 px-1 py-0.5 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
                           ) : (
                             <span onClick={e => { e.stopPropagation(); setEditInlineValue(c.landlordName || ''); setInlineEdit({ id: c.id, field: 'name', value: c.landlordName || '' }) }} className="cursor-pointer hover:text-blue-600" title="点击修改">{c.landlordName || '业主'}</span>
                           )} · ¥{c.monthlyRent}/月
@@ -146,7 +146,7 @@ export default function RoomList() {
                           <input type="tel" value={editInlineValue} onChange={e => setEditInlineValue(e.target.value)}
                             onBlur={() => { updateLandlordContract(c.id, { landlordPhone: editInlineValue || undefined }); setInlineEdit(null) }}
                             onKeyDown={e => { if (e.key === 'Enter') { updateLandlordContract(c.id, { landlordPhone: editInlineValue || undefined }); setInlineEdit(null) }}}
-                            className="w-28 px-1 py-0.5 border border-blue-300 rounded text-xs mr-2" autoFocus />
+                            className="w-28 px-1 py-0.5 border border-blue-300 rounded text-xs mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
                         ) : c.landlordPhone ? (
                           <span onClick={e => { e.stopPropagation(); setEditInlineValue(c.landlordPhone || ''); setInlineEdit({ id: c.id, field: 'phone', value: c.landlordPhone || '' }) }} className="cursor-pointer hover:text-blue-600 mr-2" title="点击修改">{c.landlordPhone}</span>
                         ) : null}

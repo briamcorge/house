@@ -53,7 +53,7 @@ export default function Trash() {
 
   const handleBatchRestore = () => {
     const items = trash.filter(t => selected.has(t.id))
-    const blocked = items.map(canRestore).find(Boolean)
+    const blocked = items.map(item => canRestore(item, selected)).find(Boolean)
     if (blocked) { setRestoreError(blocked); return }
     items.forEach(item => restoreFromTrash(item.id))
     setSelected(new Set())
@@ -112,7 +112,7 @@ export default function Trash() {
                   placeholder="搜索已删除的内容..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {searchQuery && (
                   <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>
@@ -122,7 +122,7 @@ export default function Trash() {
               <div className="flex gap-2 mb-3 overflow-x-auto">
                 <button
                   onClick={() => setTypeFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${typeFilter === 'all' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${typeFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
                 >
                   全部 ({typeCounts.all})
                 </button>
@@ -130,7 +130,7 @@ export default function Trash() {
                   <button
                     key={t}
                     onClick={() => setTypeFilter(t)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${typeFilter === t ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${typeFilter === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
                   >
                     {typeLabels[t]} ({typeCounts[t]})
                   </button>

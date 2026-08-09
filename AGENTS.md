@@ -27,33 +27,6 @@
 - **APK 输出**: 桌面 `房屋管理-v{version}.apk`
 - **Android 项目**: `E:\新项目\house\android`
 
-### AI 模型 API (OpenCode 配置)
-**配置文件位置**: `C:\Users\Administrator\.config\opencode\opencode.json`
-
-**千问 (Qwen DashScope)**
-- **API Key**: `sk-a8e61fb313ed4aea90c51f2d0efae09b`
-- **Base URL**: `https://dashscope.aliyuncs.com/compatible-mode/v1`
-- **可用模型**:
-  - `qwen-vl-plus` - 图像+文本，131k上下文
-  - `qwen-vl-max` - 图像+文本，32k上下文
-  - `qwen3.7-plus` - 图像+文本+视频，131k上下文
-
-**DeepSeek**
-- **API Key**: `sk-5ea769f8f322471aa15983d61e281471`
-- **Base URL**: `https://api.deepseek.com`
-- **可用模型**:
-  - `deepseek-v4-flash` - 快速推理
-
-**Agnes AI (新加坡)**
-- **API Key**: `sk-IOLRCmgKxdrJwWknzWERE6LG1c8ogFNXM4SEz98haHKpmfw0`
-- **Base URL**: `https://apihub.agnes-ai.com/v1`
-- **平台**: https://platform.agnes-ai.com
-- **免费额度**: 无限期免费开放全模态API
-- **可用模型**:
-  - `agnes-2.0-flash` - 文本模型，100万Token上下文
-  - `agnes-image-2.0-flash` - 图像模型
-  - `agnes-video-2.0` - 视频模型
-
 ## 构建 & 发布命令
 
 ```bash
@@ -139,7 +112,7 @@ ProfitRecord / TrashItem
 ## 约定
 
 - 移动端优先: max-w-md mx-auto
-- Tailwind 主色: blue-900
+- Tailwind 主色: blue-600（主按钮/强调统一用 blue-600，浅色选中态 bg-blue-100 + text-blue-700，hover 加深 blue-700）
 - 弹窗底部弹出: rounded-t-3xl, items-end, z-[60]
 - 中文 UI, 日期格式 YYYY-MM-DD
 - 30/360 算法: 每月=30天, 每年=360天

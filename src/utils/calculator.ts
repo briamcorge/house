@@ -172,6 +172,9 @@ export function generateRentBills(
 
   // 按30/360总天数计算期数（非包含，避免整年多算）
   const periodDays = periodMonths * 30
+  // 防御性钳制提前天数：不允许负数（提前付款），且不超过一期长度，
+  // 否则后续期账单的到期日会漂移到合同开始日之前（或逐期提前漂移）
+  const adv = Math.max(0, Math.min(advanceDays, periodDays))
   const totalDays = diffDays360(start, end)
   const nPeriods = Math.max(1, Math.ceil(totalDays / periodDays))
 

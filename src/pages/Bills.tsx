@@ -299,7 +299,7 @@ export default function Bills() {
                 onClick={() => setDirection(f.key)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   direction === f.key
-                    ? 'bg-blue-900 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -321,7 +321,7 @@ export default function Bills() {
                 onClick={() => setFilterStatus(f.key)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   filterStatus === f.key
-                    ? 'bg-blue-900 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -340,7 +340,7 @@ export default function Bills() {
                   onClick={() => setDayRange(d)}
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     dayRange === d
-                      ? 'bg-blue-100 text-blue-800'
+                      ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-500 hover:bg-gray-100'
                   }`}
                 >
@@ -447,7 +447,7 @@ export default function Bills() {
                     const landlordName = getLandlordName(bill.direction, bill.propertyId)
                     const isOverdue = bill.status === 'overdue' || (bill.status === 'pending' && bill.dueDate < today)
                     const dateColor = isOverdue ? 'text-red-600' :
-                      bill.status === 'pending' ? (bill.direction === 'receivable' ? 'text-blue-900' : 'text-orange-600') :
+                      bill.status === 'pending' ? (bill.direction === 'receivable' ? 'text-blue-600' : 'text-orange-600') :
                       'text-gray-500'
                     return (
                       <div key={bill.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
@@ -518,7 +518,7 @@ export default function Bills() {
                           </div>
                         </div>
 
-                        <p className="text-2xl font-bold text-blue-900 mb-2">¥{bill.amount.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-blue-600 mb-2">¥{bill.amount.toFixed(2)}</p>
 
                         <div className="space-y-1.5">
                           {bill.description && (
@@ -574,7 +574,7 @@ export default function Bills() {
             </div>
 
             {/* 总金额 */}
-            <div className="mt-4 bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+            <div className="mt-4 bg-white rounded-2xl border border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
               <span className="text-sm text-gray-500">
                 {displayBills.length} 笔
               </span>
@@ -589,7 +589,7 @@ export default function Bills() {
               setEditingBill(undefined)
               setShowModal(true)
             }}
-            className="w-full mt-6 bg-blue-900 text-white py-4 rounded-2xl font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-5 h-5" />
             添加账单
@@ -623,7 +623,7 @@ export default function Bills() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">总金额</span>
-                  <span className="text-lg font-bold text-blue-900">¥{payConfirmBill.amount.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-blue-600">¥{payConfirmBill.amount.toFixed(2)}</span>
                 </div>
                 {payConfirmBill.description && (
                   <div className="flex justify-between">
@@ -666,7 +666,7 @@ export default function Bills() {
                       const v = parseFloat(e.target.value)
                       if (v > 0 && payConfirmBill && v < payConfirmBill.amount) autoFillPayPeriod(v)
                     }}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                     min="0"
                     max={payConfirmBill.amount}
@@ -678,7 +678,7 @@ export default function Bills() {
                     type="date"
                     value={payDate}
                     onChange={(e) => setPayDate(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -687,11 +687,11 @@ export default function Bills() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">开始日</label>
-                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">结束日</label>
-                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm" />
+                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               )}

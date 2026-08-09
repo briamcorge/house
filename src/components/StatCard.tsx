@@ -11,7 +11,7 @@ interface StatCardProps {
 
 export default function StatCard({ title, value, icon: Icon, color = 'blue', onClick }: StatCardProps) {
   const colorClasses = {
-    blue: 'from-blue-600 to-blue-800',
+    blue: 'from-blue-600 to-blue-700',
     green: 'from-green-500 to-emerald-600',
     orange: 'from-orange-400 to-orange-600',
     red: 'from-red-500 to-rose-600'

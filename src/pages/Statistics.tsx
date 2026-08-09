@@ -144,7 +144,7 @@ export default function Statistics() {
               <button
                 key={y}
                 onClick={() => setSelectedYear(y)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${selectedYear === y ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${selectedYear === y ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
               >
                 {y}年
               </button>
@@ -323,7 +323,7 @@ export default function Statistics() {
       {/* 房源选择弹窗 */}
       {showPropPicker && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPicker(false) }}>
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] flex flex-col">
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">选择房源</h3>
               <button type="button" onClick={() => setShowPropPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
@@ -346,7 +346,7 @@ export default function Statistics() {
               <button
                 type="button"
                 onClick={() => { setSelectedPropId(''); setShowPropPicker(false) }}
-                className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === '' ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === '' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
               >
                 <span>全部房源</span>
                 {selectedPropId === '' && <Check className="w-4 h-4 text-blue-600" />}
@@ -358,7 +358,7 @@ export default function Statistics() {
                     key={p.id}
                     type="button"
                     onClick={() => { setSelectedPropId(p.id); setShowPropPicker(false) }}
-                    className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === p.id ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                    className={`w-full px-3 py-3 rounded-xl text-sm text-left flex items-center justify-between ${selectedPropId === p.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                     <span className="truncate">{p.address}</span>
                     {selectedPropId === p.id && <Check className="w-4 h-4 text-blue-600 shrink-0" />}

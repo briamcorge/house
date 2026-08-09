@@ -85,12 +85,13 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
   // ESC键关闭
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -214,7 +215,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as Bill['type'])}
-                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(typeLabels).map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
@@ -232,7 +233,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="金额"
-                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -247,7 +248,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
               <select
                 value={propertyId}
                 onChange={(e) => setPropertyId(e.target.value)}
-                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
                 <option value="">请选择房源</option>
@@ -269,7 +270,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                     setRoomId(e.target.value)
                     setTenantId('')
                   }}
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">请选择房间</option>
@@ -293,7 +294,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   <select
                     value={tenantId}
                     onChange={(e) => setTenantId(e.target.value)}
-                    className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">请选择租客</option>
                     {relatedTenants.map((t) => (
@@ -322,7 +323,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -336,7 +337,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="账单期间或备注"
                   rows={3}
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
             </div>
@@ -381,7 +382,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   type="date"
                   value={paidDate || ''}
                   onChange={(e) => setPaidDate(e.target.value)}
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -396,7 +397,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   onChange={(e) => setPaidAmount(e.target.value)}
                   placeholder="留空全额"
                   min="0"
-                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -420,7 +421,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                     <select
                       value={repeatInterval}
                       onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-xs bg-white"
+                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value={1}>1</option>
                       <option value={3}>3</option>
@@ -435,7 +436,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                       onChange={(e) => setRepeatCount(parseInt(e.target.value) || 1)}
                       min="1"
                       max="60"
-                      className="w-12 px-2 py-1.5 border border-gray-200 rounded-md text-xs"
+                      className="w-12 px-2 py-1.5 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-[11px] text-gray-500">笔</span>
                   </div>
@@ -448,13 +449,13 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
+              className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-medium hover:bg-gray-200 transition-colors"
             >
               取消
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+              className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors"
             >
               保存
             </button>

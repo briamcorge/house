@@ -98,7 +98,7 @@ export default function Contracts() {
         { key: 'ended' as const, label: '已结束' },
       ] as const).map(f => (
         <button key={f.key} onClick={() => onChange(f.key)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${current === f.key ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600'}`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${current === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
         >
           {f.label} ({counts[f.key]})
         </button>
@@ -123,7 +123,7 @@ export default function Contracts() {
               placeholder="搜索合同编号、姓名、地址..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>

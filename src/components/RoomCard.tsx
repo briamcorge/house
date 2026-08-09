@@ -15,7 +15,7 @@ const paymentLabels: Record<string, string> = { monthly: '月付', quarterly: '�
 export default function RoomCard({ room, tenant, billSummary, onClick, onClickBill }: RoomCardProps) {
   return (
     <div
-      className="bg-white rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
       onClick={onClick}
     >
       <div className="flex items-center gap-2.5 px-3 py-2.5">

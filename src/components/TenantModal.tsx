@@ -42,12 +42,13 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   // ESC键关闭
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   const [contractEnd, setContractEnd] = useState(() => formatDate(add30Days(new Date(), 359)))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')
@@ -325,7 +326,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
@@ -337,10 +338,10 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
             </button>
           </div>
           <div className="flex items-center gap-2 mt-3">
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'info' ? 'bg-blue-900 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'info' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
               <span className="text-xs text-gray-400">合同信息</span>
               <div className="w-8 h-px bg-gray-300" />
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'preview' ? 'bg-blue-900 text-white' : 'bg-gray-200 text-gray-400'}`}>2</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'preview' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>2</span>
               <span className="text-xs text-gray-400">确认账单</span>
             </div>
           </div>
@@ -490,7 +491,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                     value={otherFeeName}
                     onChange={(e) => setOtherFeeName(e.target.value)}
                     placeholder="卫管费"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
                 <div>
@@ -501,7 +502,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                     onChange={(e) => setOtherFeeAmount(e.target.value)}
                     placeholder="0"
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
               </div>
@@ -576,7 +577,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   <p className="text-xs text-blue-500 mt-1">{contractStart} 至 {contractEnd}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-blue-900">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
+                  <p className="text-sm font-medium text-blue-600">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
                   <p className="text-xs text-blue-500">提前{advanceDays === 0 ? '无' : `${advanceDays}天`}</p>
                 </div>
               </div>
@@ -585,7 +586,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
               {draftBills.map((bill, i) => (
-                <div key={`${billKey}-${i}`} className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
+                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${bill.type === 'other' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                       {bill.type === 'other' ? bill.description || '其他' : bill.description?.split(' ')[0] || '房租'}
@@ -599,7 +600,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div>
@@ -608,7 +609,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
                         step="0.01"
                       />
                     </div>
@@ -621,7 +622,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                             defaultValue={bill.periodStart}
                             data-draft-index={i}
                             onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
                         <div>
@@ -631,7 +632,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                             defaultValue={bill.periodEnd}
                             data-draft-index={i}
                             onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
                       </>
@@ -643,7 +644,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
             <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center">
               <span className="text-sm text-gray-600">合计</span>
-              <span className="text-xl font-bold text-blue-900">
+              <span className="text-xl font-bold text-blue-600">
                 ¥{draftBills.reduce((s, b) => s + b.amount, 0).toFixed(2)}
               </span>
             </div>

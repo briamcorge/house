@@ -109,7 +109,7 @@ export default function Admin() {
           </div>
 
           {/* 概览卡片 */}
-          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-4">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Shield className="w-5 h-5 text-blue-200" />
               <span className="text-blue-200 text-sm font-medium">管理员面板</span>
