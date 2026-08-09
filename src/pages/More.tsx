@@ -140,7 +140,10 @@ export default function More() {
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
     if (currentUser?.id) {
-      checkIsAdmin(currentUser.id).then(setIsAdmin)
+      checkIsAdmin(currentUser.id).then(setIsAdmin).catch(err => {
+        console.error('检查管理员权限失败:', err)
+        setIsAdmin(false)
+      })
     } else {
       setIsAdmin(false)
     }
@@ -217,7 +220,8 @@ export default function More() {
           landlordContractId: '业主合同ID',
           description: '期间描述', createdAt: '创建时间',
         }],
-       ['利润提取', profitRecords.map(r => ({ ...r, extractedAt: r.extractedAt ?? '', isManual: r.isManual ? '是' : '', remark: r.remark ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', cycleStart: '周期开始', cycleEnd: '周期结束', tenantIncome: '租客收入', landlordExpense: '业主支出', profitAmount: '利润', status: '状态', extractedAt: '提取日期', isManual: '手动', remark: '备注', createdAt: '创建时间' }],
+       // 注意：settings / trash / auditLogs 有意不导出（非业务核心数据，导入还原仅覆盖业务表）
+       ['利润提取', profitRecords.map(r => ({ ...r, extractedAt: r.extractedAt ?? '', withdrawnAt: r.withdrawnAt ?? '', isManual: r.isManual ? '是' : '', remark: r.remark ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', cycleStart: '周期开始', cycleEnd: '周期结束', tenantIncome: '租客收入', landlordExpense: '业主支出', profitAmount: '利润', status: '状态', extractedAt: '提取日期', withdrawnAt: '提现时间', isManual: '手动', remark: '备注', createdAt: '创建时间' }],
     ]
 
     for (const [name, data, headers] of sheets) {
@@ -251,7 +255,14 @@ export default function More() {
         const { Filesystem, Directory } = await import('@capacitor/filesystem')
         const { Share } = await import('@capacitor/share')
         // 写入临时文件
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(wbout)))
+        // 分块转 base64，避免大文件展开参数导致栈溢出 (RangeError)
+        const bytes = new Uint8Array(wbout)
+        let binary = ''
+        const chunk = 0x8000
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
+        }
+        const base64 = btoa(binary)
         await Filesystem.writeFile({
           path: fileName,
           data: base64,
@@ -282,7 +293,8 @@ export default function More() {
       link.click()
       // 延迟释放 URL，确保浏览器有时间启动下载（尤其手机浏览器/PWA）
       setTimeout(() => {
-        document.body.removeChild(link)
+        // 防止重复移除报错：链接可能已被用户/浏览器移除
+        if (link.parentNode) document.body.removeChild(link)
         URL.revokeObjectURL(url)
       }, 5000)
     } catch (e) {
@@ -320,7 +332,7 @@ export default function More() {
           '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '押金': 'deposit', '免租期': 'vacancyAllowance', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousContractId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
           '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousTenantId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
           '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '业主合同ID': 'landlordContractId', '创建时间': 'createdAt' },
-          '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
+          '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '提现时间': 'withdrawnAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
         }
 
         // 需要转换为数字的字段
@@ -372,8 +384,9 @@ export default function More() {
             const obj: Record<string, unknown> = {}
             for (const [cn, en] of Object.entries(headerMap)) {
               if (row[cn] !== undefined) {
-                // 数字字段：确保转换为 number 类型
-                obj[en] = numericFields.has(en) ? Number(row[cn]) || 0 : row[cn]
+                // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
+                const n = Number(row[cn])
+                obj[en] = row[cn] === '' || row[cn] === undefined ? undefined : (isNaN(n) ? row[cn] : n)
               }
             }
             return obj
@@ -387,10 +400,11 @@ export default function More() {
           // 空押金规范化为 undefined（与数据模型一致）
           deposit: Number(c.deposit) > 0 ? Number(c.deposit) : undefined,
           // 免租期：逗号分隔字符串 → 单值为 number，多值为 number[]
+          // 注意：0 值必须保留（某年无免租），不能用 n>0 过滤，否则数组错位
           vacancyAllowance: (() => {
             const v = c.vacancyAllowance
             if (v === undefined || v === null || v === '') return undefined
-            const parts = String(v).split(',').map(s => parseFloat(s)).filter(n => !isNaN(n) && n > 0)
+            const parts = String(v).split(',').map(s => parseFloat(s)).filter(n => !isNaN(n))
             if (parts.length === 0) return undefined
             return parts.length === 1 ? parts[0] : parts
           })(),
@@ -445,9 +459,49 @@ export default function More() {
         const validRooms = rawRooms.filter((row, i) => { const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
         const validContracts = rawContracts.filter((row, i) => { const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
         const validTenants = rawTenants.filter((row, i) => { const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
-        const validBills = rawBills.filter((row, i) => { const e = validateImportRow('账单', row, i); allErrors.push(...e); return e.length === 0 })
+
+        // 引用完整性：以各实体的有效 ID 集合为准，剔除引用不存在的租客/房间/业主合同的孤儿账单
+        // 注：validTenants/validContracts 经过 .map() 后 TS 推断丢失了展开的 id 字段，此处经 unknown 断言访问（运行时必存在）
+        const tenantIds = new Set(validTenants.map(t => String((t as unknown as { id: string }).id)))
+        const roomIds = new Set(validRooms.map(r => String((r as { id: string }).id)))
+        const contractIds = new Set(validContracts.map(c => String((c as unknown as { id: string }).id)))
+        const billWarnings: string[] = []
+        const validBills = rawBills.filter((row, i) => {
+          const e = validateImportRow('账单', row, i)
+          allErrors.push(...e)
+          if (e.length > 0) return false
+          const refProblems: string[] = []
+          if (row.tenantId && !tenantIds.has(String(row.tenantId))) refProblems.push(`租客ID ${String(row.tenantId)} 不存在`)
+          if (row.roomId && !roomIds.has(String(row.roomId))) refProblems.push(`房间ID ${String(row.roomId)} 不存在`)
+          if (row.landlordContractId && !contractIds.has(String(row.landlordContractId))) refProblems.push(`业主合同ID ${String(row.landlordContractId)} 不存在`)
+          if (refProblems.length > 0) {
+            billWarnings.push(`[账单 第${i + 1}行] ${refProblems.join('；')}`)
+            return false
+          }
+          return true
+        })
 
         const totalInvalid = allErrors.length
+        if (billWarnings.length > 0) {
+          console.warn(`⚠️ ${billWarnings.length} 条账单因引用不存在的租客/房间/业主合同被跳过:\n` + billWarnings.join('\n'))
+        }
+        const refWarningText = billWarnings.length > 0
+          ? `\n\n⚠️ 有 ${billWarnings.length} 条账单引用了不存在的租客/房间/业主合同，已跳过（详见控制台）`
+          : ''
+
+        // ─── 文件可识别性检查：防止导入无关 Excel 清空全部数据 ───
+        // 若所有核心表都为空（无任何有效行），说明不是本系统的导出文件，中止导入
+        const totalValidRows = validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length
+        if (totalValidRows === 0) {
+          console.warn('导入中止：文件中未找到任何有效数据（房源/房间/代理合同/租客/账单/利润提取 均为空）')
+          setAlertState({
+            title: '无法导入',
+            message: '这个 Excel 文件中没有找到可识别的房屋管理数据。\n\n请确认选择的是本应用导出的文件（应包含「房源」「房间」「租客」「账单」等工作表）。',
+            variant: 'error',
+          })
+          e.target.value = ''
+          return
+        }
         if (totalInvalid > 0) {
           const summary = [
             `📋 导入校验结果：`,
@@ -488,7 +542,7 @@ export default function More() {
                 bills: billList as any[],
                 landlordContracts: contractList as any[],
                 profitRecords: profitList as any[],
-                trash: [],
+                trash: s2.trash,
               })
               console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
               if (!saved) {
@@ -511,7 +565,7 @@ export default function More() {
           }
           setConfirmAction({
             title: '导入数据',
-            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)`,
+            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)${refWarningText}`,
             variant: 'default',
             confirmText: '导入',
             cancelText: '取消',
@@ -521,8 +575,8 @@ export default function More() {
           return
         }
 
-        // 无校验错误，直接导入
-        (async () => {
+        // 无校验错误，仍弹确认框（防止部分 sheet 缺失时静默清空其他实体）
+        const doImportClean = async () => {
           const props = validProps
           const roomList = validRooms
           const contractList = validContracts
@@ -570,7 +624,17 @@ export default function More() {
           }
 
           window.location.reload()
-        })()
+        }
+        // 无校验错误：确认后再导入（导入会替换现有全部数据）
+        setConfirmAction({
+          title: '导入数据',
+          message: `将从 Excel 导入 ${validProps.length} 房源、${validRooms.length} 房间、${validContracts.length} 代理合同、${validTenants.length} 租客、${validBills.length} 账单、${rawProfitRecords.length} 利润记录。\n\n⚠️ 导入将替换当前所有数据，确定继续？${refWarningText}`,
+          variant: 'default',
+          confirmText: '导入',
+          cancelText: '取消',
+          onAction: doImportClean,
+        })
+        e.target.value = ''
       } catch (err) {
         setAlertState({ title: '格式错误', message: 'Excel 格式错误，请检查文件', variant: 'error' })
         console.error(err)

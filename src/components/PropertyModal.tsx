@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Property } from '../types'
 import { X, Building2 } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
@@ -14,12 +14,17 @@ const houseTypes = ['一居', '两居', '三居', '开间']
 
 const CUSTOM = '__custom__'
 
-function showError(setter: (msg: string) => void, msg: string) {
-  setter(msg)
-  setTimeout(() => setter(''), 5000)
-}
-
 export default function PropertyModal({ isOpen, onClose, onSave, editingProperty }: PropertyModalProps) {
+  // 错误提示定时清理（组件卸载或重新打开时不再触发 setState）
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
+
+  function showError(setter: (msg: string) => void, msg: string) {
+    setter(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setter(''), 5000)
+  }
+
   const [address, setAddress] = useState('')
   const [houseType, setHouseType] = useState('一居')
   const [area, setArea] = useState('')

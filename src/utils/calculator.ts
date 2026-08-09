@@ -43,10 +43,14 @@ function formatDate360(d: Date360): string {
   return `${d.y}-${String(d.m + 1).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`
 }
 
-/** 显示友好的日期：2月30→28/29，其余不变 */
+/** 显示友好的日期：2月29/30→真实2月最后一天（平年28/闰年29），其余不变
+ *  注意：必须映射到 2月最后一天（而非 27/28 中间值），
+ *  否则反向解析（parseDate360/profit.to360 中 d>=febLast→30）会丢失天数，
+ *  导致利润计算的分摊天数错误。映射到月末可保证解析回 30，与原始虚拟日 29/30 等价。 */
 function formatDate360Display(d: Date360): string {
   let displayDay = d.d
-  if (d.m === 1 && d.d === 30) {
+  if (d.m === 1 && d.d >= 29) {
+    // 30/360 中 2 月的第 29、30 天都代表"2月最后一天"（平年28/闰年29）
     const isLeap = (d.y % 4 === 0 && d.y % 100 !== 0) || (d.y % 400 === 0)
     displayDay = isLeap ? 29 : 28
   }
@@ -194,7 +198,7 @@ export function generateRentBills(
     // 提前付款
     const dueDate = i === 0
       ? formatDate360Display(periodStart)
-      : formatDate360Display(add30Days360(periodStart, -advanceDays))
+      : formatDate360Display(add30Days360(periodStart, -adv))
 
     bills.push({
       type: 'rent',

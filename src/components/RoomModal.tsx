@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Room, RoomLabel } from '../types'
 import { X, Home } from 'lucide-react'
 
@@ -20,12 +20,17 @@ const sharedRentTypes = ['主卧', '次卧', '小卧', '隔阳', '隔明', '暗�
 
 const CUSTOM = '__custom__'
 
-function showError(setter: (msg: string) => void, msg: string) {
-  setter(msg)
-  setTimeout(() => setter(''), 5000)
-}
-
 export default function RoomModal({ isOpen, onClose, onSave, propertyId, editingRoom, usedLabels }: RoomModalProps) {
+  // 错误提示定时清理（组件卸载或重新打开时不再触发 setState）
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
+
+  function showError(setter: (msg: string) => void, msg: string) {
+    setter(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setter(''), 5000)
+  }
+
   const [label, setLabel] = useState<RoomLabel>('A')
   const [roomType, setRoomType] = useState('主卧')
   const [error, setError] = useState('')

@@ -37,7 +37,7 @@ export default function LandlordContractDetailModal({
   if (!isOpen) return null
 
   const contractBills = bills
-    .filter(b => b.direction === 'payable' && (b.landlordContractId === contract.id || (!b.landlordContractId && b.propertyId === contract.propertyId)))
+    .filter(b => b.direction === 'payable' && (b.landlordContractId === contract.id || (!b.landlordContractId && b.propertyId === contract.propertyId && b.dueDate >= contract.contractStart && b.dueDate <= contract.contractEnd)))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
   const paidBills = contractBills.filter(b => b.status === 'paid')

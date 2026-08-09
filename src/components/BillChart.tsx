@@ -12,10 +12,13 @@ export default function BillChart({ bills }: BillChartProps) {
     const monthlyMap = new Map<string, { income: number; expense: number }>()
 
     bills.forEach(bill => {
-      const key = bill.dueDate.substring(0, 7) // "YYYY-MM"
+      // 已收/已付账单按实收日(paidDate)归月；fallback dueDate 仅防御
+      const key = (bill.paidDate || bill.dueDate).substring(0, 7) // "YYYY-MM"
       const entry = monthlyMap.get(key) || { income: 0, expense: 0 }
       if (bill.direction === 'receivable' && bill.status === 'paid') {
-        entry.income += bill.amount
+        // 押金不计入收入（与 More.tsx 押金余额口径一致：type=deposit 或 description 含「押金」）
+        const isDeposit = bill.type === 'deposit' || bill.description?.includes('押金')
+        if (!isDeposit) entry.income += bill.amount
       } else if (bill.direction === 'payable' && bill.status === 'paid') {
         entry.expense -= bill.amount
       }

@@ -1,4 +1,4 @@
-import { useState , useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, DollarSign, Calendar } from 'lucide-react'
 
 interface CheckoutModalProps {
@@ -27,17 +27,38 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, re
   const [rentRefundEnd, setRentRefundEnd] = useState('')
   const [error, setError] = useState('')
 
+  // 打开时重置表单状态：防止上一次退租（其他租客）的金额泄漏到本次
   useEffect(() => {
+    if (isOpen) {
+      setDepositRefund(deposit?.toString() || '0')
+      setRentRefund('0')
+      setOtherName('')
+      setOtherRefund('0')
+      setPenalty('0')
+      setCheckoutDate(todayStr())
+      setRentRefundStart('')
+      setRentRefundEnd('')
+      setError('')
+    }
+  }, [isOpen, tenantName, deposit])
+
+  useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
+
+  // 错误提示定时清理（组件卸载或重新打开时不再触发 setState）
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
 
   function showError(msg: string) {
     setError(msg)
-    setTimeout(() => setError(''), 5000)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setError(''), 5000)
   }
 
   if (!isOpen) return null

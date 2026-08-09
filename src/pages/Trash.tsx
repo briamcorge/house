@@ -36,13 +36,24 @@ export default function Trash() {
   const [restoreError, setRestoreError] = useState<string | null>(null)
 
   // 恢复前校验：账单引用的租客/房间/业主合同必须存在，否则提示先恢复关联实体
-  const canRestore = (item: { type: TrashType; data: any }): string | null => {
+  // restoringIds：批量恢复时同批勾选的项目视为已恢复（避免租客+其账单同批恢复被误拦），单条恢复时为 undefined
+  const canRestore = (item: { type: TrashType; data: any }, restoringIds?: Set<string>): string | null => {
     if (item.type !== 'bill') return null
     const b = item.data
-    if (b.tenantId && !tenants.some(t => t.id === b.tenantId)) return '该账单关联的租客已被彻底删除，请先恢复租客'
-    if (b.roomId && !rooms.some(r => r.id === b.roomId)) return '该账单关联的房间已被彻底删除，请先恢复房间'
-    if (b.landlordContractId && !landlordContracts.some(c => c.id === b.landlordContractId)) return '该账单关联的业主合同已被彻底删除，请先恢复业主合同'
-    return null
+    const existsLive = (type: TrashType, originalId: string): boolean =>
+      type === 'tenant' ? tenants.some(t => t.id === originalId)
+        : type === 'room' ? rooms.some(r => r.id === originalId)
+        : landlordContracts.some(c => c.id === originalId)
+    // 同批勾选恢复的回收站项目视为已恢复
+    const willRestore = (type: TrashType, originalId: string): boolean =>
+      !!restoringIds && trash.some(t => restoringIds.has(t.id) && t.type === type && t.originalId === originalId)
+    const checkRef = (type: TrashType, originalId: string, label: string): string | null => {
+      if (!originalId) return null
+      if (existsLive(type, originalId) || willRestore(type, originalId)) return null
+      if (trash.some(t => t.type === type && t.originalId === originalId)) return `该账单关联的${label}仍在回收站，请同时勾选${label}一起恢复`
+      return `该账单关联的${label}已被彻底删除，无法恢复`
+    }
+    return checkRef('tenant', b.tenantId, '租客') ?? checkRef('room', b.roomId, '房间') ?? checkRef('landlord_contract', b.landlordContractId, '业主合同')
   }
 
   const handleRestore = (item: { id: string; type: TrashType; data: any }) => {

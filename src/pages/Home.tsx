@@ -97,7 +97,7 @@ export default function Home() {
 
   const recentTransactions = useMemo(() =>
     bills.filter(b => b.status === 'paid' || b.status === 'refunded')
-      .sort((a, b) => b.paidDate!.localeCompare(a.paidDate!))
+      .sort((a, b) => (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || ''))
       .slice(0, 6),
     [bills]
   )

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { PaymentMethod } from '../types'
 import { X, Calendar, DollarSign, ChevronRight, ChevronLeft, User, Phone } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days, parseDate360, diffDays360 } from '../utils/calculator'
@@ -34,11 +34,6 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: 'annual', label: '年付' },
 ]
 
-function showError(setter: (msg: string) => void, msg: string) {
-  setter(msg)
-  setTimeout(() => setter(''), 5000)
-}
-
 export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUpdate, onEditContract, onSaveEdit, propertyAddress, existingRent, existingPaymentMethod, existingStart, existingEnd, existingName, existingPhone, existingDeposit, existingVacancyAllowance, isSimpleEdit, isEditMode, isRenewal }: LandlordContractModalProps) {
   const [step, setStep] = useState<Step>('info')
   const [monthlyRent, setMonthlyRent] = useState('')
@@ -48,12 +43,22 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
 
   // ESC键关闭
   useEffect(() => {
+    if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
-  }, [onClose])
+  }, [isOpen, onClose])
+
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
+
+  function showError(setter: (msg: string) => void, msg: string) {
+    setter(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setter(''), 5000)
+  }
 
   const [contractEnd, setContractEnd] = useState(() => formatDate(add30Days(new Date(), 359)))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')

@@ -224,8 +224,12 @@ export function calculatePeriodProfit(
     // 无退租金账单（如黄健）→ 不截断，已收账单按覆盖期全额计算
     let effectiveEnd = ''
     if (tenant.status === 'ended') {
-      const refund = activeBills.find(b =>
-        b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent'
+      // 注意：不能从 activeBills 找（它已过滤掉 refunded 状态的账单），
+      // 退租金账单正是 refunded 状态，从 activeBills 找会永远找不到 → 截断失效
+      // 改为从 allBills 找，只排除作废的 cancelled
+      const refund = allBills.find(b =>
+        b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent' &&
+        b.status !== 'cancelled'
       )
       if (refund) {
         const period = getBillPeriod(refund)

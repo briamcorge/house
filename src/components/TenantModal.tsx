@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
 import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
@@ -28,12 +28,17 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: 'annual', label: '年付' },
 ]
 
-function showError(setter: (msg: string) => void, msg: string) {
-  setter(msg)
-  setTimeout(() => setter(''), 5000)
-}
-
 export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm, onContractUpdate, properties, rooms, editingTenant, selectedRoomId, isRenewal }: TenantModalProps) {
+  // 错误提示定时清理（组件卸载或重新打开时不再触发 setState）
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
+
+  function showError(setter: (msg: string) => void, msg: string) {
+    setter(msg)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    errorTimerRef.current = setTimeout(() => setter(''), 5000)
+  }
+
   const [step, setStep] = useState<Step>('info')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')

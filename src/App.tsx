@@ -172,9 +172,9 @@ export default function App() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (const registration of registrations) {
-          registration.unregister()
+          registration.unregister().catch(err => console.error('注销 Service Worker 失败:', err))
         }
-      })
+      }).catch(err => console.error('获取 Service Worker 注册列表失败:', err))
     }
   }, [])
 
@@ -203,7 +203,7 @@ export default function App() {
         // 关过浏览器，session 无效 → 清除数据并退出
         const sb = getSupabase()
         if (sb) {
-          sb.auth.signOut()
+          sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
           localStorage.removeItem('property-manager-data')
           localStorage.removeItem('device_session_token')
           useStore.setState({
@@ -224,7 +224,7 @@ export default function App() {
               if (!error && data && data.session_token !== myToken) {
                 // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 强制退出
                 console.log('检测到另一台设备登录，强制退出')
-                sb.auth.signOut()
+                sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
                 localStorage.removeItem('property-manager-data')
                 localStorage.removeItem('device_session_token')
                 useStore.setState({
@@ -232,7 +232,7 @@ export default function App() {
                   landlordContracts: [], profitRecords: [], trash: [],
                 })
               }
-            })
+            }, err => console.error('设备锁会话检查失败:', err))
         } else if (sb && !myToken) {
           // 没有本地 token（可能是旧版本升级来的）→ 写入当前设备为活跃设备
           const deviceToken = crypto.randomUUID()
@@ -241,7 +241,7 @@ export default function App() {
             .upsert({ user_id: currentUser.id, session_token: deviceToken })
             .then(({ error }) => {
               if (error) console.error('设备锁初始化失败:', error)
-            })
+            }, err => console.error('设备锁初始化异常:', err))
         }
         // 正常会话恢复 → CloudSyncProvider 自动加载云端数据
       }
@@ -261,7 +261,7 @@ export default function App() {
           .then(({ error }) => {
             if (error) console.error('设备锁写入失败:', error)
             setDeviceTokenReady(true)
-          })
+          }, err => console.error('设备锁写入异常:', err))
       } else {
         setDeviceTokenReady(true)
       }
@@ -274,7 +274,7 @@ export default function App() {
       if (hasLocalData) {
         import('./lib/supabase').then(({ saveCloudData }) => {
           const state = useStore.getState()
-          saveCloudData({
+          return saveCloudData({
             properties: state.properties,
             rooms: state.rooms,
             tenants: state.tenants,
@@ -283,7 +283,7 @@ export default function App() {
             profitRecords: state.profitRecords,
             trash: state.trash,
           })
-        })
+        }).catch(err => console.error('登录后本地数据同步到云端失败:', err))
       }
       // 本地无数据时，CloudSyncProvider 会自动从云端加载
       // 操作日志
@@ -326,7 +326,7 @@ export default function App() {
       console.log('收到 device-kicked 事件，强制退出')
       const sb = getSupabase()
       if (sb) {
-        sb.auth.signOut()
+        sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
         localStorage.removeItem('property-manager-data')
         localStorage.removeItem('device_session_token')
         useStore.setState({
@@ -389,9 +389,11 @@ export default function App() {
 
   // Capacitor App：Android 返回键（手势返回/物理返回）
   useEffect(() => {
+    let cancelled = false
     let handler: { remove: () => void } | null = null
     import('@capacitor/app').then(({ App: CapacitorApp }) => {
-      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      if (cancelled) return
+      return CapacitorApp.addListener('backButton', ({ canGoBack }) => {
         if (canGoBack) {
           window.history.back()
         } else {
@@ -405,7 +407,7 @@ export default function App() {
         }
       }).then(h => { handler = h })
     }).catch(() => { /* 非 Capacitor 环境忽略 */ })
-    return () => { handler?.remove() }
+    return () => { cancelled = true; handler?.remove() }
   }, [])
 
   return (
