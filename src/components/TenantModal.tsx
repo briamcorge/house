@@ -340,16 +340,16 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
+        <div className="sticky top-0 bg-white px-4 py-2.5 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-gray-900">
               {isEditing ? '编辑租客' : step === 'info' ? '添加租客' : '预览账单'}
             </h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-2">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${step === 'info' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
               <span className="text-xs text-gray-400">合同信息</span>
               <div className="w-8 h-px bg-gray-300" />
@@ -379,12 +379,33 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
         {/* Step 1: Info */}
         {step === 'info' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-2.5">
             {error && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Home className="w-4 h-4 inline mr-1" />
+                房间
+              </label>
+              <select
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                disabled={!!selectedRoomId}
+              >
+                <option value="">请选择房间</option>
+                {rooms.filter(r => r.status === 'vacant' || r.id === editingTenant?.roomId).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {getRoomLabel(r.id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <User className="w-4 h-4 inline mr-1" />
@@ -395,7 +416,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="例如：张先生"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -410,33 +431,12 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="13800138000"
                   maxLength={11}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Home className="w-4 h-4 inline mr-1" />
-                房间
-              </label>
-              <select
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-                disabled={!!selectedRoomId}
-              >
-                <option value="">请选择房间</option>
-                {rooms.filter(r => r.status === 'vacant' || r.id === editingTenant?.roomId).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {getRoomLabel(r.id)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <Calendar className="w-4 h-4 inline mr-1" />
@@ -446,7 +446,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   type="date"
                   value={contractStart}
                   onChange={(e) => setContractStart(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -459,13 +459,13 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   type="date"
                   value={contractEnd}
                   onChange={(e) => setContractEnd(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <DollarSign className="w-4 h-4 inline mr-1" />
@@ -477,7 +477,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   onChange={(e) => setMonthlyRent(e.target.value)}
                   placeholder="2000"
                   min="1"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -489,7 +489,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   onChange={(e) => setDeposit(e.target.value)}
                   placeholder="0"
                   min="0"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -521,7 +521,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               <p className="text-xs text-gray-400 mt-1">合同期内只收一次</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <DollarSign className="w-4 h-4 inline mr-1" />
@@ -530,7 +530,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   {paymentMethods.map((pm) => (
                     <option key={pm.value} value={pm.value}>{pm.label}</option>
@@ -548,7 +548,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                     onBlur={() => setTimeout(() => setAdvanceOpen(false), 150)}
                     min="0"
                     placeholder="0"
-                    className="w-full px-4 py-3 pr-9 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 pr-9 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ChevronDown
                     className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
@@ -591,20 +591,12 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
             )}
 
-            <div className="bg-blue-50 rounded-xl p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-blue-700">{getRoomLabel(roomId)}</p>
-                  <p className="text-xs text-blue-500 mt-1">{contractStart} 至 {contractEnd}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-blue-600">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
-                  <p className="text-xs text-blue-500">提前{advanceDays === 0 ? '无' : `${advanceDays}天`}</p>
-                </div>
-              </div>
+            <div className="bg-blue-50 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+              <span className="text-sm text-blue-700 truncate">{getRoomLabel(roomId)}</span>
+              <span className="text-xs text-blue-500 shrink-0">{contractStart}~{contractEnd}</span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
                 <select
@@ -621,53 +613,51 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                 </select>
               </div>
               {draftBills.map((bill, i) => (
-                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${bill.type === 'other' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {bill.type === 'other' ? bill.description || '其他' : bill.description?.split(' ')[0] || '房租'}
-                    </span>
-                  </div>
+                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-2.5 shadow-sm">
+                  <span className={`text-xs px-2 py-0.5 rounded-full mb-1.5 inline-block ${bill.type === 'other' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {bill.type === 'other' ? bill.description || '其他' : bill.description?.split(' ')[0] || '房租'}
+                  </span>
                   <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">应收日</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">应收日</label>
                       <input
                         type="date"
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">金额</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">金额</label>
                       <input
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-medium"
                         step="0.01"
                       />
                     </div>
                     {bill.type !== 'other' && (
                       <>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">周期开始</label>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">开始</label>
                           <input
                             type="date"
                             defaultValue={bill.periodStart}
                             data-draft-index={i}
                             onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                            className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">周期结束</label>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">结束</label>
                           <input
                             type="date"
                             defaultValue={bill.periodEnd}
                             data-draft-index={i}
                             onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                            className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
                       </>
