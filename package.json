@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/bump-version.js && node scripts/clean-dist.cjs && tsc -b && vite build --base=./",
-    "release": "npm run build && npx cap copy android && cd android && gradlew assembleRelease",
+    "release": "npm run build && npx cap copy android && cd android && gradlew assembleRelease && node ../scripts/copy-apk.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
