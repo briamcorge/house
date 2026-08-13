@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
-import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft } from 'lucide-react'
+import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft, ChevronDown } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
@@ -58,6 +58,8 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const [contractEnd, setContractEnd] = useState(() => formatDate(add30Days(new Date(), 359)))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')
   const [advanceDays, setAdvanceDays] = useState(0)
+  const [advanceOpen, setAdvanceOpen] = useState(false)
+  const [billSplit, setBillSplit] = useState<'front' | 'rear'>('front')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [deposit, setDeposit] = useState('')
   const [otherFeeName, setOtherFeeName] = useState('卫管费')
@@ -100,6 +102,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       setContractEnd(editingTenant.contractEnd)
       setPaymentMethod(editingTenant.paymentMethod)
       setAdvanceDays(editingTenant.advanceDays)
+      setBillSplit(editingTenant.billSplit || 'front')
       setMonthlyRent(editingTenant.monthlyRent.toString())
       setDeposit(editingTenant.deposit?.toString() || '')
       setOtherFeeName(editingTenant.otherFeeName || '卫管费')
@@ -120,6 +123,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       }
       setPaymentMethod('monthly')
       setAdvanceDays(0)
+      setBillSplit('front')
       setMonthlyRent('')
       setDeposit('')
       setOtherFeeName('卫管费')
@@ -138,7 +142,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   const selectedRoom = rooms.find(r => r.id === roomId)
 
-  const regenerateBills = () => {
+  const regenerateBills = (split?: 'front' | 'rear') => {
     const rent = parseFloat(monthlyRent)
     if (isNaN(rent) || rent <= 0) return
     // 生成房租分期账单（不含其他费）
@@ -147,7 +151,8 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       contractStart,
       contractEnd,
       paymentMethod,
-      advanceDays
+      advanceDays,
+      split ?? billSplit
     )
     // 押金和其他费用排在最前面
     const extras: DraftBill[] = []
@@ -274,6 +279,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         monthlyRent: parseFloat(monthlyRent) || 0,
         paymentMethod,
         advanceDays,
+        billSplit,
         deposit: deposit ? parseFloat(deposit) : undefined,
         otherFeeName: otherFeeName === '卫管费' && !otherFeeAmount ? undefined : otherFeeName,
         otherFeeAmount: otherFeeAmount ? parseFloat(otherFeeAmount) : undefined,
@@ -298,6 +304,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       monthlyRent: parseFloat(monthlyRent) || 0,
       paymentMethod,
       advanceDays,
+      billSplit,
       deposit: deposit ? parseFloat(deposit) : undefined,
       otherFeeName: otherFeeName === '卫管费' && !otherFeeAmount ? undefined : otherFeeName,
       otherFeeAmount: otherFeeAmount ? parseFloat(otherFeeAmount) : undefined,
@@ -532,29 +539,38 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">提前付款</label>
-                <div className="flex gap-2 items-center">
+                <div className="relative">
                   <input
                     type="number"
-                    value={advanceDays}
+                    value={advanceDays === 0 ? '' : advanceDays}
                     onChange={(e) => setAdvanceDays(parseInt(e.target.value) || 0)}
+                    onFocus={() => setAdvanceOpen(true)}
+                    onBlur={() => setTimeout(() => setAdvanceOpen(false), 150)}
                     min="0"
-                    className="w-16 px-2 py-3 border border-gray-200 rounded-xl text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                    className="w-full px-4 py-3 pr-9 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-500">天</span>
-                  <select
-                    value={advanceDays}
-                    onChange={(e) => setAdvanceDays(parseInt(e.target.value) || 0)}
-                    className="flex-1 px-2 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value={0}>无</option>
-                    <option value={7}>7天</option>
-                    <option value={15}>15天</option>
-                    <option value={30}>30天</option>
-                  </select>
+                  <ChevronDown
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                  {advanceOpen && (
+                    <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                      {[7, 15, 30].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => { setAdvanceDays(d); setAdvanceOpen(false) }}
+                          className={`w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 ${advanceDays === d ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                        >
+                          {d}天
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
 
             <div className="flex gap-3 pt-4">
               <button type="button" onClick={onClose} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors">取消</button>
@@ -589,7 +605,21 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
+                <select
+                  value={billSplit}
+                  onChange={(e) => {
+                    const v = e.target.value as 'front' | 'rear'
+                    setBillSplit(v)
+                    regenerateBills(v)
+                  }}
+                  className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600"
+                >
+                  <option value="front">先整后零</option>
+                  <option value="rear">先零后整</option>
+                </select>
+              </div>
               {draftBills.map((bill, i) => (
                 <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
                   <div className="flex items-center justify-between mb-2">

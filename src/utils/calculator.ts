@@ -136,13 +136,18 @@ export interface DraftBill {
  * 按30/360规则生成房租分期账单。
  * 每个月固定30天，一年=360天。
  * 每期连续（结束日+1天=下一期开始日）。
+ *
+ * splitMode:
+ * - 'front'（默认）先整后零：从合同开始日切整期，零头截在合同末尾
+ * - 'rear'  先零后整：从合同结束日往回切整期，零头作为首期
  */
 export function generateRentBills(
   monthlyRent: number,
   contractStart: string,
   contractEnd: string,
   paymentMethod: PaymentMethod,
-  advanceDays: number
+  advanceDays: number,
+  splitMode: 'front' | 'rear' = 'front'
 ): DraftBill[] {
   const bills: DraftBill[] = []
   const start = parseDate360(contractStart)
@@ -183,6 +188,50 @@ export function generateRentBills(
   const nPeriods = Math.max(1, Math.ceil(totalDays / periodDays))
 
   let cursor = { ...start }
+
+  if (splitMode === 'rear') {
+    // 先零后整：从合同结束日往回切整期，零头作为首期
+    // 先算出所有期结束日（从后往前），再倒序生成
+    const periodEnds: Date360[] = []
+    let pEnd: Date360 = { ...end }
+    while (true) {
+      periodEnds.push(pEnd)
+      const pStart = add30Days360(pEnd, -(periodDays - 1))
+      if (pStart.y < start.y || (pStart.y === start.y && pStart.m < start.m) ||
+          (pStart.y === start.y && pStart.m === start.m && pStart.d < start.d)) {
+        break
+      }
+      pEnd = add30Days360(pStart, -1)
+    }
+
+    for (let i = periodEnds.length - 1; i >= 0; i--) {
+      const periodEnd360 = periodEnds[i]
+      let periodStart360 = add30Days360(periodEnd360, -(periodDays - 1))
+      // 首期（最后一段往前不足整期）从合同开始日补齐
+      if (periodStart360.y < start.y || (periodStart360.y === start.y && periodStart360.m < start.m) ||
+          (periodStart360.y === start.y && periodStart360.m === start.m && periodStart360.d < start.d)) {
+        periodStart360 = { ...start }
+      }
+      const periodStart = formatDate360Display(periodStart360)
+      const periodEnd = formatDate360Display(periodEnd360)
+      const actualDays = 1 + diffDays360(periodStart360, periodEnd360)
+      const amount = Math.round(monthlyRent / 30 * actualDays * 100) / 100
+      const dueDate = i === 0
+        ? formatDate360Display(periodStart360)
+        : formatDate360Display(add30Days360(periodStart360, -adv))
+
+      bills.push({
+        type: 'rent',
+        amount,
+        dueDate,
+        periodStart,
+        periodEnd,
+        description: `第${bills.length + 1}期 ${periodLabel}租 ${periodStart} ~ ${periodEnd}`,
+      })
+    }
+
+    return bills
+  }
 
   for (let i = 0; i < nPeriods; i++) {
     const periodStart: Date360 = i === 0 ? { ...start } : add30Days360(cursor, 1)
