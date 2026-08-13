@@ -111,6 +111,7 @@ ProfitRecord / TrashItem
 
 ## 约定
 
+- **⚠️ 铁律：任何代码改动必须先经用户明确同意才能动手。** 用户问"能不能 X / 要不要 X / 可以 X 吗"这类问题时，只回答，不实现。只有用户明确说"改/做/加/实现"等指令时才允许改代码。讨论功能、分析问题、读代码、查数据不算改动，可以直接做。
 - 移动端优先: max-w-md mx-auto
 - Tailwind 主色: blue-600（主按钮/强调统一用 blue-600，浅色选中态 bg-blue-100 + text-blue-700，hover 加深 blue-700）
 - 弹窗底部弹出: rounded-t-3xl, items-end, z-[60]

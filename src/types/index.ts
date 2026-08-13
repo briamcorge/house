@@ -33,6 +33,8 @@ export interface Tenant {
   monthlyRent: number
   paymentMethod: PaymentMethod
   advanceDays: number
+  /** 账单切分方式：front=先整后零（默认），rear=先零后整 */
+  billSplit?: 'front' | 'rear'
   deposit?: number
   otherFeeName?: string
   otherFeeAmount?: number
