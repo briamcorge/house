@@ -26,7 +26,7 @@ export default function PropertyCard({
       className="bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
       onClick={onClick}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5">
+      <div className="flex items-center gap-3 pl-3 pr-11 py-2.5">
         <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shrink-0">
           <Building2 className="w-5 h-5 text-white" />
         </div>

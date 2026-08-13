@@ -518,7 +518,12 @@ export default function Bills() {
                           </div>
                         </div>
 
-                        <p className="text-2xl font-bold text-blue-600 mb-2">¥{bill.amount.toFixed(2)}</p>
+                        <p className="text-xl font-bold text-blue-600 mb-2 flex items-baseline gap-2">
+                          {typeLabels[bill.type] && (
+                            <span className="text-xs font-medium text-gray-400 shrink-0">{typeLabels[bill.type]}</span>
+                          )}
+                          <span>¥{bill.amount.toFixed(2)}</span>
+                        </p>
 
                         <div className="space-y-1.5">
                           {bill.description && (
@@ -528,11 +533,10 @@ export default function Bills() {
                             <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
                               <Home className="w-4 h-4 text-gray-400 shrink-0" />
                               <span>{getPropertyAddress(bill.propertyId)}</span>
-                              {(landlordName || typeLabels[bill.type]) && (
+                              {landlordName && (
                                 <>
                                   <span className="text-gray-300">·</span>
-                                  <span className="font-medium text-gray-800">{landlordName || typeLabels[bill.type]}</span>
-                                  {landlordName && <span className="text-gray-500">{typeLabels[bill.type]}</span>}
+                                  <span className="font-medium text-gray-800">{landlordName}</span>
                                 </>
                               )}
                             </div>
@@ -541,11 +545,10 @@ export default function Bills() {
                             <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
                               <Home className="w-4 h-4 text-gray-400 shrink-0" />
                               <span>{getRoomInfo(bill.roomId)}</span>
-                              {(tenantName || typeLabels[bill.type]) && (
+                              {tenantName && (
                                 <>
                                   <span className="text-gray-300">·</span>
-                                  <span className="font-medium text-gray-800">{tenantName || typeLabels[bill.type]}</span>
-                                  {tenantName && <span className="text-gray-500">{typeLabels[bill.type]}</span>}
+                                  <span className="font-medium text-gray-800">{tenantName}</span>
                                 </>
                               )}
                             </div>

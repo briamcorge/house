@@ -122,7 +122,7 @@ export default function Properties() {
                   onClickBill={() => setSummaryPropertyId(property.id)}
                   showBills={settings?.showPropertyBills ?? true}
                 />
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-1.5">
                   <button
                     type="button"
                     onClick={(e) => {
