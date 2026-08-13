@@ -1,6 +1,6 @@
 ﻿import { Room, Tenant } from '../types'
-import { cn, formatRoomLabel } from '../lib/utils'
-import { User, Calendar, DollarSign } from 'lucide-react'
+import { cn } from '../lib/utils'
+import { Calendar, DollarSign } from 'lucide-react'
 
 interface RoomCardProps {
   room: Room
@@ -27,25 +27,22 @@ export default function RoomCard({ room, tenant, billSummary, onClick, onClickBi
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 text-sm">{formatRoomLabel(room.label)}</span>
+            <span className="font-semibold text-gray-900 text-sm truncate">{tenant ? tenant.name : '暂无租客'}</span>
             <span className={cn(
-              'px-1.5 py-0.5 rounded text-[10px] font-medium',
+              'px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0',
               room.status === 'occupied' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
             )}>
               {room.status === 'occupied' ? '在租' : '空置'}
             </span>
-            <span className="ml-auto text-[10px] text-gray-400 pr-6">{room.roomType}</span>
+            <span className="ml-auto text-[10px] text-gray-400 pr-6 shrink-0">{room.roomType}</span>
           </div>
           {tenant ? (
             <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
-              <span className="flex items-center gap-0.5"><User className="w-3 h-3" />{tenant.name}</span>
               <span className="flex items-center gap-0.5"><DollarSign className="w-3 h-3" />¥{tenant.monthlyRent}/月</span>
               <span>{paymentLabels[tenant.paymentMethod] || tenant.paymentMethod}</span>
               <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" />{tenant.contractStart}~{tenant.contractEnd}</span>
             </div>
-          ) : (
-            <div className="text-[11px] text-gray-400 mt-0.5">暂无租客</div>
-          )}
+          ) : null}
         </div>
       </div>
       {billSummary && (

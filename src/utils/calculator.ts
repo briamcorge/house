@@ -216,7 +216,11 @@ export function generateRentBills(
       const periodEnd = formatDate360Display(periodEnd360)
       const actualDays = 1 + diffDays360(periodStart360, periodEnd360)
       const amount = Math.round(monthlyRent / 30 * actualDays * 100) / 100
-      const dueDate = i === 0
+      // 首期（零头段：周期开始被补齐到合同开始日）应收日 = 合同开始日，与押金同天收
+      // 其余整期应收日 = 周期开始 - 提前天数
+      const isFirstPeriod =
+        periodStart360.y === start.y && periodStart360.m === start.m && periodStart360.d === start.d
+      const dueDate = isFirstPeriod
         ? formatDate360Display(periodStart360)
         : formatDate360Display(add30Days360(periodStart360, -adv))
 

@@ -190,7 +190,7 @@ export default function More() {
       ['房源', properties.map(p => ({ ...p, houseType: p.houseType ?? '', area: p.area ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', address: '地址', houseType: '户型', area: '面积', description: '备注', createdAt: '创建时间' }],
       ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
       ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '', endReason: c.endReason ?? '', previousContractId: c.previousContractId ?? '', deposit: c.deposit ?? '', vacancyAllowance: Array.isArray(c.vacancyAllowance) ? c.vacancyAllowance.join(',') : (c.vacancyAllowance ?? ''), pendingBills: c.pendingBills?.length ? JSON.stringify(c.pendingBills) : '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', deposit: '押金', vacancyAllowance: '免租期', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', endReason: '结束原因', previousContractId: '上一合同ID', pendingBills: '暂存账单', createdAt: '创建时间' }],
-      ['租客', tenants.map(t => ({ ...t, deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '', effectiveEnd: t.effectiveEnd ?? '', endReason: t.endReason ?? '', previousTenantId: t.previousTenantId ?? '', pendingBills: t.pendingBills?.length ? JSON.stringify(t.pendingBills) : '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', effectiveEnd: '退租日', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', endReason: '结束原因', previousTenantId: '上一合同ID', pendingBills: '暂存账单', createdAt: '创建时间' }],
+      ['租客', tenants.map(t => ({ ...t, billSplit: t.billSplit ?? '', deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '', effectiveEnd: t.effectiveEnd ?? '', endReason: t.endReason ?? '', previousTenantId: t.previousTenantId ?? '', pendingBills: t.pendingBills?.length ? JSON.stringify(t.pendingBills) : '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', effectiveEnd: '退租日', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', billSplit: '切分方式', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', status: '状态', endReason: '结束原因', previousTenantId: '上一合同ID', pendingBills: '暂存账单', createdAt: '创建时间' }],
       ['账单', sortedBills.map(b => {
         const { startDate, endDate } = extractPeriod(b.description)
         return {
@@ -330,13 +330,10 @@ export default function More() {
           '房源': { 'ID': 'id', '地址': 'address', '户型': 'houseType', '面积': 'area', '备注': 'description', '创建时间': 'createdAt' },
           '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
           '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '押金': 'deposit', '免租期': 'vacancyAllowance', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousContractId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
-          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousTenantId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
+          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '切分方式': 'billSplit', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousTenantId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
           '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '业主合同ID': 'landlordContractId', '创建时间': 'createdAt' },
           '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '提现时间': 'withdrawnAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
         }
-
-        // 需要转换为数字的字段
-        const numericFields = new Set(['amount', 'paidAmount', 'monthlyRent', 'deposit', 'otherFeeAmount', 'advanceDays', 'area'])
 
         const validBillTypes = new Set(['rent', 'deposit', 'agency', 'sublease', 'hygiene', 'internet', 'utilities', 'other'])
 
@@ -604,7 +601,7 @@ export default function More() {
               bills: billList as any[],
               landlordContracts: contractList as any[],
               profitRecords: profitList as any[],
-              trash: [],
+              trash: s2.trash,
             })
             console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
             if (!saved) {

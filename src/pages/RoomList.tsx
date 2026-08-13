@@ -13,7 +13,7 @@ import LandlordCheckoutModal from '../components/LandlordCheckoutModal'
 import LandlordContractDetailModal from '../components/LandlordContractDetailModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
-import { Plus, ChevronLeft, MoreVertical, UserPlus, FileText, Trash2, History } from 'lucide-react'
+import { Plus, ChevronLeft, MoreVertical, UserPlus, Trash2, History } from 'lucide-react'
 
 export default function RoomList() {
   const { propertyId } = useParams<{ propertyId: string }>()
@@ -48,6 +48,7 @@ export default function RoomList() {
   const [detailContractId, setDetailContractId] = useState<string | null>(null)
   const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
   const [menuOpenContractId, setMenuOpenContractId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'rooms' | 'contracts'>('rooms')
 
   if (!property) {
     return (
@@ -73,31 +74,46 @@ export default function RoomList() {
               <h1 className="text-lg font-bold text-gray-900 truncate">{property.address}</h1>
               <p className="text-sm text-gray-500">{propertyRooms.length} 间房间</p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingRoomId(null);
-                setShowModal(true)
-              }}
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
-            >
-               <Plus className="w-3.5 h-3.5" />
-               添加
-            </button>
+            {activeTab === 'rooms' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingRoomId(null);
+                  setShowModal(true)
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
+              >
+                 <Plus className="w-3.5 h-3.5" />
+                添加
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-3">
         <div className="max-w-md mx-auto">
-          {/* 业主合同记录 */}
+          {/* Tab 切换 */}
+          <div className="flex bg-gray-100 rounded-xl p-1 mb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab('rooms')}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'rooms' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+            >
+              房间列表（{propertyRooms.length}）
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('contracts')}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'contracts' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+            >
+              业主
+            </button>
+          </div>
+
+          {/* 业主合同 Tab */}
+          {activeTab === 'contracts' && (
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-base font-bold text-gray-800">
-                <FileText className="w-4 h-4 inline mr-1" />
-                业主合同记录
-              </h2>
-            </div>
             {(() => {
               const propContracts = landlordContracts.filter(c => c.propertyId === propertyId)
               if (propContracts.length === 0) {
@@ -158,7 +174,10 @@ export default function RoomList() {
               )
             })()}
           </div>
+          )}
 
+          {/* 房间 Tab */}
+          {activeTab === 'rooms' && (
           <div className="space-y-2">
             {propertyRooms.map((room) => (
               <div key={room.id} className="relative group">
@@ -191,24 +210,20 @@ export default function RoomList() {
                     <>
                       <div className="fixed inset-0 z-[5]" onClick={e => { e.stopPropagation(); setRoomMenu(null); }} />
                     <div className="absolute right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-[150px] z-[60]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const existing = getTenantForRoom(room.id)
-                          if (existing) {
-                            setEditingTenantId(existing.id)
-                            setTenantRoomId(room.id)
-                          } else {
+                      {!getTenantForRoom(room.id) && (
+                        <button
+                          type="button"
+                          onClick={() => {
                             setTenantRoomId(room.id)
                             setEditingTenantId(null)
-                          }
-                          setRoomMenu(null)
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        租客合同
-                      </button>
+                            setRoomMenu(null)
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          新签合同
+                        </button>
+                      )}
                       {tenants.filter(t => t.roomId === room.id && t.status === 'ended').length > 0 && (
                         <button
                           type="button"
@@ -251,6 +266,7 @@ export default function RoomList() {
               </div>
             )}
           </div>
+          )}
 
         </div>
       </div>

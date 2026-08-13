@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { PaymentMethod } from '../types'
-import { X, Calendar, DollarSign, ChevronRight, ChevronLeft, User, Phone } from 'lucide-react'
+import { X, Calendar, DollarSign, ChevronRight, ChevronLeft, User, Phone, ChevronDown } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days, parseDate360, diffDays360 } from '../utils/calculator'
 
 interface LandlordContractModalProps {
@@ -70,6 +70,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   const [vacancyPerYear, setVacancyPerYear] = useState(false)
   const [vacancyDays, setVacancyDays] = useState('')           // 每年统一天数
   const [vacancyYearList, setVacancyYearList] = useState<string[]>([''])  // 按年设置 [第1年, 第2年...]
+  const [vacancyOpen, setVacancyOpen] = useState(false)        // 免租期下拉
 
   useEffect(() => {
     if (isOpen) {
@@ -260,16 +261,16 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">
+        <div className="sticky top-0 bg-white px-4 py-2.5 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-base font-semibold text-gray-900">
             {isSimpleEdit ? '编辑合同' : isEditMode ? '编辑合同' : existingRent !== undefined ? '代理续约' : '房屋代理合同'}
           </h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-2">
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${isSimpleEdit ? 'bg-blue-600 text-white' : step === 'info' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>1</span>
             <span className="text-xs text-gray-400">合同信息</span>
             {!isSimpleEdit && (<><div className="w-8 h-px bg-gray-300" />
@@ -279,7 +280,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
         </div>
 
         {step === 'info' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-2.5">
             {error && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
             )}
@@ -301,7 +302,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   onChange={(e) => setLandlordName(e.target.value)}
                   placeholder="例如：王房东"
                   disabled={!!existingRent && !isSimpleEdit && !isEditMode}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                   required
                 />
               </div>
@@ -317,7 +318,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   placeholder="13800138000"
                   maxLength={11}
                   disabled={!!existingRent && !isSimpleEdit && !isEditMode}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
             </div>
@@ -335,7 +336,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   onChange={(e) => setMonthlyRent(e.target.value)}
                   placeholder="例如：4500"
                   min="1"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -350,7 +351,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   onChange={(e) => setDeposit(e.target.value)}
                   placeholder="例如：5000"
                   min="0"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -365,7 +366,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   type="date"
                   value={contractStart}
                   onChange={(e) => setContractStart(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -378,112 +379,123 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   type="date"
                   value={contractEnd}
                   onChange={(e) => setContractEnd(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <DollarSign className="w-4 h-4 inline mr-1" />
-                付款方式
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {paymentMethods.map((pm) => (
-                  <option key={pm.value} value={pm.value}>{pm.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 免租期（空置期）：业主给的免租天数 */}
-            <div className="bg-blue-50/50 rounded-xl p-2.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">
-                  免租期（业主给的免租天数）
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  付款方式
                 </label>
-                <label className="flex items-center gap-1 text-xs text-gray-500">
-                  <input
-                    type="checkbox"
-                    checked={vacancyPerYear}
-                    onChange={(e) => setVacancyPerYear(e.target.checked)}
-                    className="accent-blue-600"
-                  />
-                  按年设置
-                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {paymentMethods.map((pm) => (
+                    <option key={pm.value} value={pm.value}>{pm.label}</option>
+                  ))}
+                </select>
               </div>
 
-              {!vacancyPerYear ? (
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={vacancyDays}
-                    onChange={(e) => setVacancyDays(e.target.value)}
-                    placeholder="无"
-                    min="0"
-                    className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {[30].map(d => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setVacancyDays(String(d))}
-                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${vacancyDays === String(d) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      {d}天
-                    </button>
-                  ))}
+              {/* 免租期（空置期）：业主给的免租天数 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">免租期</label>
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      type="number"
+                      value={vacancyDays}
+                      onChange={(e) => setVacancyDays(e.target.value)}
+                      onFocus={() => setVacancyOpen(true)}
+                      onBlur={() => setTimeout(() => setVacancyOpen(false), 150)}
+                      placeholder="0"
+                      min="0"
+                      disabled={vacancyPerYear}
+                      className="w-full px-3 py-2.5 pr-9 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    />
+                    <ChevronDown
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                    />
+                    {vacancyOpen && (
+                      <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                        {[30].map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => { setVacancyDays(String(d)); setVacancyOpen(false) }}
+                            className={`w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 ${vacancyDays === String(d) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                          >
+                            {d}天
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={vacancyPerYear}
+                      onChange={(e) => setVacancyPerYear(e.target.checked)}
+                      className="accent-blue-600"
+                    />
+                    按年设置
+                  </label>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {vacancyYearList.map((v, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-12 shrink-0">第{i + 1}年</span>
-                      <input
-                        type="number"
-                        value={v}
-                        onChange={(e) => {
-                          const next = [...vacancyYearList]
-                          next[i] = e.target.value
-                          setVacancyYearList(next)
-                        }}
-                        placeholder="无"
-                        min="0"
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-400">天</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (vacancyYearList.length <= 1) return
-                          setVacancyYearList(vacancyYearList.filter((_, j) => j !== i))
-                        }}
-                        className="text-gray-300 hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVacancyYearList([...vacancyYearList, ''])
-                      // 添加年份时自动延长合同结束日一年（30/360：+360天）
-                      if (contractEnd) {
-                        setContractEnd(formatDate(add30Days(new Date(contractEnd), 360)))
-                      }
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-700"
-                  >
-                    + 添加年份
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
+
+            {/* 按年免租期列表 */}
+            {vacancyPerYear && (
+              <div className="space-y-2">
+                {vacancyYearList.map((v, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-12 shrink-0">第{i + 1}年</span>
+                    <input
+                      type="number"
+                      value={v}
+                      onChange={(e) => {
+                        const next = [...vacancyYearList]
+                        next[i] = e.target.value
+                        setVacancyYearList(next)
+                      }}
+                      placeholder="无"
+                      min="0"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-400">天</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (vacancyYearList.length <= 1) return
+                        setVacancyYearList(vacancyYearList.filter((_, j) => j !== i))
+                      }}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVacancyYearList([...vacancyYearList, ''])
+                    // 添加年份时自动延长合同结束日一年（30/360：+360天）
+                    if (contractEnd) {
+                      setContractEnd(formatDate(add30Days(new Date(contractEnd), 360)))
+                    }
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  + 添加年份
+                </button>
+              </div>
+            )}
             </>)}
             
             <div className="flex gap-3 pt-4">
@@ -522,67 +534,57 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">{error}</div>
             )}
 
-            <div className="bg-orange-50 rounded-xl p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-orange-700 font-medium">{propertyAddress}</p>
-                  <p className="text-xs text-orange-500 mt-1">{contractStart} 至 {contractEnd}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-orange-900">{paymentMethods.find(p => p.value === paymentMethod)?.label}房东 ¥{parseFloat(monthlyRent) || 0}</p>
-                  <p className="text-xs text-orange-500">{paymentMethods.find(p => p.value === paymentMethod)?.label}</p>
-                </div>
-              </div>
+            <div className="bg-orange-50 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+              <span className="text-sm text-orange-700 font-medium truncate">{propertyAddress}</span>
+              <span className="text-xs text-orange-500 shrink-0">{contractStart}~{contractEnd}</span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
               {draftBills.map((bill, i) => (
-                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${bill.type === 'deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {bill.type === 'deposit' ? '押金' : '房租'}
-                    </span>
-                  </div>
+                <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-2.5 shadow-sm">
+                  <span className={`text-xs px-2 py-0.5 rounded-full mb-1.5 inline-block ${bill.type === 'deposit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {bill.type === 'deposit' ? '押金' : '房租'}
+                  </span>
                   <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">应付日</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">应付日</label>
                       <input
                         type="date"
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">金额</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">金额</label>
                       <input
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-medium"
                         step="0.01"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">周期开始</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">开始</label>
                       <input
                         type="date"
                         defaultValue={bill.periodStart}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">周期结束</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">结束</label>
                       <input
                         type="date"
                         defaultValue={bill.periodEnd}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                   </div>
