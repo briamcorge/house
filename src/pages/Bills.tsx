@@ -181,8 +181,8 @@ export default function Bills() {
           // 未收/未付：逾期全部显示，未来只显示选定天数内
           if (b.dueDate >= today && b.dueDate > daysLater) return false
         } else {
-          // 已收/已付：只显示最近选定天数内
-          if (b.dueDate < daysAgo) return false
+          // 已收/已付：只显示最近选定天数内（按实收日期）
+          if ((b.paidDate || b.dueDate) < daysAgo) return false
         }
       }
       return true
@@ -192,12 +192,22 @@ export default function Bills() {
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
-    return relevantBills.some(b => b.status !== 'cancelled' && (b.dueDate < daysAgo || b.dueDate > daysLater))
+    return relevantBills.some(b => {
+      if (b.status === 'cancelled') return false
+      const d = (b.status === 'paid' || b.status === 'refunded') ? (b.paidDate || b.dueDate) : b.dueDate
+      return d < daysAgo || d > daysLater
+    })
   }, [relevantBills, showAllBills, contractFilter, daysAgo, daysLater])
 
-  // Sorting: 全部按 dueDate 升序（从前往后）
+  // Sorting: 未收/逾期按应收日升序（越急越前），已收/已付/退款按实收日降序（最近收的越靠前）
   const displayBills = useMemo(() => {
-    return [...filteredBills].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    return [...filteredBills].sort((a, b) => {
+      const aPaid = a.status === 'paid' || a.status === 'refunded'
+      const bPaid = b.status === 'paid' || b.status === 'refunded'
+      if (aPaid !== bPaid) return aPaid ? 1 : -1 // 未收在前，已收在后
+      if (aPaid) return (b.paidDate || '').localeCompare(a.paidDate || '') // 已收按实收日降序
+      return a.dueDate.localeCompare(b.dueDate) // 未收按应收日升序
+    })
   }, [filteredBills])
 
   const handleSaveBill = (data: Omit<Bill, 'id' | 'createdAt'>) => {
