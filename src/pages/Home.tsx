@@ -254,11 +254,10 @@ export default function Home() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主')}
+                            {room && ` · ${formatRoomLabel(room.label)}`}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
                             {isRefund ? '退款' : ({ rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' } as Record<string, string>)[b.type] || '其他费用'}
-                            {tenant && tenant.displayId && ` #${tenant.displayId}`}
-                            {room && ` · ${formatRoomLabel(room.label)}`}
                             {b.description && ` · ${b.description}`}
                           </p>
                         </div>
