@@ -2,7 +2,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
-import BillChart from '../components/BillChart'
 import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText } from 'lucide-react'
 import { formatMoney, todayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
 import { Property, Room, Tenant, LandlordContract } from '../types'
@@ -223,9 +222,6 @@ export default function Home() {
               <p className="text-xl font-bold text-yellow-700">{expiringLandlords.length + expiredLandlords.length} 人</p>
             </div>
           </div>
-
-          {/* 月度收支趋势图表 */}
-          <BillChart bills={bills} />
 
           {/* 近期收支流水 */}
           <div className="mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

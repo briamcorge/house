@@ -9,6 +9,7 @@ import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
+import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -129,13 +130,14 @@ export default function More() {
     setProfitResult(null)
   }
 
-  const activeTenants = tenants.filter(t => t.status === 'active')
   // 已收租户押金：仅统计已收(paid)与已退(refunded 负数抵减)的押金账单；pending/overdue 未收的不计入
   const depositPaidStatuses = new Set(['paid', 'refunded'])
   const depositBalance = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status))
   const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status))
+  // 实时可支配余额：已收剩余（不含押金）− 已付剩余（不含押金），负数 = 垫钱
+  const { tenantRemain, landlordRemain, balance } = calculateBalance(bills, todayLocal())
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   useEffect(() => {
@@ -728,25 +730,19 @@ export default function More() {
                 <p className="text-blue-200 text-xs">轻松管理您的房产</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => navigate('/properties')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
-                <p className="text-lg font-bold text-white">{properties.length}</p>
-                <p className="text-blue-200 text-xs">房屋</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => setShowDepositList(true)} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
+                <p className="text-base font-bold text-white">¥{depositBalance.toFixed(0)}</p>
+                <p className="text-blue-200 text-[10px]">已收租户押金</p>
               </button>
-              <button type="button" onClick={() => navigate('/tenants')} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
-                <p className="text-lg font-bold text-white">{activeTenants.length}</p>
-                <p className="text-blue-200 text-xs">在租租客</p>
+              <button type="button" onClick={() => setShowPaidDepositList(true)} className="bg-white/10 rounded-xl p-2 text-center hover:bg-white/20 transition-colors">
+                <p className="text-base font-bold text-white">¥{paidDeposit.toFixed(0)}</p>
+                <p className="text-blue-200 text-[10px]">已付业主押金</p>
               </button>
-            </div>
-            <div className="mt-2 pt-2 border-t border-white/20 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setShowDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
-                <p className="text-lg font-bold text-white">¥{depositBalance.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">已收租户押金</p>
-              </button>
-              <button type="button" onClick={() => setShowPaidDepositList(true)} className="hover:bg-white/5 rounded-xl p-2 text-center transition-colors">
-                <p className="text-lg font-bold text-white">¥{paidDeposit.toFixed(0)}</p>
-                <p className="text-blue-200 text-xs">已付业主押金</p>
-              </button>
+              <div className="bg-white/10 rounded-xl p-2 text-center">
+                <p className={`text-base font-bold ${balance < 0 ? 'text-red-300' : 'text-white'}`}>¥{balance.toFixed(0)}</p>
+                <p className="text-blue-200 text-[10px]">可支配余额</p>
+              </div>
             </div>
           </div>
         </div>
