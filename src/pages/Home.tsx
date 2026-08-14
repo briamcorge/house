@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
-import { Building2, Users, Search, ArrowUpRight, ArrowDownRight, AlertTriangle, Bell, X, FileText } from 'lucide-react'
+import { Building2, Users, Search, AlertTriangle, Bell, X, FileText } from 'lucide-react'
 import { formatMoney, todayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
 import { Property, Room, Tenant, LandlordContract } from '../types'
 
@@ -227,7 +227,7 @@ export default function Home() {
           <div className="mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">近期收支流水</h3>
-              <button onClick={() => navigate('/bills', { state: { direction: 'receivable', filterStatus: 'pending' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
+              <button onClick={() => navigate('/bills', { state: { direction: 'all', filterStatus: 'paid' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
             </div>
             {recentTransactions.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">暂无流水</p>
@@ -240,27 +240,15 @@ export default function Home() {
                   const isRefund = b.amount < 0
                   return (
                     <div key={b.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                          isRefund ? 'bg-orange-100' :
-                          b.direction === 'receivable' ? 'bg-green-100' : 'bg-blue-100'
-                        }`}>
-                          {isRefund
-                            ? <ArrowUpRight className="w-4 h-4 text-orange-600" />
-                            : b.direction === 'receivable'
-                              ? <ArrowDownRight className="w-4 h-4 text-green-600" />
-                              : <ArrowUpRight className="w-4 h-4 text-blue-600" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主')}
-                            {room && ` · ${formatRoomLabel(room.label)}`}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {isRefund ? '退款' : ({ rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' } as Record<string, string>)[b.type] || '其他费用'}
-                            {b.description && ` · ${b.description}`}
-                          </p>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {b.direction === 'receivable' ? (tenant?.name || '租客') : (prop?.address || '业主')}
+                          {room && ` · ${formatRoomLabel(room.label)}`}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {isRefund ? '退款' : ({ rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' } as Record<string, string>)[b.type] || '其他费用'}
+                          {b.description && ` · ${b.description}`}
+                        </p>
                       </div>
                       <div className="text-right shrink-0 ml-2">
                         <p className={`text-sm font-bold ${isRefund ? 'text-orange-700' : b.direction === 'receivable' ? 'text-green-700' : 'text-blue-700'}`}>
