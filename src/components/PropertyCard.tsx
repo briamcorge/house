@@ -1,5 +1,5 @@
 import { Property } from '../types'
-import { Building2, User } from 'lucide-react'
+import { User } from 'lucide-react'
 
 interface PropertyCardProps {
   property: Property
@@ -27,9 +27,6 @@ export default function PropertyCard({
       onClick={onClick}
     >
       <div className="flex items-center gap-3 pl-3 pr-11 py-2.5">
-        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shrink-0">
-          <Building2 className="w-5 h-5 text-white" />
-        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-900 text-sm truncate">{property.address}</span>
