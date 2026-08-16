@@ -5,7 +5,7 @@ import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
-import { Plus, Search, Edit2, Trash2, MoreVertical, Home, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 import { calcCoveredPeriodEnd } from '../utils/calculator'
 
@@ -470,34 +470,39 @@ export default function Bills() {
                     const dateColor = isOverdue ? 'text-red-600' : 'text-gray-500'
                     return (
                       <div key={bill.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            {bill.direction === 'payable' ? (
-                              <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900 min-w-0">
-                                <Home className="w-4 h-4 text-gray-400 shrink-0" />
-                                <span className="truncate">{getPropertyAddress(bill.propertyId)}</span>
-                                {landlordName && (
-                                  <>
-                                    <span className="text-gray-300 shrink-0">·</span>
-                                    <span className="font-medium text-gray-800 shrink-0">{landlordName}</span>
-                                  </>
-                                )}
-                              </span>
-                            ) : bill.roomId ? (
-                              <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900 min-w-0">
-                                <Home className="w-4 h-4 text-gray-400 shrink-0" />
-                                <span className="truncate">{getRoomInfo(bill.roomId)}</span>
-                                {tenantName && (
-                                  <>
-                                    <span className="text-gray-300 shrink-0">·</span>
-                                    <span className="font-medium text-gray-800 shrink-0">{tenantName}</span>
-                                  </>
-                                )}
-                              </span>
-                            ) : (
-                              <span className="text-sm font-bold text-gray-900">应收</span>
+                        {/* 地址 + 名字（完整显示，超长自然换行） */}
+                        <div className="text-sm font-bold text-gray-900 min-w-0 mb-1 leading-snug">
+                          {bill.direction === 'payable' ? (
+                            <span>{getPropertyAddress(bill.propertyId)}
+                              {landlordName && (
+                                <>
+                                  <span className="text-gray-300 mx-1">·</span>
+                                  <span className="font-medium text-gray-800">{landlordName}</span>
+                                </>
+                              )}
+                            </span>
+                          ) : bill.roomId ? (
+                            <span>{getRoomInfo(bill.roomId)}
+                              {tenantName && (
+                                <>
+                                  <span className="text-gray-300 mx-1">·</span>
+                                  <span className="font-medium text-gray-800">{tenantName}</span>
+                                </>
+                              )}
+                            </span>
+                          ) : (
+                            <span>应收</span>
+                          )}
+                        </div>
+
+                        {/* 金额 + 操作按钮 */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-base font-bold flex items-baseline gap-2 text-gray-900 min-w-0">
+                            {typeLabels[bill.type] && (
+                              <span className="text-xs font-medium text-gray-400 shrink-0">{typeLabels[bill.type]}</span>
                             )}
-                          </div>
+                            <span>¥{bill.amount.toFixed(2)}</span>
+                          </p>
                           <div className="flex items-center gap-1 shrink-0">
                             {bill.status === 'refunded' ? (
                               <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600">退款</span>
@@ -551,13 +556,6 @@ export default function Bills() {
                             </div>
                           </div>
                         </div>
-
-                        <p className={`text-base font-bold mb-2 flex items-baseline gap-2 ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                          {typeLabels[bill.type] && (
-                            <span className="text-xs font-medium text-gray-400 shrink-0">{typeLabels[bill.type]}</span>
-                          )}
-                          <span>¥{bill.amount.toFixed(2)}</span>
-                        </p>
 
                         <div className="space-y-1.5">
                           {bill.description && (

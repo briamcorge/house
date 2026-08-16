@@ -35,6 +35,13 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
         return b.propertyId === propertyId || (!!b.roomId && propRoomIds.includes(b.roomId))
       }
       return false
+    }).sort((a, b) => {
+      // 未收/未付在前，已收/已付在后；未结按应收日升序，已结按实收日降序
+      const aPaid = a.status === 'paid' || a.status === 'refunded'
+      const bPaid = b.status === 'paid' || b.status === 'refunded'
+      if (aPaid !== bPaid) return aPaid ? 1 : -1
+      if (aPaid) return (b.paidDate || '').localeCompare(a.paidDate || '')
+      return a.dueDate.localeCompare(b.dueDate)
     })
   }, [bills, propertyId, roomId, rooms])
 

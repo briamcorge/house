@@ -38,7 +38,14 @@ export default function LandlordContractDetailModal({
 
   const contractBills = bills
     .filter(b => b.direction === 'payable' && (b.landlordContractId === contract.id || (!b.landlordContractId && b.propertyId === contract.propertyId && b.dueDate >= contract.contractStart && b.dueDate <= contract.contractEnd)))
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    // 未付/逾期在前，已付在后；未付按应付日升序，已付按实付日降序（与账单页口径一致）
+    .sort((a, b) => {
+      const aPaid = a.status === 'paid' || a.status === 'refunded'
+      const bPaid = b.status === 'paid' || b.status === 'refunded'
+      if (aPaid !== bPaid) return aPaid ? 1 : -1
+      if (aPaid) return (b.paidDate || '').localeCompare(a.paidDate || '')
+      return a.dueDate.localeCompare(b.dueDate)
+    })
 
   const paidBills = contractBills.filter(b => b.status === 'paid')
   const paidTotal = paidBills.reduce((s, b) => s + b.amount, 0)
@@ -110,7 +117,7 @@ export default function LandlordContractDetailModal({
 
           {/* 账单列表 */}
           {expanded && (
-            <div className="border-t border-gray-50 divide-y divide-gray-50 max-h-64 overflow-y-auto">
+            <div className="border-t border-gray-50 divide-y divide-gray-50">
               {contractBills.length === 0 ? (
                 <div className="p-6 text-center text-xs text-gray-400">暂无账单</div>
               ) : (
