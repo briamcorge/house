@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from 'react'
+﻿import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { Bill, BillDirection } from '../types'
@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { Plus, Search, Edit2, Trash2, MoreVertical, Home, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
+import { calcCoveredPeriodEnd } from '../utils/calculator'
 
 function getDaysAgo(days: number): string {
   return daysFromTodayLocal(-days)
@@ -23,7 +24,7 @@ export default function Bills() {
   const contractFilter = state?.propertyId || null
   const contractLabel = state?.contractLabel || null
   const [direction, setDirection] = useState<BillDirection | 'all'>(state?.direction || 'receivable')
-  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'refunded'>((state?.filterStatus as any) || state?.status || 'pending')
+  const [filterStatus, setFilterStatus] = useState<Bill['status'] | 'refunded' | 'settled'>((state?.filterStatus as any) || state?.status || 'pending')
   const [showModal, setShowModal] = useState(false)
   const [editingBill, setEditingBill] = useState<Bill | undefined>()
   const [billMenu, setBillMenu] = useState<string | null>(null)
@@ -74,15 +75,9 @@ export default function Bills() {
     if (!bill) return
     const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
     if (!m || bill.amount <= 0) return
-    const start = new Date(m[1])
-    const end = new Date(m[2])
-    const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
-    if (totalDays <= 0) return
-    const covered = Math.round(paidAmt / bill.amount * totalDays)
-    const newEnd = new Date(start)
-    newEnd.setDate(newEnd.getDate() + covered - 1)
+    // 30/360 口径推算覆盖期，与账单金额口径一致（Bug 19 修复）
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(formatDateLocal(newEnd))
+    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount))
   }
 
   const getPropertyAddress = (pid?: string) => {
@@ -142,6 +137,27 @@ export default function Bills() {
   const daysLater = getDaysLater(dayRange)
   const today = todayLocal()
 
+  // 方向+状态过滤（不含天数窗口），filteredBills 与 hasMoreBills 共用，
+  // 避免"加载更多"误显示（旧版 hasMoreBills 不按方向/状态过滤）
+  const matchesFilter = useCallback((b: Bill): boolean => {
+    if (b.status === 'cancelled') return false
+    if (direction !== 'all' && b.direction !== direction) return false
+    if (filterStatus === 'settled') return b.status === 'paid' || b.status === 'refunded'
+    if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
+    const matchesStatus = filterStatus === 'pending'
+      ? (b.status === 'pending' || b.status === 'overdue')
+      : filterStatus === 'paid'
+        ? b.status === 'paid' && b.amount >= 0
+        : b.status === filterStatus
+    if (!matchesStatus) return false
+    // 对于"未收"筛选，排除已退租租客的应收账单
+    if (filterStatus === 'pending' && b.direction === 'receivable' && b.tenantId) {
+      const tenant = tenants.find(t => t.id === b.tenantId)
+      if (tenant?.status === 'ended') return false
+    }
+    return true
+  }, [direction, filterStatus, tenants])
+
   const filteredBills = useMemo(() => {
     // 全局过滤：排除已作废的账单
     const activeBills = relevantBills.filter(b => b.status !== 'cancelled')
@@ -149,7 +165,8 @@ export default function Bills() {
     // 合同模式：显示全部，不限制月份
     if (contractFilter) {
       const list = activeBills.filter(b => {
-    if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
+        if (filterStatus === 'settled') return b.status === 'paid' || b.status === 'refunded'
+        if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
         const matchesStatus = filterStatus === 'pending'
           ? (b.status === 'pending' || b.status === 'overdue')
           : filterStatus === 'paid'
@@ -162,42 +179,35 @@ export default function Bills() {
 
     // 非合同模式：应用方向 + 状态 + 30天筛选
     const list = activeBills.filter(b => {
-      if (direction !== 'all' && b.direction !== direction) return false
-      if (filterStatus === 'refunded') return b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)
-      const matchesStatus = filterStatus === 'pending'
-        ? (b.status === 'pending' || b.status === 'overdue')
-        : filterStatus === 'paid'
-          ? b.status === 'paid' && b.amount >= 0
-          : b.status === filterStatus
-      if (!matchesStatus) return false
-      // 对于"未收"筛选，排除已退租租客的应收账单
-      if (filterStatus === 'pending' && b.direction === 'receivable' && b.tenantId) {
-        const tenant = tenants.find(t => t.id === b.tenantId)
-        if (tenant?.status === 'ended') return false
-      }
+      if (!matchesFilter(b)) return false
       // 天數窗口
       if (!showAllBills) {
         if (filterStatus === 'pending') {
           // 未收/未付：逾期全部显示，未来只显示选定天数内
           if (b.dueDate >= today && b.dueDate > daysLater) return false
         } else {
-          // 已收/已付：只显示最近选定天数内（按实收日期）
+          // 已收/已付/已退/已结清：只显示最近选定天数内（按实收日期）
           if ((b.paidDate || b.dueDate) < daysAgo) return false
         }
       }
       return true
     })
     return list
-  }, [relevantBills, direction, filterStatus, contractFilter, showAllBills, daysAgo, daysLater, today, tenants])
+  }, [relevantBills, matchesFilter, direction, filterStatus, contractFilter, showAllBills, daysAgo, daysLater, today])
 
   const hasMoreBills = useMemo(() => {
     if (showAllBills || contractFilter) return false
+    // 与 filteredBills 相同的方向/状态过滤，只判断"窗口外是否还有匹配账单"
     return relevantBills.some(b => {
-      if (b.status === 'cancelled') return false
+      if (!matchesFilter(b)) return false
+      if (filterStatus === 'pending') {
+        // 逾期全部显示，未来超出窗口的才需要"加载更多"
+        return b.dueDate > daysLater
+      }
       const d = (b.status === 'paid' || b.status === 'refunded') ? (b.paidDate || b.dueDate) : b.dueDate
-      return d < daysAgo || d > daysLater
+      return d < daysAgo
     })
-  }, [relevantBills, showAllBills, contractFilter, daysAgo, daysLater])
+  }, [relevantBills, matchesFilter, filterStatus, showAllBills, contractFilter, daysAgo, daysLater])
 
   // Sorting: 未收/逾期按应收日升序（越急越前），已收/已付/退款按实收日降序（最近收的越靠前）
   const displayBills = useMemo(() => {
@@ -324,6 +334,7 @@ export default function Bills() {
             {([
               { key: 'pending' as const, label: direction === 'payable' ? '未付' : '未收' },
               { key: 'paid' as const, label: direction === 'payable' ? '已付' : '已收' },
+              { key: 'settled' as const, label: direction === 'payable' ? '已付+已退' : '已收+已退' },
               { key: 'refunded' as const, label: '已退还' },
             ] as const).map((f) => (
               <button
@@ -456,22 +467,35 @@ export default function Bills() {
                     const tenantName = getTenantName(bill.tenantId)
                     const landlordName = getLandlordName(bill.direction, bill.propertyId)
                     const isOverdue = bill.status === 'overdue' || (bill.status === 'pending' && bill.dueDate < today)
-                    const dateColor = isOverdue ? 'text-red-600' :
-                      bill.status === 'pending' ? (bill.direction === 'receivable' ? 'text-blue-600' : 'text-orange-600') :
-                      'text-gray-500'
+                    const dateColor = isOverdue ? 'text-red-600' : 'text-gray-500'
                     return (
                       <div key={bill.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            <span className={`text-lg font-bold ${dateColor}`}>
-                              {bill.direction === 'payable' ? '应付日' : '应收日'} {bill.dueDate}
-                            </span>
-                            {bill.status !== 'pending' && (
-                              <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
-                                bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                              }`}>
-                                {bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
+                            {bill.direction === 'payable' ? (
+                              <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900 min-w-0">
+                                <Home className="w-4 h-4 text-gray-400 shrink-0" />
+                                <span className="truncate">{getPropertyAddress(bill.propertyId)}</span>
+                                {landlordName && (
+                                  <>
+                                    <span className="text-gray-300 shrink-0">·</span>
+                                    <span className="font-medium text-gray-800 shrink-0">{landlordName}</span>
+                                  </>
+                                )}
                               </span>
+                            ) : bill.roomId ? (
+                              <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900 min-w-0">
+                                <Home className="w-4 h-4 text-gray-400 shrink-0" />
+                                <span className="truncate">{getRoomInfo(bill.roomId)}</span>
+                                {tenantName && (
+                                  <>
+                                    <span className="text-gray-300 shrink-0">·</span>
+                                    <span className="font-medium text-gray-800 shrink-0">{tenantName}</span>
+                                  </>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-sm font-bold text-gray-900">应收</span>
                             )}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -528,7 +552,7 @@ export default function Bills() {
                           </div>
                         </div>
 
-                        <p className="text-xl font-bold text-blue-600 mb-2 flex items-baseline gap-2">
+                        <p className={`text-base font-bold mb-2 flex items-baseline gap-2 ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
                           {typeLabels[bill.type] && (
                             <span className="text-xs font-medium text-gray-400 shrink-0">{typeLabels[bill.type]}</span>
                           )}
@@ -539,32 +563,20 @@ export default function Bills() {
                           {bill.description && (
                             <div className="text-xs text-gray-500 leading-tight">{bill.description}</div>
                           )}
-                          {bill.direction === 'payable' && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
-                              <Home className="w-4 h-4 text-gray-400 shrink-0" />
-                              <span>{getPropertyAddress(bill.propertyId)}</span>
-                              {landlordName && (
-                                <>
-                                  <span className="text-gray-300">·</span>
-                                  <span className="font-medium text-gray-800">{landlordName}</span>
-                                </>
-                              )}
-                            </div>
-                          )}
-                          {bill.direction === 'receivable' && bill.roomId && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-600 flex-wrap">
-                              <Home className="w-4 h-4 text-gray-400 shrink-0" />
-                              <span>{getRoomInfo(bill.roomId)}</span>
-                              {tenantName && (
-                                <>
-                                  <span className="text-gray-300">·</span>
-                                  <span className="font-medium text-gray-800">{tenantName}</span>
-                                </>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs font-medium ${dateColor}`}>
+                              {bill.direction === 'payable' ? '应付日' : '应收日'} {bill.dueDate}
+                            </span>
+                            {bill.status !== 'pending' && (
+                              <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-medium ${
+                                bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? 'bg-blue-50 text-blue-600' : bill.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                              }`}>
+                                {bill.status === 'refunded' || (bill.status === 'paid' && bill.amount < 0) ? '已退还' : bill.status === 'paid' ? '已收' : '逾期'}
+                              </span>
+                            )}
+                          </div>
                           {bill.paidDate && bill.status === 'paid' && (
-                            <div className="flex items-center gap-1.5 text-sm text-green-600">
+                            <div className="flex items-center gap-1.5 text-xs text-green-600">
                               <span>✓ 实付：{bill.paidDate}</span>
                             </div>
                           )}
@@ -791,6 +803,8 @@ export default function Bills() {
         onClose={() => { setDeleteConfirmId(null); setBillMenu(null) }}
         onConfirm={() => {
           if (deleteConfirmId) deleteBill(deleteConfirmId)
+          setDeleteConfirmId(null)
+          setBillMenu(null)
         }}
         title="删除确认"
         message="确定要删除这个账单吗？"

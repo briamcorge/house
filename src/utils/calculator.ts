@@ -75,6 +75,29 @@ function add30Days360(date: Date360, days: number): Date360 {
   }
 }
 
+/** 重复账单到期日：首笔保持原日期不变，后续按 30/360 每月30天顺延。
+ *  避免 add30Days 的 toRealDate 溢出问题（2月30日→3月2日、31号回卷） */
+export function repeatDueDate(dueDate: string, index: number, periodMonths: number): string {
+  if (index === 0) return dueDate
+  const d360 = add30Days360(parseDate360(dueDate), index * periodMonths * 30)
+  return formatDate360Display(d360)
+}
+
+/**
+ * 部分收款自动填充：按 30/360 口径（每月30天）推算收款覆盖到的账单结束日。
+ * 与 generateRentBills 的期间/金额口径一致，避免真实日历天数与 30/360 不一致导致边界差 1-2 天。
+ * periodStart/periodEnd 为账单 description 中的期间日期（YYYY-MM-DD）。
+ */
+export function calcCoveredPeriodEnd(periodStart: string, periodEnd: string, paidAmt: number, billAmount: number): string {
+  if (billAmount <= 0 || paidAmt <= 0) return periodEnd
+  const start = parseDate360(periodStart)
+  const end = parseDate360(periodEnd)
+  const totalDays = diffDays360(start, end) + 1
+  if (totalDays <= 0) return periodEnd
+  const covered = Math.max(1, Math.min(totalDays, Math.round(paidAmt / billAmount * totalDays)))
+  return formatDate360Display(add30Days360(start, covered - 1))
+}
+
 /** 30/360 日期差（exclusive）：dateA 到 dateB 有多少天 */
 export function diffDays360(dateA: Date360, dateB: Date360): number {
   const years = dateB.y - dateA.y
@@ -192,9 +215,11 @@ export function generateRentBills(
   if (splitMode === 'rear') {
     // 先零后整：从合同结束日往回切整期，零头作为首期
     // 先算出所有期结束日（从后往前），再倒序生成
+    // ⚠️ 期数封顶：与 front 一致用 ceil(总天数/期天数)，避免合同天数恰好是整期
+    //    倍数时 while 循环多切一期（产生倒置日期的 1 天多余账单，多收 1 天房租）
     const periodEnds: Date360[] = []
     let pEnd: Date360 = { ...end }
-    while (true) {
+    for (let i = 0; i < nPeriods; i++) {
       periodEnds.push(pEnd)
       const pStart = add30Days360(pEnd, -(periodDays - 1))
       if (pStart.y < start.y || (pStart.y === start.y && pStart.m < start.m) ||

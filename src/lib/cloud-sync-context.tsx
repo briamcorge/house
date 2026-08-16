@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData } from './supabase'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -23,12 +23,31 @@ const CloudSyncContext = createContext<CloudSyncContextValue>({
 let _saveCallback: (() => void) | null = null
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
 let _loading = false
+// 保存进行中被挡住的改动标记：保存完成后重新触发一次，避免丢改动
+let _pending = false
+// 跳过下一次自动保存（用于主动清空数据等场景，防止把空数据推上云端）
+let _skipNextSave = false
+
+/** 主动清空数据前调用：跳过下一次自动保存，防止空数据覆盖云端 */
+export function skipNextCloudSave() {
+  _skipNextSave = true
+}
 
 /** store 每次变更后调用，500ms 内合并多次写入成一次保存 */
 export function triggerCloudSave() {
-  if (!_saveCallback || _loading) return
+  if (!_saveCallback) return
+  if (_loading) {
+    // 加载云端数据期间发生变更 → 标记，加载完成后自动重排一次
+    _pending = true
+    return
+  }
+  if (_skipNextSave) {
+    _skipNextSave = false
+    return
+  }
   if (_saveTimer) clearTimeout(_saveTimer)
   _saveTimer = setTimeout(() => {
+    _saveTimer = null
     _saveCallback?.()
   }, 500)
 }
@@ -40,7 +59,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const saving = useRef(false)
 
   const doSave = useCallback(async (): Promise<boolean> => {
-    if (saving.current || !isSupabaseConfigured() || !user) return false
+    if (saving.current || !isSupabaseConfigured() || !user) {
+      // 保存进行中被再次触发 → 标记，本次保存完成后自动重排（防止改动被静默丢弃）
+      if (saving.current) _pending = true
+      return false
+    }
     saving.current = true
 
     // 🔒 设备锁：每次保存前检查 active_sessions，另一台设备登录则踢出
@@ -85,6 +108,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       return false
     } finally {
       saving.current = false
+      // 保存期间有新改动被挡 → 立即重排一次（重新防抖后保存最新状态）
+      if (_pending) {
+        _pending = false
+        triggerCloudSave()
+      }
     }
   }, [user])
 
@@ -94,72 +122,38 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured() || !user) return false
     setStatus('syncing')
     setLastError(null)
+    // 提前置位：加载期间用户若编辑，triggerCloudSave 会被挡并标记 _pending，
+    // 加载完成后统一重排一次保存（云端优先：以加载到的云端数据为准）
+    _loading = true
     try {
       const cloudData = await loadCloudData()
       if (cloudData) {
-        _loading = true
-        // 数据修复：已退租租客的未付遗留账单 + 补 periodStart/periodEnd
-        let { tenants, bills } = cloudData as any
-        if (tenants && bills) {
-          const endedIds = new Set(tenants.filter((t: any) => t.status === 'ended').map((t: any) => t.id))
-          // 删除 ended 租客的 pending 正数账单（退租没清理的遗留）
-          const filteredBills = bills.filter((b: any) =>
-            !(endedIds.has(b.tenantId) && b.amount > 0 && b.status === 'pending' && b.direction === 'receivable')
-          )
-          // 给旧账单补 periodStart/periodEnd（云端数据可能没有这些字段）
-          const filledBills = filteredBills.map((b: any) => {
-            if (b.periodStart || b.periodEnd) return b
-            const desc = String(b.description || '')
-            const m = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
-            if (!m) return b
-            return { ...b, periodStart: m[1], periodEnd: m[2] }
-          })
-          bills = filledBills
-          // 给已退租租客补 effectiveEnd（云端数据可能没有）
-          tenants = tenants.map((t: any) => {
-            if (t.status !== 'ended' || t.effectiveEnd) return t
-            // 从退租金账单找实际退租日
-            const refund = filledBills.find((b: any) =>
-              b.tenantId === t.id && b.amount < 0 && b.type === 'rent'
-            )
-            if (refund && refund.periodStart) return { ...t, effectiveEnd: refund.periodStart }
-            // 没有退租金 → 用合同结束日+1天作为退租日（prev v4 contractEnd 减过1天）
-            let ee = String(t.contractEnd || '')
-            if (ee) { const d = new Date(ee); d.setDate(d.getDate() + 1); ee = d.toISOString().slice(0, 10) }
-            return { ...t, effectiveEnd: ee }
-          })
-          // 给旧应付账单补 landlordContractId（按 propertyId + dueDate 落在合同日期范围内匹配）
-          const contracts = cloudData.landlordContracts || []
-          bills = bills.map((b: any) => {
-            if (b.direction !== 'payable' || b.landlordContractId) return b
-            const c = contracts.find((c: any) =>
-              String(c.propertyId) === String(b.propertyId) &&
-              String(b.dueDate || '') >= String(c.contractStart || '') &&
-              String(b.dueDate || '') <= String(c.contractEnd || '')
-            )
-            return c ? { ...b, landlordContractId: c.id } : b
-          })
-        }
+        const normalized = normalizeCloudData(cloudData)
         useStore.setState({
-          properties: cloudData.properties,
-          rooms: cloudData.rooms,
-          tenants: tenants,
-          bills: bills || cloudData.bills,
-          landlordContracts: cloudData.landlordContracts,
-          profitRecords: cloudData.profitRecords,
-          trash: cloudData.trash,
+          properties: normalized.properties,
+          rooms: normalized.rooms,
+          tenants: normalized.tenants,
+          bills: normalized.bills,
+          landlordContracts: normalized.landlordContracts,
+          profitRecords: normalized.profitRecords,
+          trash: normalized.trash,
         } as any)
-        _loading = false
         setStatus('synced')
         return true
       }
       setStatus('idle')
       return true
     } catch (e) {
-      _loading = false
       setStatus('error')
       setLastError((e as Error).message || '加载失败')
       return false
+    } finally {
+      _loading = false
+      // 加载期间有被挡的变更 → 重排一次保存
+      if (_pending) {
+        _pending = false
+        triggerCloudSave()
+      }
     }
   }, [user])
 

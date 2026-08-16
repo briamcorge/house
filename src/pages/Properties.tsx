@@ -243,13 +243,13 @@ export default function Properties() {
       <LandlordContractModal
         isOpen={landlordPropertyId !== null || landlordEdit !== null || simpleEdit !== null}
         onClose={() => { setLandlordPropertyId(null); setLandlordEdit(null); setSimpleEdit(null) }}
-        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const contractId = addLandlordContract({
             propertyId: landlordPropertyId!,
             landlordName: name,
             landlordPhone: phone,
             monthlyRent: rent || 0,
-            paymentMethod: 'quarterly',
+            paymentMethod: paymentMethod || 'quarterly',
             contractStart: cs || draftBills[0]?.dueDate || '',
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
@@ -272,7 +272,7 @@ export default function Properties() {
           })
           setLandlordPropertyId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const pid = landlordEdit?.pid
           if (!pid) return
           const now = new Date().toISOString().slice(0, 7)
@@ -286,7 +286,7 @@ export default function Properties() {
             landlordName: name,
             landlordPhone: phone,
             monthlyRent: rent || 0,
-            paymentMethod: 'quarterly',
+            paymentMethod: paymentMethod || 'quarterly',
             contractStart: cs || draftBills[0]?.dueDate || '',
             contractEnd: ce || draftBills[draftBills.length - 1]?.dueDate || '',
             status: 'active',
@@ -352,7 +352,8 @@ export default function Properties() {
 
       <ConfirmModal
         isOpen={deleteStep2 !== null}
-        onClose={() => {
+        onClose={() => setDeleteStep2(null)}
+        onCancel={() => {
           if (deleteStep2) deleteProperty(deleteStep2, false)
           setDeleteStep2(null)
         }}

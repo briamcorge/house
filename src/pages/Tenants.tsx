@@ -55,6 +55,10 @@ export default function Tenants() {
       }
       updateTenant(editingTenant.id, data)
       if (oldRoomId !== data.roomId) {
+        // 迁移该租客所有账单的 roomId（与 changeTenantRoom 行为一致，避免孤儿账单/利润漏算）
+        useStore.setState((state) => ({
+          bills: state.bills.map(b => b.tenantId === editingTenant.id ? { ...b, roomId: data.roomId! } : b),
+        }))
         if (oldRoomId) useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
         if (data.roomId) useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
       }
@@ -195,6 +199,7 @@ export default function Tenants() {
             deleteTenant(deleteConfirmState.tenantId)
             useStore.getState().updateRoom(deleteConfirmState.roomId, { status: 'vacant' })
           }
+          setDeleteConfirmState(null)
         }}
         title="删除确认"
         message="确定要删除这个租客吗？"

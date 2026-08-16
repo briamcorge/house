@@ -5,6 +5,8 @@ interface ConfirmModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void
+  /** 取消按钮的自定义动作（不传时等同 onClose） */
+  onCancel?: () => void
   title: string
   message: string
   confirmText?: string
@@ -12,7 +14,7 @@ interface ConfirmModalProps {
   variant?: 'danger' | 'default'
 }
 
-export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = '确定', cancelText = '取消', variant = 'danger' }: ConfirmModalProps) {
+export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, title, message, confirmText = '确定', cancelText = '取消', variant = 'danger' }: ConfirmModalProps) {
   useEffect(() => {
     if (!isOpen) return
     const handleEsc = (e: KeyboardEvent) => {
@@ -45,14 +47,14 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { if (onCancel) onCancel(); else onClose() }}
               className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               {cancelText}
             </button>
             <button
               type="button"
-              onClick={() => { onConfirm(); onClose() }}
+              onClick={onConfirm}
               className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-colors ${variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
               {confirmText}

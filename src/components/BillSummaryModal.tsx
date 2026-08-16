@@ -24,13 +24,19 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
   }, [isOpen, onClose])
 
   const filteredBills = useMemo(() => {
+    // 房源模式：应付账单带 propertyId，租客应收账单只有 roomId → 需按房间归属匹配
+    const propRoomIds = propertyId
+      ? rooms.filter(r => r.propertyId === propertyId).map(r => r.id)
+      : []
     return bills.filter(b => {
       if (b.status === 'cancelled') return false
       if (roomId) return b.roomId === roomId
-      if (propertyId) return b.propertyId === propertyId
+      if (propertyId) {
+        return b.propertyId === propertyId || (!!b.roomId && propRoomIds.includes(b.roomId))
+      }
       return false
     })
-  }, [bills, propertyId, roomId])
+  }, [bills, propertyId, roomId, rooms])
 
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
 
@@ -61,13 +67,23 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
     return properties.find(p => p.id === pid)?.address || ''
   }
 
-  const totalAmount = filteredBills.filter(b => b.type !== 'deposit').reduce((s, b) => s + b.amount, 0)
-  const paidAmount = filteredBills.filter(b => b.type !== 'deposit').reduce((s, b) => {
-    const paid = (b.paidAmount !== undefined && b.paidAmount > 0) ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)
-    return s + paid
-  }, 0)
-  const unpaidCount = filteredBills.filter(b => b.type !== 'deposit' && (b.status === 'pending' || b.status === 'overdue')).length
-  const paidCount = filteredBills.filter(b => b.type !== 'deposit' && b.status === 'paid').length
+  // 汇总统计（排除押金）
+  const nonDeposit = filteredBills.filter(b => b.type !== 'deposit')
+  const totalAmount = nonDeposit.reduce((s, b) => s + b.amount, 0)
+  // 已收/已付：paid 账单按实收金额；未收/未付：pending/overdue 账单金额
+  const paidOf = (dir: 'receivable' | 'payable') => nonDeposit
+    .filter(b => b.direction === dir)
+    .reduce((s, b) => s + ((b.paidAmount !== undefined && b.paidAmount > 0) ? b.paidAmount : (b.status === 'paid' ? b.amount : 0)), 0)
+  const unpaidOf = (dir: 'receivable' | 'payable') => nonDeposit
+    .filter(b => b.direction === dir && (b.status === 'pending' || b.status === 'overdue'))
+    .reduce((s, b) => s + b.amount, 0)
+  const isRoom = !!roomId
+  const receivablePaid = paidOf('receivable')
+  const receivableUnpaid = unpaidOf('receivable')
+  const payablePaid = paidOf('payable')
+  const payableUnpaid = unpaidOf('payable')
+  const unpaidCount = nonDeposit.filter(b => b.status === 'pending' || b.status === 'overdue').length
+  const paidCount = nonDeposit.filter(b => b.status === 'paid').length
 
   if (!isOpen) return null
 
@@ -103,12 +119,14 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
             <p className="text-lg font-bold text-gray-900">¥{Number(totalAmount).toFixed(0)}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-500 mb-1">已{roomId ? '收' : '付'}</p>
-            <p className="text-lg font-bold text-green-600">¥{Number(paidAmount).toFixed(0)}</p>
+            <p className="text-xs text-gray-500 mb-1">已收</p>
+            <p className="text-lg font-bold text-green-600">¥{Number(receivablePaid).toFixed(0)}</p>
+            {!isRoom && <p className="text-[10px] text-blue-500 font-medium">已付 ¥{Number(payablePaid).toFixed(0)}</p>}
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-500 mb-1">未{roomId ? '收' : '付'}</p>
-            <p className="text-lg font-bold text-orange-600">¥{(Number(totalAmount) - Number(paidAmount)).toFixed(0)}</p>
+            <p className="text-xs text-gray-500 mb-1">{isRoom ? '未收' : '未结'}</p>
+            <p className="text-lg font-bold text-orange-600">¥{Number(receivableUnpaid).toFixed(0)}</p>
+            {!isRoom && <p className="text-[10px] text-blue-500 font-medium">未付 ¥{Number(payableUnpaid).toFixed(0)}</p>}
           </div>
         </div>
 
@@ -140,7 +158,7 @@ export default function BillSummaryModal({ isOpen, onClose, propertyId, roomId }
                 <div className="flex items-center gap-1 text-xs text-gray-400">
                   <Calendar className="w-3 h-3" />
                   <span>{bill.direction === 'payable' ? '应付日' : '应收日'}：{bill.dueDate}</span>
-                  {bill.paidDate && <span className="ml-1">已{roomId ? '收' : '付'}：{bill.paidDate}</span>}
+                  {bill.paidDate && <span className="ml-1">已{bill.direction === 'payable' ? '付' : '收'}：{bill.paidDate}</span>}
                 </div>
                 {bill.description && (
                   <div className="text-xs text-gray-400 mt-0.5">{bill.description}</div>

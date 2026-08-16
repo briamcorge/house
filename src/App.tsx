@@ -4,6 +4,7 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
+import { skipNextCloudSave } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -187,22 +188,23 @@ export default function App() {
 
     if (lastEvent === 'INITIAL_SESSION') {
       // 检测是否新的浏览器会话（关过浏览器/标签页）
-      const isNewBrowserSession = !sessionStorage.getItem('tab_active')
+      // 用 localStorage 而非 sessionStorage：sessionStorage 是每个标签页独立的，
+      // 会导致新开标签页被误判为"新会话"而强制登出+清数据（旧 bug）。
+      // 老用户迁移：sessionStorage 已有 tab_active 视为非新会话，并写入 localStorage。
+      const hasOldSessionTab = !!sessionStorage.getItem('tab_active')
+      const isNewBrowserSession = !localStorage.getItem('tab_active') && !hasOldSessionTab
 
-      // 标记当前标签页"活跃"
-      sessionStorage.setItem('tab_active', '1')
+      // 标记当前浏览器"活跃"（跨标签页共享）
+      localStorage.setItem('tab_active', '1')
 
       if (!currentUser) {
-        // 没有用户 → 清除本地数据
-        localStorage.removeItem('property-manager-data')
-        useStore.setState({
-          properties: [], rooms: [], tenants: [], bills: [],
-          landlordContracts: [], profitRecords: [], trash: [],
-        })
+        // 没有用户 → 不清除本地数据（避免误删未同步数据）；
+        // 登录后由 SIGNED_IN 按"云端优先"策略统一处理
       } else if (isNewBrowserSession) {
-        // 关过浏览器，session 无效 → 清除数据并退出
+        // 关过浏览器，session 无效 → 清除数据并退出（跳过本次自动保存，防止空数据覆盖云端）
         const sb = getSupabase()
         if (sb) {
+          skipNextCloudSave()
           sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
           localStorage.removeItem('property-manager-data')
           localStorage.removeItem('device_session_token')
@@ -224,9 +226,11 @@ export default function App() {
               if (!error && data && data.session_token !== myToken) {
                 // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 强制退出
                 console.log('检测到另一台设备登录，强制退出')
+                skipNextCloudSave()
                 sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
                 localStorage.removeItem('property-manager-data')
                 localStorage.removeItem('device_session_token')
+                localStorage.removeItem('tab_active')
                 useStore.setState({
                   properties: [], rooms: [], tenants: [], bills: [],
                   landlordContracts: [], profitRecords: [], trash: [],
@@ -266,24 +270,55 @@ export default function App() {
         setDeviceTokenReady(true)
       }
 
-      // 登录成功后跳转首页 + 本地数据保存到云端
+      // 登录成功后跳转首页
       setJustLoggedIn(true)
-      // 本地有数据 → 保存到云端（覆盖）
+      // 数据冲突策略（云端优先）：本地有数据时先查云端——
+      // 云端有数据 → 用云端覆盖本地（云端视为同步源）
+      // 云端无数据 → 本地数据上传到云端（首次使用/云端被清）
+      // 查询失败 → 不覆盖任何一方（本地数据保留，等待后续自动保存）
       const state = useStore.getState()
       const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
       if (hasLocalData) {
-        import('./lib/supabase').then(({ saveCloudData }) => {
-          const state = useStore.getState()
-          return saveCloudData({
-            properties: state.properties,
-            rooms: state.rooms,
-            tenants: state.tenants,
-            bills: state.bills,
-            landlordContracts: state.landlordContracts,
-            profitRecords: state.profitRecords,
-            trash: state.trash,
-          })
-        }).catch(err => console.error('登录后本地数据同步到云端失败:', err))
+        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData }) => {
+          try {
+            const cloudExists = await hasCloudData()
+            const latest = useStore.getState()
+            if (cloudExists === null) {
+              // 查询失败（网络等）：不动任何数据，避免误覆盖
+              console.warn('登录后云端数据检查失败，跳过覆盖')
+              return
+            }
+            if (cloudExists) {
+              // 云端优先：用云端数据覆盖本地（含数据修复）
+              const cloudData = await loadCloudData()
+              if (cloudData) {
+                const normalized = normalizeCloudData(cloudData)
+                useStore.setState({
+                  properties: normalized.properties,
+                  rooms: normalized.rooms,
+                  tenants: normalized.tenants,
+                  bills: normalized.bills,
+                  landlordContracts: normalized.landlordContracts,
+                  profitRecords: normalized.profitRecords,
+                  trash: normalized.trash,
+                } as any)
+              }
+            } else {
+              // 云端无数据 → 本地上传（云端优先的例外：云端为空）
+              await saveCloudData({
+                properties: latest.properties,
+                rooms: latest.rooms,
+                tenants: latest.tenants,
+                bills: latest.bills,
+                landlordContracts: latest.landlordContracts,
+                profitRecords: latest.profitRecords,
+                trash: latest.trash,
+              })
+            }
+          } catch (err) {
+            console.error('登录后数据同步失败:', err)
+          }
+        })
       }
       // 本地无数据时，CloudSyncProvider 会自动从云端加载
       // 操作日志
@@ -297,11 +332,11 @@ export default function App() {
     if (lastEvent === 'SIGNED_OUT') {
       // 操作日志（退出前记录）
       useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'delete', entity: 'auth', details: `${currentUser?.email || ''} 退出`, createdAt: new Date().toISOString() }] }))
-      localStorage.removeItem('property-manager-data')
-      useStore.setState({
-        properties: [], rooms: [], tenants: [], bills: [],
-        landlordContracts: [], profitRecords: [], trash: [],
-      })
+      // 注意：不再清空本地业务数据。
+      // 主动登出（More 页/被踢）已在各自路径手动清除；被动登出（token 过期等）
+      // 保留本地数据，避免未同步改动被静默清空（云端优先：下次登录以云端为准）。
+      // 清除浏览器会话标记，下次打开视为新会话
+      localStorage.removeItem('tab_active')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEvent])
@@ -326,9 +361,11 @@ export default function App() {
       console.log('收到 device-kicked 事件，强制退出')
       const sb = getSupabase()
       if (sb) {
+        skipNextCloudSave()
         sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
         localStorage.removeItem('property-manager-data')
         localStorage.removeItem('device_session_token')
+        localStorage.removeItem('tab_active')
         useStore.setState({
           properties: [], rooms: [], tenants: [], bills: [],
           landlordContracts: [], profitRecords: [], trash: [],

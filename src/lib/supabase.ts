@@ -90,8 +90,7 @@ export function onAuthChange(callback: (user: any) => void) {
 }
 
 // 加载云端数据
-export async function loadCloudData(): Promise<SupabaseData | null> {
-  const sb = getSupabase()
+export async function loadCloudData(): Promise<SupabaseData | null> {  const sb = getSupabase()
   if (!sb) {
     console.error('[loadCloudData] Supabase 未配置')
     return null
@@ -152,6 +151,82 @@ export async function loadCloudData(): Promise<SupabaseData | null> {
   })
   
   return cloudData
+}
+
+/**
+ * 云端数据修复：已退租租客的未付遗留账单 + 补 periodStart/periodEnd + effectiveEnd + landlordContractId。
+ * 云端数据可能缺失这些字段（旧版本写入），加载时统一修复。
+ */
+export function normalizeCloudData(cloudData: SupabaseData): SupabaseData {
+  let tenants = cloudData.tenants || []
+  let bills = cloudData.bills || []
+  if (tenants && bills) {
+    const endedIds = new Set(tenants.filter((t: any) => t.status === 'ended').map((t: any) => t.id))
+    // 删除 ended 租客的 pending 正数账单（退租没清理的遗留）
+    const filteredBills = bills.filter((b: any) =>
+      !(endedIds.has(b.tenantId) && b.amount > 0 && b.status === 'pending' && b.direction === 'receivable')
+    )
+    // 给旧账单补 periodStart/periodEnd（云端数据可能没有这些字段）
+    const filledBills = filteredBills.map((b: any) => {
+      if (b.periodStart || b.periodEnd) return b
+      const desc = String(b.description || '')
+      const m = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+      if (!m) return b
+      return { ...b, periodStart: m[1], periodEnd: m[2] }
+    })
+    bills = filledBills
+    // 给已退租租客补 effectiveEnd（云端数据可能没有）
+    tenants = tenants.map((t: any) => {
+      if (t.status !== 'ended' || t.effectiveEnd) return t
+      // 从退租金账单找实际退租日
+      const refund = filledBills.find((b: any) =>
+        b.tenantId === t.id && b.amount < 0 && b.type === 'rent'
+      )
+      if (refund && refund.periodStart) return { ...t, effectiveEnd: refund.periodStart }
+      // 没有退租金 → 用合同结束日+1天作为退租日（prev v4 contractEnd 减过1天）
+      let ee = String(t.contractEnd || '')
+      if (ee) { const d = new Date(ee); d.setDate(d.getDate() + 1); ee = d.toISOString().slice(0, 10) }
+      return { ...t, effectiveEnd: ee }
+    })
+    // 给旧应付账单补 landlordContractId（按 propertyId + dueDate 落在合同日期范围内匹配）
+    const contracts = cloudData.landlordContracts || []
+    bills = bills.map((b: any) => {
+      if (b.direction !== 'payable' || b.landlordContractId) return b
+      const c = contracts.find((c: any) =>
+        String(c.propertyId) === String(b.propertyId) &&
+        String(b.dueDate || '') >= String(c.contractStart || '') &&
+        String(b.dueDate || '') <= String(c.contractEnd || '')
+      )
+      return c ? { ...b, landlordContractId: c.id } : b
+    })
+  }
+  return {
+    properties: cloudData.properties || [],
+    rooms: cloudData.rooms || [],
+    tenants,
+    bills,
+    landlordContracts: cloudData.landlordContracts || [],
+    profitRecords: cloudData.profitRecords || [],
+    trash: cloudData.trash || [],
+  }
+}
+
+/**
+ * 检查云端是否有该用户的数据。
+ * 返回 true/false；查询失败（网络错误等）返回 null，调用方应避免据此覆盖任何一方。
+ */
+export async function hasCloudData(): Promise<boolean | null> {
+  const sb = getSupabase()
+  if (!sb) return null
+  const { data: { user }, error: userError } = await sb.auth.getUser()
+  if (userError || !user) return null
+  const { data, error } = await sb
+    .from('user_data')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error) return null
+  return !!data
 }
 
 // 保存数据到云端

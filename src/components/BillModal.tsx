@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Bill, Property, Tenant, Room, BillDirection } from '../types'
 import { X, Home, User, DollarSign, Calendar, FileText } from 'lucide-react'
-import { formatDate, add30Days } from '../utils/calculator'
+import { formatDate, repeatDueDate } from '../utils/calculator'
 import { formatRoomLabel } from '../lib/utils'
 
 interface BillModalProps {
@@ -164,12 +164,11 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
     }
 
     if (repeatMode && !editingBill) {
-      // 按周期生成多笔账单
+      // 按周期生成多笔账单（首笔保持原日期，后续按 30/360 顺延，避免 31号/2月 漂移）
       for (let i = 0; i < repeatCount; i++) {
-        const nextDue = add30Days(new Date(dueDate), i * repeatInterval * 30)
         onSave({
           ...baseData,
-          dueDate: formatDate(nextDue),
+          dueDate: repeatDueDate(dueDate, i, repeatInterval),
         })
       }
     } else {

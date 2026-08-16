@@ -312,14 +312,14 @@ export default function RoomList() {
       <LandlordContractModal
         isOpen={editContractId !== null || renewContractId !== null}
         onClose={() => { setEditContractId(null); setRenewContractId(null) }}
-        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
-          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, vacancyAllowance })
+        onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: paymentMethod || 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
           setEditContractId(null); setRenewContractId(null)
         }}
-        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+        onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const cid = renewContractId
           if (!cid) return
           // 续约：旧合同被替代（不是退租），新建合同并绑定
@@ -327,13 +327,13 @@ export default function RoomList() {
           if (oldContract) {
             updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
           }
-          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id, vacancyAllowance })
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: paymentMethod || 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
           setEditContractId(null); setRenewContractId(null)
         }}
-        onEditContract={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance) => {
+        onEditContract={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const cid = editContractId
           if (!cid) return
           // 编辑合同：原地更新合同字段（不结束旧合同、不新建合同）
@@ -341,6 +341,7 @@ export default function RoomList() {
             monthlyRent: rent || 0,
             landlordName: name,
             landlordPhone: phone,
+            paymentMethod: paymentMethod || 'quarterly',
             contractStart: cs,
             contractEnd: ce,
             deposit,
@@ -426,6 +427,7 @@ export default function RoomList() {
           } else if (contractConfirm?.action === 'delete') {
             deleteLandlordContract(contractConfirm.id, propertyId!)
           }
+          setContractConfirm(null)
         }}
         title={contractConfirm?.action === 'terminate' ? '退租确认' : '删除确认'}
         message={contractConfirm?.action === 'terminate' ? '确定退租？合同标记为已结束，未付账单将一并删除（恢复合同可找回）。' : '确定删除该合同及所有应付账单？'}
@@ -437,6 +439,7 @@ export default function RoomList() {
         onClose={() => setRoomDeleteConfirm(null)}
         onConfirm={() => {
           if (roomDeleteConfirm) deleteRoom(roomDeleteConfirm.roomId)
+          setRoomDeleteConfirm(null)
         }}
         title="删除确认"
         message={roomDeleteConfirm ? `确定删除${formatRoomLabel(roomDeleteConfirm.label)}？` : ''}

@@ -243,6 +243,7 @@ export default function Trash() {
         onConfirm={() => {
           selected.forEach(id => permanentlyDelete(id))
           setSelected(new Set())
+          setBatchDeleteConfirm(false)
         }}
         title="批量删除确认"
         message="确定永久删除选中的项目？此操作不可恢复！"
@@ -254,6 +255,7 @@ export default function Trash() {
         onClose={() => setSingleDeleteId(null)}
         onConfirm={() => {
           if (singleDeleteId) permanentlyDelete(singleDeleteId)
+          setSingleDeleteId(null)
         }}
         title="永久删除确认"
         message="确定永久删除？"

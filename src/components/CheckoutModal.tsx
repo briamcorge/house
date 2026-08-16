@@ -106,7 +106,7 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, re
                 <DollarSign className="w-4 h-4 inline mr-1" />
                 退还租金
               </label>
-              <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { if (rentPaidEnd && rentPaidEnd >= checkoutDate) { setRentRefundEnd(rentPaidEnd) } else { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="number" value={rentRefund} onChange={e => { setRentRefund(e.target.value); if (checkoutDate && parseFloat(e.target.value) > 0) { if (!rentRefundStart) setRentRefundStart(checkoutDate); if (!rentRefundEnd) { if (rentPaidEnd && rentPaidEnd >= checkoutDate) { setRentRefundEnd(rentPaidEnd) } else { const d = new Date(checkoutDate); d.setDate(d.getDate() + 60); setRentRefundEnd(d.toISOString().slice(0,10)) } } } }} min="0" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -160,6 +160,10 @@ export default function CheckoutModal({ isOpen, onClose, tenantName, deposit, re
               const r = parseFloat(rentRefund)
               const o = parseFloat(otherRefund)
               const p = parseFloat(penalty)
+              if (!checkoutDate) {
+                showError('请选择退租日期')
+                return
+              }
               if (isNaN(d) || isNaN(r) || isNaN(o) || isNaN(p)) {
                 showError('请输入有效的数字金额')
                 return
