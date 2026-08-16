@@ -45,15 +45,16 @@ export default function Statistics() {
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
-  // 该年退款 (负数账单)
+  // 该年退款 (refunded 状态的退款账单，退给租客/业主的钱)
   const yearlyRefund = useMemo(() => {
     return bills
-      .filter(b => (b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)) && b.paidDate?.startsWith(selectedYear.toString()))
+      .filter(b => b.status === 'refunded' && b.paidDate?.startsWith(selectedYear.toString()))
       .reduce((s, b) => s + Math.abs(b.amount), 0)
   }, [bills, selectedYear])
 
-  // 净收入（负数账单已自然体现在 income 中，不重复扣减）
-  const netIncome = yearlyReceivablePaid - yearlyPayablePaid
+  // 净收入 = 已收 - 已付 - 退款（退款是退回的钱，必须从净收入中扣除；
+  // 已收只含 paid 正数，refunded 账单不参与收入统计，因此这里单独扣减，不会重复）
+  const netIncome = yearlyReceivablePaid - yearlyPayablePaid - yearlyRefund
 
   // 按房源统计
   const propertyStats = useMemo(() => {
@@ -77,7 +78,7 @@ export default function Statistics() {
         .filter(b => b.direction === 'payable' && b.status === 'paid')
         .reduce((s, b) => s + b.amount, 0)
       const refund = propBills
-        .filter(b => (b.status === 'refunded' || (b.status === 'paid' && b.amount < 0)))
+        .filter(b => b.status === 'refunded')
         .reduce((s, b) => s + Math.abs(b.amount), 0)
 
       return {
@@ -87,7 +88,8 @@ export default function Statistics() {
         income,
         expense,
         refund,
-        net: income - expense,  // refund 已自然体现在 income 中，不重复扣
+        // 净收入 = 已收 - 已付 - 退款（退款单独扣减，refunded 不参与 income）
+        net: income - expense - refund,
       }
     }).sort((a, b) => b.net - a.net)
   }, [properties, rooms, tenants, bills, selectedYear])

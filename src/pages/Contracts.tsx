@@ -230,8 +230,9 @@ export default function Contracts() {
                   const room = rooms.find(r => r.id === t.roomId)
                   const prop = room ? properties.find(p => p.id === room.propertyId) : null
                   const tBills = getBillsForTenant(t.id, t.roomId)
-                  const total = tBills.reduce((s, b) => s + b.amount, 0)
-                  const paid = tBills.filter(b => b.status === 'paid').reduce((s, b) => s + b.amount, 0)
+                  // 只统计正数账单：退押金等负数退款账单不参与"未收 = 总 - 已收"，避免未收变负数（Bug 23 修复）
+                  const total = tBills.filter(b => b.status !== 'refunded' && b.amount > 0).reduce((s, b) => s + b.amount, 0)
+                  const paid = tBills.filter(b => b.status === 'paid' && b.amount > 0).reduce((s, b) => s + b.amount, 0)
                   const unpaid = total - paid
                   const daysLeft = Math.ceil((new Date(t.contractEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                   return (

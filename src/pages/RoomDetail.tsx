@@ -9,7 +9,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
-import { add30Days, formatDate } from '../utils/calculator'
+import { add30Days, formatDate, calcCoveredPeriodEnd } from '../utils/calculator'
 import { todayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 
 export default function RoomDetail() {
@@ -109,21 +109,14 @@ export default function RoomDetail() {
     }
   }, [payConfirmBill])
 
-  // 部分收款时自动填充有效期
+  // 部分收款时自动填充有效期（30/360 口径，与账单金额一致，Bug 19 修复）
   function autoFillPayPeriod(paidAmt: number) {
     const bill = payConfirmBill
     if (!bill) return
     const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
     if (!m || bill.amount <= 0) return
-    const start = new Date(m[1])
-    const end = new Date(m[2])
-    const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
-    if (totalDays <= 0) return
-    const covered = Math.round(paidAmt / bill.amount * totalDays)
-    const newEnd = new Date(start)
-    newEnd.setDate(newEnd.getDate() + covered - 1)
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(formatDateLocal(newEnd))
+    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount))
   }
 
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }
@@ -711,7 +704,7 @@ export default function RoomDetail() {
       <ConfirmModal
         isOpen={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => { if (deleteConfirm) deleteTenantAndBills(deleteConfirm.tenantId, roomId!) }}
+        onConfirm={() => { if (deleteConfirm) deleteTenantAndBills(deleteConfirm.tenantId, roomId!); setDeleteConfirm(null) }}
         title="删除合同"
         message={deleteConfirm?.isEnded ? '确定删除该合同及所有账单？' : '确定删除该合同及所有关联账单？此操作不可撤销！'}
         confirmText="删除"

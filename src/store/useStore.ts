@@ -421,6 +421,9 @@ export const useStore = create<AppStore>()(
           }
         }),
 
+      // ⚠️ 有意设计（用户确认，勿当作 bug）：编辑合同 = 删除该租客全部应收账单并重新生成，
+      // 已收/已退账单也会一并删除（不进回收站），删除后需用户在账单页手动重新添加已收记录。
+      // TenantModal 已在此操作前增加确认弹窗，防止误操作。
       editTenantContract: (tenantId, tenant, draftBills, roomId) =>
         set((state) => {
           const now = new Date().toISOString()

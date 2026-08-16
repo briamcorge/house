@@ -227,7 +227,7 @@ export default function Home() {
           <div className="mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">近期收支流水</h3>
-              <button onClick={() => navigate('/bills', { state: { direction: 'all', filterStatus: 'paid' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
+              <button onClick={() => navigate('/bills', { state: { direction: 'all', filterStatus: 'settled' } })} className="text-xs text-blue-600 hover:underline">查看全部</button>
             </div>
             {recentTransactions.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">暂无流水</p>

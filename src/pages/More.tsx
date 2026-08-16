@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, Info } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, Info, Copy } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -101,6 +101,7 @@ export default function More() {
   const [profitCycleEnd, setProfitCycleEnd] = useState('')
   const [profitResult, setProfitResult] = useState<PeriodProfitResult | null>(null)
   const [profitExtracted, setProfitExtracted] = useState(false)
+  const [profitCopied, setProfitCopied] = useState(false)
   const [profitExtractionDate, setProfitExtractionDate] = useState(todayLocal())
   const landlordPayableBills = profitPropertyId
     ? bills.filter(b => b.propertyId === profitPropertyId && b.direction === 'payable' && b.description?.includes('期'))
@@ -158,7 +159,7 @@ export default function More() {
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && (key.startsWith('sb-') || key === 'property-manager-data' || key === 'device_session_token')) keysToRemove.push(key)
+      if (key && (key.startsWith('sb-') || key === 'property-manager-data' || key === 'device_session_token' || key === 'tab_active')) keysToRemove.push(key)
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
     // 清除云同步标记，确保下次登录重新拉取云端数据
@@ -678,6 +679,35 @@ export default function More() {
     }
   }
 
+  /** 复制租客收入明细到剪贴板 */
+  const copyProfitDetail = async () => {
+    if (!profitResult) return
+    const prop = properties.find(p => p.id === profitPropertyId)
+    const lines = profitResult.tenants.map(t => {
+      let s = `${t.roomLabel} ${t.tenantName}：`
+      if (t.overlapDays > 0) s += `${t.overlapDays}天¥${t.proratedRent.toFixed(0)}`
+      t.feeBreakdown.filter(f => f.type !== 'rent' || f.amount < 0).forEach(f => {
+        s += `+${f.label}¥${f.amount.toFixed(0)}`
+      })
+      s += `=¥${(t.proratedRent + t.otherFeeIncome + t.adjustment).toFixed(0)}`
+      if (!t.rentPaid && t.expectedRent > 0) s += '（未齐）'
+      return s
+    })
+    const text = [`${prop?.address || ''} ${profitCycleStart}~${profitCycleEnd}`, ...lines].join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setProfitCopied(true)
+    setTimeout(() => setProfitCopied(false), 2000)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-100 px-4 pt-6 pb-3">
@@ -946,7 +976,17 @@ export default function More() {
                             {/* 租客明细 */}
                             {profitResult.tenants.length > 0 && (
                               <div className="border-t border-gray-200 pt-2 mt-1 space-y-0.5">
-                                <p className="text-[10px] text-gray-400 font-medium mb-0.5">租客分摊明细</p>
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <p className="text-[10px] text-gray-400 font-medium">租客收入明细</p>
+                                  <button
+                                    type="button"
+                                    onClick={copyProfitDetail}
+                                    className="flex items-center gap-0.5 text-[10px] text-blue-600 font-medium hover:text-blue-700"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    {profitCopied ? '已复制' : '一键复制'}
+                                  </button>
+                                </div>
                                 {profitResult.tenants.map(t => (
                                   <div key={t.tenantId} className="text-[11px] leading-5 text-gray-600">
                                     <span className="text-gray-700 font-medium">{t.roomLabel} {t.tenantName}</span>
@@ -1072,8 +1112,9 @@ export default function More() {
                           }
                            addProfitRecord({
                              propertyId: profitPropertyId,
-                             tenantIncome: profitResult?.tenantIncome || amount,
-                             landlordExpense: profitResult?.landlordExpense || 0,
+                             // 用 ?? 而非 ||：tenantIncome 为 0 时（负利润/无收入周期）必须存 0，不能回退成提取金额（Bug 22 修复）
+                             tenantIncome: profitResult?.tenantIncome ?? amount,
+                             landlordExpense: profitResult?.landlordExpense ?? 0,
                              profitAmount: amount,
                              cycleStart: profitCycleStart,
                              cycleEnd: profitCycleEnd,
@@ -1327,6 +1368,7 @@ export default function More() {
         onClose={() => setConfirmAction(null)}
         onConfirm={() => {
           if (confirmAction) confirmAction.onAction()
+          setConfirmAction(null)
         }}
         title={confirmAction?.title || ''}
         message={confirmAction?.message || ''}

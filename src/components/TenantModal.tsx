@@ -4,6 +4,7 @@ import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft, 
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
+import ConfirmModal from './ConfirmModal'
 
 interface TenantModalProps {
   isOpen: boolean
@@ -62,13 +63,25 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const [billSplit, setBillSplit] = useState<'front' | 'rear'>('front')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [deposit, setDeposit] = useState('')
+  const [depositTouched, setDepositTouched] = useState(false)
   const [otherFeeName, setOtherFeeName] = useState('卫管费')
   const [otherFeeAmount, setOtherFeeAmount] = useState('')
   const [error, setError] = useState('')
 
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
   const [billKey, setBillKey] = useState(0)
-  const { landlordContracts } = useStore()
+  const [confirmRegen, setConfirmRegen] = useState(false)
+  const { landlordContracts, bills } = useStore()
+
+  // 编辑非续约模式：该租客已有的已收/已退应收账单数（重新生成账单会删除这些记录）
+  const editingPaidBillCount = useMemo(() => {
+    if (!editingTenant || isRenewal) return 0
+    return bills.filter(b =>
+      b.tenantId === editingTenant.id &&
+      b.direction === 'receivable' &&
+      (b.status === 'paid' || b.status === 'refunded')
+    ).length
+  }, [bills, editingTenant, isRenewal])
 
   // 获取已选房间的业主合同期（参考用）
   const selectedRoomPropertyId = useMemo(() => {
@@ -131,7 +144,20 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     }
     setError('')
     setStep('info')
+    setDepositTouched(false)
   }, [isOpen, editingTenant, selectedRoomId])
+
+  // 续约模式：押金默认按新月租自动调整（保持旧合同的押金倍数，如押一/押二），
+  // 用户手动改过押金后不再自动覆盖
+  useEffect(() => {
+    if (!isRenewal || depositTouched) return
+    const oldRent = editingTenant?.monthlyRent
+    const oldDeposit = editingTenant?.deposit
+    const newRent = parseFloat(monthlyRent)
+    if (!oldRent || oldRent <= 0 || !oldDeposit || oldDeposit <= 0 || isNaN(newRent) || newRent <= 0) return
+    const ratio = oldDeposit / oldRent
+    setDeposit(Math.round(newRent * ratio).toString())
+  }, [monthlyRent, isRenewal, depositTouched, editingTenant])
 
   const getRoomLabel = (rid: string) => {
     const room = rooms.find(r => r.id === rid)
@@ -173,6 +199,9 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         })
       } else if (diff < 0) {
         // 押金减少：退还差额
+        // ⚠️ 负数押金账单是正常业务设计（type=deposit, direction=receivable, amount 为负）：
+        // 押金余额统计按「押金为正、退押金为负」正确抵减（More.tsx），利润计算排除押金（profit.ts）。
+        // 续约降价导致押金减少时，此负数账单用于退还差额，勿视为 bug。
         extras.push({
           type: 'deposit',
           amount: diff, // negative amount = refund
@@ -270,6 +299,24 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         showError(setError, '请输入租客姓名')
         return
       }
+      // 与 handleNext 一致的完整校验（防止保存月租0/非法日期等）
+      if (!roomId) {
+        showError(setError, '请选择房间')
+        return
+      }
+      if (!contractStart || !contractEnd) {
+        showError(setError, '请选择合同日期')
+        return
+      }
+      if (new Date(contractEnd) <= new Date(contractStart)) {
+        showError(setError, '合同结束日期必须晚于开始日期')
+        return
+      }
+      const rent = parseFloat(monthlyRent)
+      if (isNaN(rent) || rent <= 0) {
+        showError(setError, '请输入月租金')
+        return
+      }
       onSave({
         name: name.trim(),
         phone: phone.trim() || undefined,
@@ -289,7 +336,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     }
   }
 
-  const handleConfirmContract = () => {
+  const doConfirmContract = () => {
     if (!selectedRoom) return
     if (draftBills.length === 0) {
       showError(setError, '未生成账单，请返回检查合同信息')
@@ -318,6 +365,15 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     onClose()
   }
 
+  const handleConfirmContract = () => {
+    // 编辑非续约模式：该租客已有已收/已退账单，重新生成会删除这些记录 → 先弹确认
+    if (editingTenant && !isRenewal && editingPaidBillCount > 0) {
+      setConfirmRegen(true)
+      return
+    }
+    doConfirmContract()
+  }
+
   const updateDraftBill = (index: number, field: 'amount' | 'dueDate' | 'periodStart' | 'periodEnd', value: string) => {
     setDraftBills(prev => {
       const next = [...prev]
@@ -337,6 +393,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   if (!isOpen) return null
 
   return (
+    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
@@ -486,13 +543,31 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                 <input
                   type="number"
                   value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
+                  onChange={(e) => { setDepositTouched(true); setDeposit(e.target.value) }}
                   placeholder="0"
                   min="0"
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
+
+            {/* 续约押金调整释义：说明押金自动计算与负数退押金账单是正常业务 */}
+            {isRenewal && editingTenant?.deposit ? (
+              <div className="col-span-2 -mt-1">
+                {(() => {
+                  const oldDeposit = editingTenant.deposit || 0
+                  const newDeposit = parseFloat(deposit) || 0
+                  const diff = Math.round(newDeposit - oldDeposit)
+                  if (diff < 0) {
+                    return <p className="text-[11px] text-orange-600">押金减少 ¥{Math.abs(diff)}，将自动生成 -¥{Math.abs(diff)} 的退押金账单（负数金额为正常退款）</p>
+                  }
+                  if (diff > 0) {
+                    return <p className="text-[11px] text-gray-400">押金增加 ¥{diff}，将自动生成 +¥{diff} 的押金补收账单</p>
+                  }
+                  return <p className="text-[11px] text-gray-400">押金已按新月租自动调整，可手动修改</p>
+                })()}
+              </div>
+            ) : null}
 
             <div className="bg-gray-50 rounded-xl p-3">
               <div className="grid grid-cols-2 gap-2">
@@ -614,8 +689,9 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               </div>
               {draftBills.map((bill, i) => (
                 <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-2.5 shadow-sm">
-                  <span className={`text-xs px-2 py-0.5 rounded-full mb-1.5 inline-block ${bill.type === 'other' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full mb-1.5 inline-block ${bill.type === 'other' ? 'bg-purple-100 text-purple-700' : bill.amount < 0 ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
                     {bill.type === 'other' ? bill.description || '其他' : bill.description?.split(' ')[0] || '房租'}
+                    {bill.amount < 0 && <span className="ml-1">退款</span>}
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-2">
@@ -634,7 +710,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-medium"
+                        className={`flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-medium ${bill.amount < 0 ? 'text-orange-600' : ''}`}
                         step="0.01"
                       />
                     </div>
@@ -695,5 +771,17 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         )}
       </div>
     </div>
+
+    {/* 编辑合同确认：重新生成账单将删除该租客已收/已退账单 */}
+    <ConfirmModal
+      isOpen={confirmRegen}
+      onClose={() => setConfirmRegen(false)}
+      onConfirm={() => { setConfirmRegen(false); doConfirmContract() }}
+      title="重新生成账单"
+      message={`该租客已有 ${editingPaidBillCount} 笔已收/已退账单。保存合同修改将删除这些账单记录（删除后需在账单页手动重新添加），是否继续？`}
+      confirmText="继续，删除并重新生成"
+      cancelText="取消"
+    />
+    </>
   )
 }

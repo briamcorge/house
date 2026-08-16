@@ -6,9 +6,9 @@ import { formatDate, generateRentBills, DraftBill, add30Days, parseDate360, diff
 interface LandlordContractModalProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
-  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
-  onEditContract?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[]) => void
+  onConfirm: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[], paymentMethod?: PaymentMethod) => void
+  onUpdate?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[], paymentMethod?: PaymentMethod) => void
+  onEditContract?: (bills: DraftBill[], monthlyRent?: number, landlordName?: string, landlordPhone?: string, contractStart?: string, contractEnd?: string, deposit?: number, vacancyAllowance?: number | number[], paymentMethod?: PaymentMethod) => void
   onSaveEdit?: (landlordName?: string, landlordPhone?: string) => void
   propertyAddress: string
   existingRent?: number
@@ -231,11 +231,11 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
         : allowance.length === 1 ? allowance[0]
         : allowance
     if (isEditMode) {
-      onEditContract?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
+      onEditContract?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal, paymentMethod)
     } else if (existingRent !== undefined) {
-      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
+      onUpdate?.(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal, paymentMethod)
     } else {
-      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal)
+      onConfirm(draftBills, rent, landlordName.trim() || undefined, landlordPhone.trim() || undefined, contractStart, contractEnd, parseFloat(deposit) || undefined, allowanceVal, paymentMethod)
     }
     onClose()
   }
