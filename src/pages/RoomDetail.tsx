@@ -131,11 +131,17 @@ export default function RoomDetail() {
     other: Receipt,
   }
 
-  /** 获取某份合同的所有账单 */
+  /** 获取某份合同的所有账单（未收/逾期在前，已收在后；未收按应收日升序，已收按实收日降序） */
   function getContractBills(tenant: Tenant): Bill[] {
     return bills
       .filter(b => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenant.id)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .sort((a, b) => {
+        const aPaid = a.status === 'paid' || a.status === 'refunded'
+        const bPaid = b.status === 'paid' || b.status === 'refunded'
+        if (aPaid !== bPaid) return aPaid ? 1 : -1
+        if (aPaid) return (b.paidDate || '').localeCompare(a.paidDate || '')
+        return a.dueDate.localeCompare(b.dueDate)
+      })
   }
 
   if (!room) {
@@ -326,7 +332,7 @@ export default function RoomDetail() {
                               <Plus className="w-3 h-3" />添加账单
                             </button>
                           </div>
-                          <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                          <div className="divide-y divide-gray-50">
                             {tb.length === 0 ? (
                               <div className="p-4 text-center text-xs text-gray-400">暂无账单</div>
                             ) : (

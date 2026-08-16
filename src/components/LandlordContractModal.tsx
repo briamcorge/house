@@ -547,44 +547,44 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     {bill.type === 'deposit' ? '押金' : '房租'}
                   </span>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">应付日</label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">应付日</label>
                       <input
                         type="date"
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">金额</label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">金额</label>
                       <input
                         type="number"
                         defaultValue={bill.amount}
                         onChange={(e) => updateDraftBill(i, 'amount', e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm font-medium"
+                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm font-medium"
                         step="0.01"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">开始</label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">开始</label>
                       <input
                         type="date"
                         defaultValue={bill.periodStart}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-400 whitespace-nowrap w-12 shrink-0">结束</label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">结束</label>
                       <input
                         type="date"
                         defaultValue={bill.periodEnd}
                         data-draft-index={i}
                         onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                   </div>
