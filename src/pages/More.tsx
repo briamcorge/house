@@ -256,6 +256,7 @@ export default function More() {
     if (isCapacitor) {
       try {
         const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const { Share } = await import('@capacitor/share')
         // 写入临时文件
         // 分块转 base64，避免大文件展开参数导致栈溢出 (RangeError)
         const bytes = new Uint8Array(wbout)
@@ -270,20 +271,17 @@ export default function More() {
           data: base64,
           directory: Directory.Cache,
         })
-        // 用 ACTION_VIEW 打开文件：弹出系统「用以下应用打开」选择器。
-        // 百度网盘等 App 未注册 ACTION_SEND（分享）接收器，但注册了 ACTION_VIEW（打开），
-        // 因此分享菜单里看不到它们、打开菜单里可以看到 → 选百度网盘即可保存到网盘。
-        const { Capacitor } = await import('@capacitor/core')
-        const FileOpener = Capacitor.registerPlugin<{ open: (o: { path: string; mimeType?: string }) => Promise<{ value: string }> }>('FileOpener')
-        const uri = (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri
-        await FileOpener.open({
-          path: uri.replace(/^file:\/\//, ''),
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        // 分享文件（弹保存/分享菜单）
+        await Share.share({
+          title: fileName,
+          text: '房屋管理数据导出',
+          url: (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri,
         })
-        // 不删除缓存文件：用户可能需要在文件管理器中再次打开；下次导出同名文件会覆盖
+        // 清理临时文件
+        await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }).catch(() => {})
         return
       } catch (e) {
-        console.warn('Capacitor 打开失败，降级到 Web API:', e)
+        console.warn('Capacitor 导出失败，降级到 Web API:', e)
       }
     }
 
