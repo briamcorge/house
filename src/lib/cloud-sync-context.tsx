@@ -33,6 +33,14 @@ export function skipNextCloudSave() {
   _skipNextSave = true
 }
 
+// 设备锁写入失败标记（B1）：本会话登录时 upsert 到 active_sessions 失败时置位。
+// 轮询/保存前验锁发现 token 不匹配时，先抢回锁（自己可能是后登录者），
+// 避免被库里遗留下来的旧 token 误判"另一台设备登录"而把自己踢出。
+// 正常互踢场景（本机写入成功过）标记为 false → 直接踢出，不会与对方互抢锁。
+let _deviceLockWriteFailed = false
+export function setDeviceLockWriteFailed(v: boolean) { _deviceLockWriteFailed = v }
+export function isDeviceLockWriteFailed() { return _deviceLockWriteFailed }
+
 /** store 每次变更后调用，500ms 内合并多次写入成一次保存 */
 export function triggerCloudSave() {
   if (!_saveCallback) return
@@ -77,10 +85,27 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
             .eq('user_id', user.id)
             .maybeSingle()
           if (!error && data && data.session_token !== myToken) {
-            console.log('设备锁：检测到另一台设备登录，拒绝保存并踢出')
-            window.dispatchEvent(new CustomEvent('device-kicked'))
-            saving.current = false
-            return false
+            if (isDeviceLockWriteFailed()) {
+              // B1: 本会话登录时锁写入失败 → 自己才是后登录者，抢回锁再继续保存
+              const { error: upErr } = await sb.from('active_sessions')
+                .upsert({ user_id: user.id, session_token: myToken })
+              if (upErr) {
+                console.warn('设备锁抢回失败（拒绝保存）:', upErr.message)
+                saving.current = false
+                return false
+              }
+              setDeviceLockWriteFailed(false)
+            } else {
+              console.log('设备锁：检测到另一台设备登录，拒绝保存并踢出')
+              window.dispatchEvent(new CustomEvent('device-kicked'))
+              saving.current = false
+              return false
+            }
+          } else if (!error && !data) {
+            // B2: 线上本用户行丢失/不存在 → 写回自己的锁（失败不阻断保存）
+            const { error: upErr } = await sb.from('active_sessions')
+              .upsert({ user_id: user.id, session_token: myToken })
+            if (upErr) console.warn('设备锁行恢复失败:', upErr.message)
           }
         }
       }
