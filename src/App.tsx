@@ -4,7 +4,7 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
-import { skipNextCloudSave } from "./lib/cloud-sync-context";
+import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -235,8 +235,21 @@ export default function App() {
                   properties: [], rooms: [], tenants: [], bills: [],
                   landlordContracts: [], profitRecords: [], trash: [],
                 })
+              } else if (!error && !data) {
+                // B2: 线上本用户行丢失/不存在 → 写回自己的锁（自我修复，避免永久同时在线）
+                console.warn('设备锁行不存在，写回自己的锁')
+                sb.from('active_sessions')
+                  .upsert({ user_id: currentUser.id, session_token: myToken })
+                  .then(
+                    () => setDeviceTokenReady(true),
+                    err => { console.error('设备锁行恢复失败:', err); setDeviceTokenReady(true) }
+                  )
+                return
               }
-            }, err => console.error('设备锁会话检查失败:', err))
+              // 刷新/恢复会话路径也必须启动轮询，否则另一台设备登录时本机不会被踢
+              // （被踢时已 signOut，currentUser 变为 null，轮询 effect 会自行停止，无副作用）
+              setDeviceTokenReady(true)
+            }, err => { console.error('设备锁会话检查失败:', err); setDeviceTokenReady(true) })
         } else if (sb && !myToken) {
           // 没有本地 token（可能是旧版本升级来的）→ 写入当前设备为活跃设备
           const deviceToken = crypto.randomUUID()
@@ -244,8 +257,14 @@ export default function App() {
           sb.from('active_sessions')
             .upsert({ user_id: currentUser.id, session_token: deviceToken })
             .then(({ error }) => {
-              if (error) console.error('设备锁初始化失败:', error)
-            }, err => console.error('设备锁初始化异常:', err))
+              if (error) {
+                console.error('设备锁初始化失败:', error)
+                // B1: 写入失败标记，验锁发现不匹配时先抢回锁（自己可能是后登录者）
+                setDeviceLockWriteFailed(true)
+              }
+              // 写入完成（无论成败）都启用轮询，由轮询承担后续重试
+              setDeviceTokenReady(true)
+            }, err => { console.error('设备锁初始化异常:', err); setDeviceLockWriteFailed(true); setDeviceTokenReady(true) })
         }
         // 正常会话恢复 → CloudSyncProvider 自动加载云端数据
       }
@@ -263,9 +282,13 @@ export default function App() {
         sb.from('active_sessions')
           .upsert({ user_id: currentUser.id, session_token: deviceToken })
           .then(({ error }) => {
-            if (error) console.error('设备锁写入失败:', error)
+            if (error) {
+              console.error('设备锁写入失败:', error)
+              // B1: 写入失败标记，验锁发现不匹配时先抢回锁（自己才是后登录者）
+              setDeviceLockWriteFailed(true)
+            }
             setDeviceTokenReady(true)
-          }, err => console.error('设备锁写入异常:', err))
+          }, err => { console.error('设备锁写入异常:', err); setDeviceLockWriteFailed(true); setDeviceTokenReady(true) })
       } else {
         setDeviceTokenReady(true)
       }
@@ -391,8 +414,25 @@ export default function App() {
           .eq('user_id', currentUser.id)
           .maybeSingle()
         if (!error && data && data.session_token !== myToken) {
+          if (isDeviceLockWriteFailed()) {
+            // B1: 本会话登录时锁写入失败 → 自己才是后登录者，抢回锁而不是被旧 token 误踢
+            const { error: upErr } = await sb.from('active_sessions')
+              .upsert({ user_id: currentUser.id, session_token: myToken })
+            if (upErr) {
+              console.warn('设备锁抢回失败（下轮重试）:', upErr.message)
+              return
+            }
+            console.log('设备锁写入恢复成功')
+            setDeviceLockWriteFailed(false)
+            return
+          }
           console.log('设备锁：检测到另一台设备登录，强制退出')
           window.dispatchEvent(new CustomEvent('device-kicked'))
+        } else if (!error && !data) {
+          // B2: 线上本用户行丢失/不存在 → 写回自己的锁（自我修复，避免永久同时在线）
+          const { error: upErr } = await sb.from('active_sessions')
+            .upsert({ user_id: currentUser.id, session_token: myToken })
+          if (upErr) console.warn('设备锁行恢复失败:', upErr.message)
         } else if (error) {
           console.warn('设备锁查询失败:', error.message)
         }
