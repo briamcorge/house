@@ -696,7 +696,7 @@ export default function Bills() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{payConfirmBill.direction === 'receivable' ? '实收日期' : '实付日期'}</label>
                   <input
                     type="date"
                     value={payDate}
