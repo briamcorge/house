@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
 import { Building2, Users, Search, AlertTriangle, Bell, X, FileText } from 'lucide-react'
-import { formatMoney, todayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
+import { formatMoney, todayLocal, daysFromTodayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
 import { Property, Room, Tenant, LandlordContract } from '../types'
 
 type AlertType = 'expiring'
@@ -41,19 +41,22 @@ export default function Home() {
   const totalRooms = rooms.length
   const occupiedRooms = tenants.filter(t => t.status === 'active').length
 
-  const cardOverdueReceivableTotal = useMemo(() =>
-    bills.filter(b =>
+  const cardOverdueReceivableTotal = useMemo(() => {
+    const deadline = daysFromTodayLocal(3)
+    return bills.filter(b =>
       b.direction === 'receivable' &&
-      b.status === 'overdue' &&
+      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate <= deadline)) &&
       b.type !== 'deposit' &&
       !(b.tenantId && tenants.find(t => t.id === b.tenantId)?.status === 'ended')
-    ).reduce((s, b) => s + b.amount, 0),
-    [bills, tenants]
-  )
-  const cardOverduePayableTotal = useMemo(() =>
-    bills.filter(b => b.direction === 'payable' && b.status === 'overdue').reduce((s, b) => s + b.amount, 0),
-    [bills]
-  )
+    ).reduce((s, b) => s + b.amount, 0)
+  }, [bills, tenants])
+  const cardOverduePayableTotal = useMemo(() => {
+    const deadline = daysFromTodayLocal(3)
+    return bills.filter(b =>
+      b.direction === 'payable' &&
+      (b.status === 'overdue' || (b.status === 'pending' && b.dueDate <= deadline))
+    ).reduce((s, b) => s + b.amount, 0)
+  }, [bills])
 
   const expiringTenants = useMemo(() =>
     tenants.filter(t => {
@@ -197,13 +200,13 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-2 mb-4">
             <div onClick={() => navigate('/bills', { state: { direction: 'receivable', filterStatus: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-red-600">逾期账单（应收）</span>
+                <span className="text-sm font-medium text-red-600">应收</span>
               </div>
               <p className="text-xl font-bold text-red-700">¥{formatMoney(cardOverdueReceivableTotal)}</p>
             </div>
             <div onClick={() => navigate('/bills', { state: { direction: 'payable', filterStatus: 'pending' } })} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-orange-600">逾期账单（应付）</span>
+                <span className="text-sm font-medium text-orange-600">应付</span>
               </div>
               <p className="text-xl font-bold text-orange-700">¥{formatMoney(cardOverduePayableTotal)}</p>
             </div>

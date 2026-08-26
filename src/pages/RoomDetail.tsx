@@ -514,7 +514,7 @@ export default function RoomDetail() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">实收日期</label>
                   <input
                     type="date"
                     value={payDate}
