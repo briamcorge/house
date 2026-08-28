@@ -46,11 +46,12 @@ export async function signUp(email: string, password: string, name?: string, pho
   return { data, error }
 }
 
-// 退出
+// 退出（local scope：只登出本设备会话，不吊销其他设备的 refresh token。
+// 全局登出会连坐另一台已登录设备，是"互踢循环"的根源之一）
 export async function signOut() {
   const sb = getSupabase()
   if (!sb) return { error: new Error('Supabase 未配置') }
-  const { error } = await sb.auth.signOut()
+  const { error } = await sb.auth.signOut({ scope: 'local' })
   return { error }
 }
 

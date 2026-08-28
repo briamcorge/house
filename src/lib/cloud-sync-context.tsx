@@ -27,6 +27,8 @@ let _loading = false
 let _pending = false
 // 跳过下一次自动保存（用于主动清空数据等场景，防止把空数据推上云端）
 let _skipNextSave = false
+// 同步失败自动重试定时器（10 秒后重试，直到成功）
+let _retryTimer: ReturnType<typeof setTimeout> | null = null
 
 /** 主动清空数据前调用：跳过下一次自动保存，防止空数据覆盖云端 */
 export function skipNextCloudSave() {
@@ -41,7 +43,24 @@ let _deviceLockWriteFailed = false
 export function setDeviceLockWriteFailed(v: boolean) { _deviceLockWriteFailed = v }
 export function isDeviceLockWriteFailed() { return _deviceLockWriteFailed }
 
-/** store 每次变更后调用，500ms 内合并多次写入成一次保存 */
+/** 同步失败后 10 秒自动重试（在线强制：失败必须重试到成功为止） */
+function scheduleSaveRetry() {
+  if (_retryTimer) return
+  _retryTimer = setTimeout(() => {
+    _retryTimer = null
+    triggerCloudSave()
+  }, 10000)
+}
+
+function clearSaveRetry() {
+  if (_retryTimer) {
+    clearTimeout(_retryTimer)
+    _retryTimer = null
+  }
+}
+
+/** store 每次变更后调用：立即保存（50ms 仅用于合并同一次操作内的连续写入，
+ *  在线强制下不做长防抖——防止用户操作后快速关 App 导致改动永远留在本地） */
 export function triggerCloudSave() {
   if (!_saveCallback) return
   if (_loading) {
@@ -57,7 +76,7 @@ export function triggerCloudSave() {
   _saveTimer = setTimeout(() => {
     _saveTimer = null
     _saveCallback?.()
-  }, 500)
+  }, 50)
 }
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
@@ -92,11 +111,27 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
               if (upErr) {
                 console.warn('设备锁抢回失败（拒绝保存）:', upErr.message)
                 saving.current = false
+                setStatus('error')
+                setLastError('设备锁校验失败，10 秒后自动重试')
+                scheduleSaveRetry()
                 return false
               }
               setDeviceLockWriteFailed(false)
             } else {
-              console.log('设备锁：检测到另一台设备登录，拒绝保存并踢出')
+              console.log('设备锁：检测到另一台设备登录，推送本地改动后退出')
+              // 最佳努力：把本次改动先推上云端（绕过设备锁、单次尝试），再踢出，避免丢操作
+              try {
+                const st = useStore.getState()
+                await saveCloudData({
+                  properties: st.properties,
+                  rooms: st.rooms,
+                  tenants: st.tenants,
+                  bills: st.bills,
+                  landlordContracts: st.landlordContracts,
+                  profitRecords: st.profitRecords,
+                  trash: st.trash,
+                }, 1)
+              } catch { /* 推送失败不阻断踢出流程 */ }
               window.dispatchEvent(new CustomEvent('device-kicked'))
               saving.current = false
               return false
@@ -125,11 +160,17 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         trash: state.trash,
       })
       setStatus(ok ? 'synced' : 'error')
-      if (!ok) setLastError('保存失败')
+      if (!ok) {
+        setLastError('保存失败，10 秒后自动重试')
+        scheduleSaveRetry()
+      } else {
+        clearSaveRetry()
+      }
       return ok
     } catch (e) {
       setStatus('error')
-      setLastError((e as Error).message || '同步失败')
+      setLastError((e as Error).message || '同步失败，10 秒后自动重试')
+      scheduleSaveRetry()
       return false
     } finally {
       saving.current = false

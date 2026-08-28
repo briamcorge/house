@@ -4,7 +4,7 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
-import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed } from "./lib/cloud-sync-context";
+import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -24,6 +24,17 @@ import LoginPage from "./pages/LoginPage";
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024
 const WARN_THRESHOLD = 0.8
+
+// 互斥：同一次设备锁不匹配只处理一次踢出。
+// INITIAL_SESSION 检查、doSave 保存前验锁、轮询检查可能几乎同时发现同一个不匹配，
+// 各自独立 signOut 会产生 204+403 双登出请求（也是被踢数据被多次清空的放大器）。
+let lastKickHandledAt = 0
+function shouldHandleKick(): boolean {
+  const now = Date.now()
+  if (now - lastKickHandledAt < 5000) return false
+  lastKickHandledAt = now
+  return true
+}
 
 function StorageWarning() {
   const [dismissed, setDismissed] = useState(false)
@@ -163,10 +174,34 @@ function LoginRedirect({ triggered }: { triggered: boolean }) {
 
 export default function App() {
   const { user: currentUser, ready: authReady, lastEvent } = useAuth()
+  const { status: syncStatus, lastError: syncError } = useCloudSync()
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const [deviceTokenReady, setDeviceTokenReady] = useState(false)
+  // 在线强制：断网检测 + 被阻止操作提示
+  const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
+  const [offlineToast, setOfflineToast] = useState(false)
+  const offlineToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    const blocked = () => {
+      setOfflineToast(true)
+      if (offlineToastTimer.current) clearTimeout(offlineToastTimer.current)
+      offlineToastTimer.current = setTimeout(() => setOfflineToast(false), 2500)
+    }
+    window.addEventListener('app-offline-blocked', blocked)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+      window.removeEventListener('app-offline-blocked', blocked)
+      if (offlineToastTimer.current) clearTimeout(offlineToastTimer.current)
+    }
+  }, [])
 
   // 启动时注销所有旧的 Service Worker，避免缓存旧版本
   useEffect(() => {
@@ -201,17 +236,13 @@ export default function App() {
         // 没有用户 → 不清除本地数据（避免误删未同步数据）；
         // 登录后由 SIGNED_IN 按"云端优先"策略统一处理
       } else if (isNewBrowserSession) {
-        // 关过浏览器，session 无效 → 清除数据并退出（跳过本次自动保存，防止空数据覆盖云端）
+        // 理论上仅在首装/存储被系统清空时出现（登出/被踢已不再删除 tab_active）。
+        // 只登出本机会话，不清业务数据（云端为准：重登后云端覆盖）。
         const sb = getSupabase()
         if (sb) {
           skipNextCloudSave()
-          sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
-          localStorage.removeItem('property-manager-data')
+          sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
           localStorage.removeItem('device_session_token')
-          useStore.setState({
-            properties: [], rooms: [], tenants: [], bills: [],
-            landlordContracts: [], profitRecords: [], trash: [],
-          })
         }
       } else {
         // 正常会话恢复 → 检查设备锁（严格单设备模式）
@@ -224,17 +255,15 @@ export default function App() {
             .maybeSingle()
             .then(({ data, error }) => {
               if (!error && data && data.session_token !== myToken) {
-                // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 强制退出
+                // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 单设备在线，本机退出
                 console.log('检测到另一台设备登录，强制退出')
-                skipNextCloudSave()
-                sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
-                localStorage.removeItem('property-manager-data')
-                localStorage.removeItem('device_session_token')
-                localStorage.removeItem('tab_active')
-                useStore.setState({
-                  properties: [], rooms: [], tenants: [], bills: [],
-                  landlordContracts: [], profitRecords: [], trash: [],
-                })
+                if (shouldHandleKick()) {
+                  skipNextCloudSave()
+                  sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+                  localStorage.removeItem('device_session_token')
+                  // 本地业务数据与 tab_active 保留：云端为准（重登后云端覆盖），
+                  // 且避免下次冷启动被误判为"新浏览器会话"再次被踢
+                }
               } else if (!error && !data) {
                 // B2: 线上本用户行丢失/不存在 → 写回自己的锁（自我修复，避免永久同时在线）
                 console.warn('设备锁行不存在，写回自己的锁')
@@ -355,11 +384,9 @@ export default function App() {
     if (lastEvent === 'SIGNED_OUT') {
       // 操作日志（退出前记录）
       useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'delete', entity: 'auth', details: `${currentUser?.email || ''} 退出`, createdAt: new Date().toISOString() }] }))
-      // 注意：不再清空本地业务数据。
-      // 主动登出（More 页/被踢）已在各自路径手动清除；被动登出（token 过期等）
-      // 保留本地数据，避免未同步改动被静默清空（云端优先：下次登录以云端为准）。
-      // 清除浏览器会话标记，下次打开视为新会话
-      localStorage.removeItem('tab_active')
+      // 注意：不清空本地业务数据（云端为准：重登后云端覆盖），
+      // 也不删除 tab_active——删除它会导致下次冷启动被误判为
+      // "新浏览器会话"而再次被踢（互踢循环放大器，已移除）。
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastEvent])
@@ -382,17 +409,14 @@ export default function App() {
   useEffect(() => {
     const handler = () => {
       console.log('收到 device-kicked 事件，强制退出')
+      if (!shouldHandleKick()) return
       const sb = getSupabase()
       if (sb) {
         skipNextCloudSave()
-        sb.auth.signOut().catch(err => console.error('退出登录失败:', err))
-        localStorage.removeItem('property-manager-data')
+        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
         localStorage.removeItem('device_session_token')
-        localStorage.removeItem('tab_active')
-        useStore.setState({
-          properties: [], rooms: [], tenants: [], bills: [],
-          landlordContracts: [], profitRecords: [], trash: [],
-        })
+        // 本地业务数据与 tab_active 保留：云端为准（重登后云端覆盖），
+        // 且避免下次冷启动被误判为"新浏览器会话"再次被踢
       }
     }
     window.addEventListener('device-kicked', handler)
@@ -506,6 +530,24 @@ export default function App() {
           <div className="min-h-screen">
             <LoginRedirect triggered={justLoggedIn} />
             <StorageWarning />
+            {/* 在线强制：断网横幅（优先）/ 同步失败横幅 */}
+            {!online ? (
+              <div className="fixed top-0 left-0 right-0 z-[55] bg-red-600 text-white px-4 py-2 text-sm text-center font-medium">
+                ⚠ 当前离线，数据无法同步，新增/修改操作已被阻止
+              </div>
+            ) : syncStatus === 'error' ? (
+              <div className="fixed top-0 left-0 right-0 z-[55] bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700 text-center">
+                ⚠ 数据同步失败（{syncError || '未知错误'}），正在自动重试，请保持网络畅通
+              </div>
+            ) : null}
+            {/* 被阻止操作的浮动提示 */}
+            {offlineToast && (
+              <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
+                <div className="bg-gray-900/90 text-white text-sm rounded-full px-4 py-2">
+                  当前离线，操作已阻止
+                </div>
+              </div>
+            )}
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/properties" element={<Properties />} />
