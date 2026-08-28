@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
+import { useCloudSync } from '../lib/cloud-sync-context'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
 import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
@@ -141,6 +142,7 @@ export default function More() {
   const { tenantRemain, landlordRemain, balance } = calculateBalance(bills, todayLocal())
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
+  const { saveNow } = useCloudSync()
   useEffect(() => {
     if (currentUser?.id) {
       checkIsAdmin(currentUser.id).then(setIsAdmin).catch(err => {
@@ -153,13 +155,17 @@ export default function More() {
   }, [currentUser])
 
   const handleSignOut = async () => {
-    // 尝试服务端退出（不等待）
+    // 在线强制：先把未同步的改动推上云端再登出（本地不留未同步数据）
+    try { await saveNow() } catch { /* 失败不阻断登出 */ }
+    // 服务端退出（supabase.ts 内已改为 local scope：只登出本设备，不影响其他设备）
     signOut().catch(() => {})
-    // 清除本地 Supabase session + 业务数据（避免跳转后残留）
+    // 清除本地 Supabase session 与设备标识。
+    // 业务数据（property-manager-data）与 tab_active 保留：
+    // 云端为准（重登后云端覆盖），且避免下次冷启动被误判为"新浏览器会话"再次被踢
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && (key.startsWith('sb-') || key === 'property-manager-data' || key === 'device_session_token' || key === 'tab_active')) keysToRemove.push(key)
+      if (key && (key.startsWith('sb-') || key === 'device_session_token')) keysToRemove.push(key)
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
     // 清除云同步标记，确保下次登录重新拉取云端数据

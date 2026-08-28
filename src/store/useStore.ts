@@ -94,6 +94,13 @@ export const useStore = create<AppStore>()(
   persist(
     (rawSet, get) => {
       const set: typeof rawSet = ((fn) => {
+        // ⚠️ 在线强制（产品铁律）：断网时阻止一切业务数据变更。
+        // 只拦截业务操作（actions 走这里的包装 set）；
+        // 云端加载/踢出等系统路径走 useStore.setState 原始方法，不受影响。
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          window.dispatchEvent(new CustomEvent('app-offline-blocked'))
+          return
+        }
         const prev = get() as AppStore
         ;(rawSet as typeof rawSet)(fn)
         if (hydrated) {
