@@ -5,6 +5,7 @@ import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
 import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync } from "./lib/cloud-sync-context";
+import { pushAuthDiag } from "./lib/auth-diag";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -223,6 +224,7 @@ export default function App() {
       const disabled = await getUserDisabledStatus()
       if (!disabled) return
       setDisabledNotice(true)
+      pushAuthDiag({ reason: '账号被停用踢出', detail: currentUser?.email })
       if (disabledNoticeTimer.current) clearTimeout(disabledNoticeTimer.current)
       disabledNoticeTimer.current = setTimeout(() => setDisabledNotice(false), 6000)
       const sb = getSupabase()
@@ -266,6 +268,7 @@ export default function App() {
       } else if (isNewBrowserSession) {
         // 理论上仅在首装/存储被系统清空时出现（登出/被踢已不再删除 tab_active）。
         // 只登出本机会话，不清业务数据（云端为准：重登后云端覆盖）。
+        pushAuthDiag({ reason: '新浏览器会话判定（tab_active 丢失）' })
         const sb = getSupabase()
         if (sb) {
           skipNextCloudSave()
@@ -285,6 +288,12 @@ export default function App() {
               if (!error && data && data.session_token !== myToken) {
                 // 数据库里的 token 跟本地不符 → 另一台设备登录了 → 单设备在线，本机退出
                 console.log('检测到另一台设备登录，强制退出')
+                // 诊断日志：记录冷启动检查时的双端 token 指纹，用于区分真实互踢与自我竞态
+                pushAuthDiag({
+                  reason: '设备锁不匹配（冷启动检查）',
+                  localToken: myToken,
+                  dbToken: data.session_token,
+                })
                 if (shouldHandleKick()) {
                   skipNextCloudSave()
                   sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
@@ -295,6 +304,7 @@ export default function App() {
               } else if (!error && !data) {
                 // B2: 线上本用户行丢失/不存在 → 写回自己的锁（自我修复，避免永久同时在线）
                 console.warn('设备锁行不存在，写回自己的锁')
+                pushAuthDiag({ reason: '设备锁行不存在（B2 写回）', localToken: myToken })
                 sb.from('active_sessions')
                   .upsert({ user_id: currentUser.id, session_token: myToken })
                   .then(
@@ -311,6 +321,7 @@ export default function App() {
           // 没有本地 token（可能是旧版本升级来的）→ 写入当前设备为活跃设备
           const deviceToken = crypto.randomUUID()
           localStorage.setItem('device_session_token', deviceToken)
+          pushAuthDiag({ reason: '设备锁初始化（本地无 token）', localToken: deviceToken })
           sb.from('active_sessions')
             .upsert({ user_id: currentUser.id, session_token: deviceToken })
             .then(({ error }) => {
@@ -335,8 +346,14 @@ export default function App() {
       kickDisabledUser()
 
       // 生成设备会话 token，写入数据库（严格单设备模式）
-      const deviceToken = crypto.randomUUID()
+      // 优先复用本地已有 token：冷启动恢复会话时 auth-js 也会触发 SIGNED_IN 事件，
+      // 若重新生成新 token，会与并发执行的 INITIAL_SESSION 设备锁检查竞态——
+      // 检查读到旧 token ≠ 本地新 token → 误判"另一台设备登录"自我踢出（2026-08-29 实锤）。
+      // 真正重新登录时本地 token 已被登出/被踢流程删除，此处自然生成新 token，行为不变。
+      const existingToken = localStorage.getItem('device_session_token')
+      const deviceToken = existingToken || crypto.randomUUID()
       localStorage.setItem('device_session_token', deviceToken)
+      pushAuthDiag({ reason: 'SIGNED_IN 写锁', localToken: deviceToken, detail: existingToken ? '复用本地 token' : '生成新 token' })
       const sb = getSupabase()
       if (sb) {
         // 必须 await 写入完成，否则轮询会看到旧 token 把自己踢掉
@@ -414,6 +431,8 @@ export default function App() {
     }
 
     if (lastEvent === 'SIGNED_OUT') {
+      // 诊断日志：记录登出事件（含被动登出/库级会话失效），配合触发点记录可还原完整链条
+      pushAuthDiag({ reason: 'SIGNED_OUT 事件', detail: currentUser?.email || '未知用户' })
       // 操作日志（退出前记录）
       useStore.setState((s) => ({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'delete', entity: 'auth', details: `${currentUser?.email || ''} 退出`, createdAt: new Date().toISOString() }] }))
       // 注意：不清空本地业务数据（云端为准：重登后云端覆盖），
@@ -441,6 +460,7 @@ export default function App() {
   useEffect(() => {
     const handler = () => {
       console.log('收到 device-kicked 事件，强制退出')
+      pushAuthDiag({ reason: '收到 device-kicked 事件，执行踢出' })
       if (!shouldHandleKick()) return
       const sb = getSupabase()
       if (sb) {
@@ -483,6 +503,11 @@ export default function App() {
             return
           }
           console.log('设备锁：检测到另一台设备登录，强制退出')
+          pushAuthDiag({
+            reason: '设备锁不匹配（轮询/前台检查）',
+            localToken: myToken,
+            dbToken: data.session_token,
+          })
           window.dispatchEvent(new CustomEvent('device-kicked'))
         } else if (!error && !data) {
           // B2: 线上本用户行丢失/不存在 → 写回自己的锁（自我修复，避免永久同时在线）
