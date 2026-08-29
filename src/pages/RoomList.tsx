@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
-import { RoomLabel } from '../types'
+import { RoomLabel, PaymentMethod } from '../types'
 import { formatRoomLabel } from '../lib/utils'
+import { DraftBill } from '../utils/calculator'
 import RoomCard from '../components/RoomCard'
 import RoomModal from '../components/RoomModal'
 import TenantModal from '../components/TenantModal'
@@ -46,9 +47,22 @@ export default function RoomList() {
   const [contractConfirm, setContractConfirm] = useState<{ id: string; action: 'terminate' | 'delete' } | null>(null)
   const [landlordCheckout, setLandlordCheckout] = useState<{ id: string; name: string; deposit: number } | null>(null)
   const [detailContractId, setDetailContractId] = useState<string | null>(null)
-  const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
-  const [menuOpenContractId, setMenuOpenContractId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'rooms' | 'contracts'>('rooms')
+const [roomDeleteConfirm, setRoomDeleteConfirm] = useState<{ roomId: string; label: string } | null>(null)
+const [menuOpenContractId, setMenuOpenContractId] = useState<string | null>(null)
+const [activeTab, setActiveTab] = useState<'rooms' | 'contracts'>('rooms')
+// 编辑合同且存在已付账单时，先弹确认框（已付账单删除后需手动重新认账）
+const [editContractPending, setEditContractPending] = useState<{
+  draftBills: DraftBill[]
+  rent: number
+  name: string
+  phone: string
+  cs: string
+  ce: string
+  deposit: number
+  vacancyAllowance: number | number[]
+  paymentMethod: PaymentMethod
+  paidCount: number
+} | null>(null)
 
   if (!property) {
     return (
@@ -336,24 +350,44 @@ export default function RoomList() {
         onEditContract={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const cid = editContractId
           if (!cid) return
-          // 编辑合同：原地更新合同字段（不结束旧合同、不新建合同）
-          updateLandlordContract(cid, {
-            monthlyRent: rent || 0,
-            landlordName: name,
-            landlordPhone: phone,
-            paymentMethod: paymentMethod || 'quarterly',
-            contractStart: cs,
-            contractEnd: ce,
-            deposit,
-            vacancyAllowance,
-          })
-          // 老账单全部删除（含已收/已付，由用户手动重新认账）
-          bills.filter(b => b.landlordContractId === cid).forEach(b => deleteBill(b.id))
-          // 生成新账单（含押金全额/调整）
-          draftBills.forEach((bill) => {
-            addBill({ propertyId: propertyId!, landlordContractId: cid, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
-          })
-          setEditContractId(null); setRenewContractId(null)
+          // 已付账单删除后需手动重新认账：存在已付账单时先弹确认框，避免误操作丢付款记录
+          const paidCount = bills.filter(b => b.landlordContractId === cid && b.status === 'paid').length
+          const doEditContract = () => {
+            // 编辑合同：原地更新合同字段（不结束旧合同、不新建合同）
+            updateLandlordContract(cid, {
+              monthlyRent: rent || 0,
+              landlordName: name,
+              landlordPhone: phone,
+              paymentMethod: paymentMethod || 'quarterly',
+              contractStart: cs,
+              contractEnd: ce,
+              deposit,
+              vacancyAllowance,
+            })
+            // 老账单全部删除（含已收/已付，由用户手动重新认账）
+            bills.filter(b => b.landlordContractId === cid).forEach(b => deleteBill(b.id))
+            // 生成新账单（含押金全额/调整）
+            draftBills.forEach((bill) => {
+              addBill({ propertyId: propertyId!, landlordContractId: cid, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
+            })
+            setEditContractId(null); setRenewContractId(null)
+          }
+          if (paidCount > 0) {
+            setEditContractPending({
+              draftBills,
+              rent: rent || 0,
+              name: name || '',
+              phone: phone || '',
+              cs: cs || '',
+              ce: ce || '',
+              deposit: deposit || 0,
+              vacancyAllowance: vacancyAllowance || 0,
+              paymentMethod: paymentMethod || 'quarterly',
+              paidCount,
+            })
+          } else {
+            doEditContract()
+          }
         }}
         isEditMode={editContractId !== null}
         isRenewal={renewContractId !== null}
@@ -431,6 +465,38 @@ export default function RoomList() {
         }}
         title={contractConfirm?.action === 'terminate' ? '退租确认' : '删除确认'}
         message={contractConfirm?.action === 'terminate' ? '确定退租？合同标记为已结束，未付账单将一并删除（恢复合同可找回）。' : '确定删除该合同及所有应付账单？'}
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={editContractPending !== null}
+        onClose={() => setEditContractPending(null)}
+        onConfirm={() => {
+          if (!editContractPending) return
+          const { draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod, paidCount } = editContractPending
+          const cid = editContractId
+          if (!cid) { setEditContractPending(null); return }
+          updateLandlordContract(cid, {
+            monthlyRent: rent,
+            landlordName: name,
+            landlordPhone: phone,
+            paymentMethod,
+            contractStart: cs,
+            contractEnd: ce,
+            deposit,
+            vacancyAllowance,
+          })
+          // 老账单全部删除（含已收/已付，由用户手动重新认账）
+          bills.filter(b => b.landlordContractId === cid).forEach(b => deleteBill(b.id))
+          // 生成新账单（含押金全额/调整）
+          draftBills.forEach((bill) => {
+            addBill({ propertyId: propertyId!, landlordContractId: cid, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
+          })
+          setEditContractId(null); setRenewContractId(null)
+          setEditContractPending(null)
+        }}
+        title="确认修改合同？"
+        message={`该合同有 ${editContractPending?.paidCount ?? 0} 张已付账单，修改后将删除全部旧账单并重新生成，已付记录需手动重新认账。确定继续？`}
         variant="danger"
       />
 

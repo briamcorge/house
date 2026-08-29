@@ -9,10 +9,10 @@ create table if not exists user_data (
 
 alter table user_data enable row level security;
 
--- 用户只能看到/修改自己的数据
+-- 用户只能看到/修改自己的数据（被停用用户无权访问自己的行）
 drop policy if exists "users_own_data" on user_data;
 create policy "users_own_data" on user_data
-  for all using (auth.uid() = user_id);
+  for all using (auth.uid() = user_id and not disabled);
 
 -- 管理员可以看到所有 user_data
 drop policy if exists "admins_read_all" on user_data;
@@ -65,11 +65,11 @@ as $$
   select true;
 $$;
 
--- 6. 管理员停用/启用用户
+-- 6. 管理员停用/启用用户（仅管理员可执行，防止普通用户越权修改他人 disabled 状态）
 create or replace function set_user_disabled(target_user_id uuid, is_disabled boolean)
 returns void
 language sql
 security definer
 as $$
-  update user_data set disabled = is_disabled where user_id = target_user_id;
+  update user_data set disabled = is_disabled where user_id = target_user_id and (select is_admin());
 $$;

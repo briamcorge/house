@@ -9,7 +9,7 @@ import BillSummaryModal from '../components/BillSummaryModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import { add30Days, formatDate } from '../utils/calculator'
-import { pinyinSortKey, matchText } from '../lib/utils'
+import { pinyinSortKey, matchText, todayLocal } from '../lib/utils'
 import { Edit2, Trash2, MoreVertical, Plus, Search, FileText, User } from 'lucide-react'
 
 export default function Properties() {
@@ -275,7 +275,7 @@ export default function Properties() {
         onUpdate={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const pid = landlordEdit?.pid
           if (!pid) return
-          const now = new Date().toISOString().slice(0, 7)
+          const now = todayLocal().slice(0, 7)
           // 结束旧合同（续约被替代，不是退租）
           const oldContract = landlordContracts.find(c => c.propertyId === pid && c.status === 'active')
           if (oldContract) {

@@ -3,7 +3,7 @@ import { HashRouter as Router, Routes, Route, useNavigate } from "react-router-d
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./lib/auth-context";
 import { useStore } from "./store/useStore";
-import { isSupabaseConfigured, getSupabase, updatePassword } from "./lib/supabase";
+import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
 import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync } from "./lib/cloud-sync-context";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
@@ -183,6 +183,9 @@ export default function App() {
   const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [offlineToast, setOfflineToast] = useState(false)
   const offlineToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 账号被停用提示（登录页/应用页都可见）
+  const [disabledNotice, setDisabledNotice] = useState(false)
+  const disabledNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const goOnline = () => setOnline(true)
@@ -192,7 +195,7 @@ export default function App() {
     const blocked = () => {
       setOfflineToast(true)
       if (offlineToastTimer.current) clearTimeout(offlineToastTimer.current)
-      offlineToastTimer.current = setTimeout(() => setOfflineToast(false), 2500)
+      offlineToastTimer.current = setTimeout(() => setOfflineToast(false), 4000)
     }
     window.addEventListener('app-offline-blocked', blocked)
     return () => {
@@ -214,6 +217,26 @@ export default function App() {
     }
   }, [])
 
+  // 停用检查：账号被管理员停用 → 本地登出 + 顶部提示（异步，不阻塞正常流程）
+  const kickDisabledUser = useCallback(async () => {
+    try {
+      const disabled = await getUserDisabledStatus()
+      if (!disabled) return
+      setDisabledNotice(true)
+      if (disabledNoticeTimer.current) clearTimeout(disabledNoticeTimer.current)
+      disabledNoticeTimer.current = setTimeout(() => setDisabledNotice(false), 6000)
+      const sb = getSupabase()
+      if (sb) {
+        skipNextCloudSave()
+        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+        localStorage.removeItem('device_session_token')
+      }
+    } catch (err) {
+      // 检查失败不阻塞登录（fail-open）
+      console.warn('停用状态检查失败:', err)
+    }
+  }, [])
+
   // 监听 auth 事件，执行业务逻辑
   useEffect(() => {
     if (!isSupabaseConfigured() || !lastEvent) return
@@ -231,6 +254,11 @@ export default function App() {
 
       // 标记当前浏览器"活跃"（跨标签页共享）
       localStorage.setItem('tab_active', '1')
+
+      // 停用检查：会话恢复时也要踢出被停用的账号（异步，不阻塞启动流程）
+      if (currentUser) {
+        kickDisabledUser()
+      }
 
       if (!currentUser) {
         // 没有用户 → 不清除本地数据（避免误删未同步数据）；
@@ -301,6 +329,10 @@ export default function App() {
 
     if (lastEvent === 'SIGNED_IN' && currentUser) {
       setShowAuth(false)
+
+      // 停用检查：登录成功但账号已被停用 → 立即登出并提示
+      setDisabledNotice(false)
+      kickDisabledUser()
 
       // 生成设备会话 token，写入数据库（严格单设备模式）
       const deviceToken = crypto.randomUUID()
@@ -513,6 +545,14 @@ export default function App() {
 
   return (
     <Router>
+      {/* 账号被停用提示（登录页/应用页都可见） */}
+      {disabledNotice && (
+        <div className="fixed top-4 left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none">
+          <div className="bg-red-600 text-white text-sm rounded-full px-4 py-2 shadow-lg">
+            该账号已被停用，请联系管理员
+          </div>
+        </div>
+      )}
       {/* 未登录 → 显示登录页 */}
       {isSupabaseConfigured() && authReady && !currentUser ? (
         <LoginPage onLogin={() => {}} />
@@ -544,7 +584,7 @@ export default function App() {
             {offlineToast && (
               <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
                 <div className="bg-gray-900/90 text-white text-sm rounded-full px-4 py-2">
-                  当前离线，操作已阻止
+                  网络异常，操作未保存，请检查网络后重试
                 </div>
               </div>
             )}

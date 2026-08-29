@@ -53,15 +53,13 @@ export default function Tenants() {
           return
         }
       }
-      updateTenant(editingTenant.id, data)
       if (oldRoomId !== data.roomId) {
-        // 迁移该租客所有账单的 roomId（与 changeTenantRoom 行为一致，避免孤儿账单/利润漏算）
-        useStore.setState((state) => ({
-          bills: state.bills.map(b => b.tenantId === editingTenant.id ? { ...b, roomId: data.roomId! } : b),
-        }))
-        if (oldRoomId) useStore.getState().updateRoom(oldRoomId, { status: 'vacant' })
-        if (data.roomId) useStore.getState().updateRoom(data.roomId, { status: 'occupied' })
+        // 换房：先走受保护的 changeTenantRoom 原子迁移（租客 roomId + 账单 roomId + 房间状态），
+        // 离线时该 action 被 store guard 整体拦截，不会出现「租客没换房但账单 roomId 已改」的孤儿账单。
+        // 必须先迁移再 updateTenant：否则 updateTenant 已改 roomId，changeTenantRoom 会因 roomId 相同直接返回
+        useStore.getState().changeTenantRoom(editingTenant.id, data.roomId!)
       }
+      updateTenant(editingTenant.id, data)
     }
     setEditingTenant(undefined)
     setShowModal(false)

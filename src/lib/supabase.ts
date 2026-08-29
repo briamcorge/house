@@ -4,8 +4,10 @@ let _supabase: SupabaseClient | null = null
 
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://jvpkqqnfzkkcztkbzpdx.supabase.co'
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2cGtxcW5memtrY3p0a2J6cGR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwOTUzNDEsImV4cCI6MjA5NjY3MTM0MX0.qUyyUzdD9EZE2iYvfGl0NMQOEZaRaUoKPjkq7ZtS9P0'
+  // 凭据只从环境变量读取（.env），不再内置硬编码回退
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) return null
   _supabase = createClient(url, key)
   return _supabase
 }
@@ -13,7 +15,7 @@ function getSupabase(): SupabaseClient | null {
 export { getSupabase }
 
 export function isSupabaseConfigured() {
-  return true
+  return !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY
 }
 
 export type SupabaseData = {
@@ -228,6 +230,25 @@ export async function hasCloudData(): Promise<boolean | null> {
     .maybeSingle()
   if (error) return null
   return !!data
+}
+
+/**
+ * 获取当前登录用户是否被停用（登录后调用，用于阻止被停用用户使用）。
+ * 返回 true 表示 disabled === true；行不存在 / 查询出错 / 未登录一律返回 false。
+ * 永不抛异常。
+ */
+export async function getUserDisabledStatus(): Promise<boolean> {
+  const sb = getSupabase()
+  if (!sb) return false
+  const { data: { user }, error: userError } = await sb.auth.getUser()
+  if (userError || !user) return false
+  const { data, error } = await sb
+    .from('user_data')
+    .select('disabled')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error || !data) return false
+  return data.disabled === true
 }
 
 // 保存数据到云端

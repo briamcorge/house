@@ -168,11 +168,6 @@ export default function More() {
       if (key && (key.startsWith('sb-') || key === 'device_session_token')) keysToRemove.push(key)
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
-    // 清除云同步标记，确保下次登录重新拉取云端数据
-    for (let i = sessionStorage.length - 1; i >= 0; i--) {
-      const k = sessionStorage.key(i)
-      if (k?.startsWith('cloud_init_loaded_')) sessionStorage.removeItem(k)
-    }
     // 跳转到 App 根路径（处理子路径部署，如 /house/）
     window.location.href = import.meta.env.BASE_URL
   }
@@ -319,7 +314,14 @@ export default function More() {
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
+    // 在线强制（产品铁律）：断网时阻止导入（导入会直接 setState 替换全部数据，绕过 store 的离线守卫）
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setAlertState({ title: '提示', message: '当前离线，无法导入数据，请恢复网络后重试', variant: 'info' })
+      e.target.value = ''
+      return
+    }
+
     // 检查是否已登录
     if (!currentUser) {
       setAlertState({ title: '提示', message: '请先登录，再导入 Excel 数据，否则数据无法同步到云端。', variant: 'info' })
@@ -556,11 +558,6 @@ export default function More() {
                 setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
               } else {
                 console.log('✅ Excel 数据已成功保存到云端')
-                if (currentUser?.id) {
-                  const flagKey = `cloud_init_loaded_${currentUser.id}`
-                  sessionStorage.setItem(flagKey, '1')
-                  console.log('✅ 已设置 sessionStorage 标记:', flagKey)
-                }
               }
             } catch (err) {
               console.error('云端保存异常', err)
@@ -618,11 +615,6 @@ export default function More() {
               setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
             } else {
               console.log('✅ Excel 数据已成功保存到云端')
-              if (currentUser?.id) {
-                const flagKey = `cloud_init_loaded_${currentUser.id}`
-                sessionStorage.setItem(flagKey, '1')
-                console.log('✅ 已设置 sessionStorage 标记:', flagKey)
-              }
             }
           } catch (err) {
             console.error('云端保存异常', err)
@@ -675,6 +667,13 @@ export default function More() {
           if (!alreadyExtracted) {
             setProfitAmount(String(Math.round(result.profitAmount)))
           }
+        } else {
+          // 描述格式无法识别（如被手动修改/导入异常）：清空上一次的周期与结果，防止旧数据残留显示
+          setProfitCycleStart('')
+          setProfitCycleEnd('')
+          setProfitResult(null)
+          setProfitAmount('')
+          setAlertState({ title: '提示', message: '账单描述格式无法识别，无法提取周期。\n\n该账单描述应为「第N期 X租 YYYY-MM-DD ~ YYYY-MM-DD」格式。若描述被手动修改过，请恢复原格式或改选其他账单。', variant: 'info' })
         }
       }
     } else {
