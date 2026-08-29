@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useRef, useCallback, useEffect, Re
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
 import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData } from './supabase'
+import { pushAuthDiag } from './auth-diag'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -124,6 +125,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
               setDeviceLockWriteFailed(false)
             } else {
               console.log('设备锁：检测到另一台设备登录，推送本地改动后退出')
+              // 诊断日志：保存前验锁发现不匹配，记录双端 token 指纹
+              pushAuthDiag({
+                reason: '设备锁不匹配（保存前检查）',
+                localToken: myToken,
+                dbToken: data.session_token,
+              })
               // 最佳努力：把本次改动先推上云端（绕过设备锁、单次尝试），再踢出，避免丢操作
               try {
                 const st = useStore.getState()

@@ -9,6 +9,7 @@ import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
+import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
 import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
@@ -66,6 +67,12 @@ const menuItems: MenuItem[] = [
     color: 'purple'
   },
   {
+    icon: History,
+    label: '诊断日志',
+    description: '查看登出/登录记录',
+    color: 'gray'
+  },
+  {
     icon: Settings,
     label: '设置',
     description: '应用设置',
@@ -87,6 +94,9 @@ export default function More() {
   const [showBackup, setShowBackup] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showDiag, setShowDiag] = useState(false)
+  const [diagList, setDiagList] = useState<AuthDiagEntry[]>(() => getAuthDiag())
+  const [diagCopied, setDiagCopied] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
   const [showPaidDepositList, setShowPaidDepositList] = useState(false)
   const { user: currentUser, ready: supabaseReady } = useAuth()
@@ -155,6 +165,8 @@ export default function More() {
   }, [currentUser])
 
   const handleSignOut = async () => {
+    // 诊断日志：记录手动退出
+    pushAuthDiag({ reason: '用户手动退出', detail: currentUser?.email })
     // 在线强制：先把未同步的改动推上云端再登出（本地不留未同步数据）
     try { await saveNow() } catch { /* 失败不阻断登出 */ }
     // 服务端退出（supabase.ts 内已改为 local scope：只登出本设备，不影响其他设备）
@@ -791,6 +803,7 @@ export default function More() {
               const isAbout = item.label === '关于'
               const isProfit = item.label === '利润提取'
               const isSettings = item.label === '设置'
+              const isDiag = item.label === '诊断日志'
               
               return (
                 <div key={index}>
@@ -804,9 +817,10 @@ export default function More() {
                     else if (isProfit) setShowProfitForm(!showProfitForm)
                     else if (isSettings) setShowSettings(!showSettings)
                     else if (isAbout) setShowAbout(!showAbout)
+                    else if (isDiag) { setDiagList(getAuthDiag()); setShowDiag(!showDiag) }
                     else setAlertState({ title: '提示', message: `${item.label}功能开发中...`, variant: 'info' })
                   }}
-                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings ? 'rounded-b-none border-b-0' : ''}`}
+                  className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings || isDiag && showDiag ? 'rounded-b-none border-b-0' : ''}`}
                 >
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[item.color]}`}>
                     <Icon className="w-6 h-6" />
@@ -815,7 +829,7 @@ export default function More() {
                     <p className="font-medium text-gray-900">{item.label}</p>
                     <p className="text-sm text-gray-500">{item.description}</p>
                   </div>
-                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings ? 'rotate-90' : ''}`}>
+                  <div className={`w-5 h-5 text-gray-300 transition-transform ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings || isDiag && showDiag ? 'rotate-90' : ''}`}>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -891,6 +905,56 @@ export default function More() {
                         </div>
                       )
                     })()}
+                  </div>
+                )}
+                {isDiag && showDiag && (
+                  <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
+                    <p className="text-xs text-gray-400 mb-2">登出/登录/被踢诊断记录（仅本机保存，最多 50 条）。下次遇到自动退出，把这里的内容复制发给开发者即可定位原因。</p>
+                    {diagList.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">暂无记录</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-64 overflow-y-auto mb-3">
+                        {[...diagList].reverse().map((e, i) => (
+                          <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                            <div className="text-gray-500">
+                              {new Date(e.t).toLocaleString('zh-CN', { hour12: false })} · {e.reason}
+                              {e.detail ? <span className="text-gray-400">（{e.detail}）</span> : null}
+                            </div>
+                            {(e.localToken || e.dbToken) && (
+                              <div className="text-gray-400 mt-0.5 font-mono truncate">
+                                本地 {e.localToken ?? '-'} | 云端 {e.dbToken ?? '-'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const text = diagList.map(e => `[${new Date(e.t).toISOString()}] ${e.reason}${e.detail ? ` (${e.detail})` : ''}${e.localToken || e.dbToken ? ` | 本地=${e.localToken ?? '-'} 云端=${e.dbToken ?? '-'}` : ''}`).join('\n')
+                            await navigator.clipboard.writeText(text)
+                            setDiagCopied(true)
+                            setTimeout(() => setDiagCopied(false), 2000)
+                          } catch {
+                            setAlertState({ title: '提示', message: '复制失败，请用浏览器远程调试查看 localStorage', variant: 'info' })
+                          }
+                        }}
+                        className="flex-1 py-2 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                      >
+                        <Copy className="w-4 h-4" />
+                        <span>{diagCopied ? '已复制' : '复制全部'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { clearAuthDiag(); setDiagList([]) }}
+                        className="flex-1 py-2 px-3 bg-gray-50 text-gray-600 rounded-xl font-medium hover:bg-gray-100 transition-colors text-sm"
+                      >
+                        清空
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isAbout && showAbout && (
