@@ -1,5 +1,4 @@
 import { Tenant, Bill, Room } from '../types'
-import { add30Days, formatDate } from './calculator'
 import { formatRoomLabel } from '../lib/utils'
 
 /** 30/360 日期解析：每月30天，Feb 28→30，任何31→30 */
@@ -185,9 +184,15 @@ export function calculatePeriodProfit(
     // 卫管费及其他收入：一次性费用，按应收/实收日归属当前周期，全额计入不重复
     const otherFeeBills = periodBills.filter(b =>
       (b.type === 'other' || b.type === 'sublease' || b.type === 'hygiene') &&
-      b.status === 'paid'
+      b.status === 'paid' // 利润只算已收的钱（未收费用不参与利润计算，与下方房租 paidRent 同一原则）
     )
-    const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + b.amount, 0)
+    // ⚠️ 金额口径（与 paidRent 保持一致）：已收账单统一按「实收金额」paidAmount || amount 计算。
+    // 为什么不会虚增：app 拆单/收款流程从不设置 paidAmount（拆单 = 新开一张 amount=实收额的已付账单），
+    // 正常使用下已付账单的 amount 即实收额，与 paidAmount || amount 等价。
+    // paidAmount 只在手动编辑账单（BillModal）或 Excel 导入「已付金额」列时出现；
+    // 此时若部分收款（paidAmount < amount）仍按 amount 全额算，会高估收入——且下方的收齐门槛
+    // （rentPaid / allPaid）只检查房租账单，拦不住其他费用，必须在此按实收算。
+    const otherFeePaidAmount = otherFeeBills.reduce((s, b) => s + (b.paidAmount || b.amount), 0)
 
     // 生成费用明细清单（排除押金），按类型分组合并；非房租账单（卫管费等）按覆盖期分摊到周期
     const feeGroups = new Map<string, FeeGroup>()
@@ -308,43 +313,4 @@ export function calculateAllCycles(
       bills,
     )
   )
-}
-
-/**
- * 根据业主合同付款方式和业主应付账单，生成所有周期列表。
- */
-export function generateCycles(
-  paymentMethod: string,
-  startDate: string,
-  payableBills: Bill[],
-): { cycleStart: string; cycleEnd: string; landlordPaid: number }[] {
-  const periodMonths = paymentMethod === 'monthly' ? 1
-    : paymentMethod === 'bi-monthly' ? 2
-    : paymentMethod === 'quarterly' ? 3
-    : paymentMethod === 'semi-annual' ? 6
-    : 12
-  const periodDays = periodMonths * 30
-
-  const cycles: { cycleStart: string; cycleEnd: string; landlordPaid: number }[] = []
-  const lastBillDate = payableBills.length > 0
-    ? payableBills[payableBills.length - 1].dueDate
-    : startDate
-
-  let cursor = new Date(startDate)
-  while (formatDate(cursor) <= lastBillDate) {
-    const cs = formatDate(cursor)
-    const ce = formatDate(add30Days(cursor, periodDays - 1))
-
-    const paid = payableBills
-      .filter(b => b.status === 'paid')
-      .filter(b => b.type !== 'deposit')
-      .filter(b => billOverlapsCycle(b, cs, ce))
-      .reduce((s, b) => s + b.amount, 0)
-
-    cycles.push({ cycleStart: cs, cycleEnd: ce, landlordPaid: paid })
-
-    cursor = add30Days(cursor, periodDays)
-  }
-
-  return cycles
 }

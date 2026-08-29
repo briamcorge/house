@@ -168,6 +168,7 @@ ProfitRecord / TrashItem
 - 押金账单（type=deposit 或 description 含「押金」）不参与利润计算
 - 负数账单（退租金等）不参与利润收入
 - 只有该周期内所有租客房租都足额交齐（paidRent >= expectedRent）才计入可分配利润
+- 金额口径：房租与其他费用的**已收账单统一按实收金额 `paidAmount || amount` 计算**（部分收款不虚增收入）。app 拆单/收款流程从不设置 paidAmount（拆单 = 新开一张 amount=实收额的已付账单），paidAmount 只产生于手动编辑账单（BillModal）或 Excel 导入「已付金额」列（2026-08-29 统一口径，profit.ts 有详细注释）
 
 **修改红线**：
 - 以上任何一条规则（提取流程、计算口径、负金额、卫管费归属）**不得擅自修改**

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord, AuditLogEntry } from '../types'
 import { DraftBill } from '../utils/calculator'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
-import { formatRoomLabel } from '../lib/utils'
+import { formatRoomLabel, todayLocal } from '../lib/utils'
 
 interface AppStore {
   properties: Property[]
@@ -97,9 +97,14 @@ export const useStore = create<AppStore>()(
         // ⚠️ 在线强制（产品铁律）：断网时阻止一切业务数据变更。
         // 只拦截业务操作（actions 走这里的包装 set）；
         // 云端加载/踢出等系统路径走 useStore.setState 原始方法，不受影响。
-        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        // 云同步失败后 60s 内同样视为离线（__cloudSyncBrokenAt 由 cloud-sync-context 设置）
+        const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
+        if (
+          (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+          (brokenAt !== undefined && Date.now() - brokenAt < 60000)
+        ) {
           window.dispatchEvent(new CustomEvent('app-offline-blocked'))
-          return
+          return false
         }
         const prev = get() as AppStore
         ;(rawSet as typeof rawSet)(fn)
@@ -118,6 +123,7 @@ export const useStore = create<AppStore>()(
             triggerCloudSave()
           }
         }
+        return true
       }) as typeof rawSet
 
       // 操作日志辅助
@@ -162,17 +168,17 @@ export const useStore = create<AppStore>()(
           const prop = state.properties.find((p) => p.id === id)
           const roomIds = state.rooms.filter((r) => r.propertyId === id).map((r) => r.id)
           const trashItems: TrashItem[] = []
-          if (prop) trashItems.push({ id: createId(), type: 'property', originalId: id, data: prop, label: prop.address, deletedAt: new Date().toISOString().slice(0, 10) })
-          state.rooms.filter((r) => r.propertyId === id).forEach((r) => trashItems.push({ id: createId(), type: 'room', originalId: r.id, data: r, label: `${formatRoomLabel(r.label)}`, deletedAt: new Date().toISOString().slice(0, 10) }))
-          state.tenants.filter((t) => roomIds.includes(t.roomId)).forEach((t) => trashItems.push({ id: createId(), type: 'tenant', originalId: t.id, data: t, label: t.name, deletedAt: new Date().toISOString().slice(0, 10) }))
-          state.landlordContracts.filter((c) => c.propertyId === id).forEach((c) => trashItems.push({ id: createId(), type: 'landlord_contract', originalId: c.id, data: c, label: `代理合同 ${c.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          if (prop) trashItems.push({ id: createId(), type: 'property', originalId: id, data: prop, label: prop.address, deletedAt: todayLocal() })
+          state.rooms.filter((r) => r.propertyId === id).forEach((r) => trashItems.push({ id: createId(), type: 'room', originalId: r.id, data: r, label: `${formatRoomLabel(r.label)}`, deletedAt: todayLocal() }))
+          state.tenants.filter((t) => roomIds.includes(t.roomId)).forEach((t) => trashItems.push({ id: createId(), type: 'tenant', originalId: t.id, data: t, label: t.name, deletedAt: todayLocal() }))
+          state.landlordContracts.filter((c) => c.propertyId === id).forEach((c) => trashItems.push({ id: createId(), type: 'landlord_contract', originalId: c.id, data: c, label: `代理合同 ${c.displayId}`, deletedAt: todayLocal() }))
           const billBelongsTo = (b: Bill) => b.propertyId === id || (b.roomId && roomIds.includes(b.roomId))
           if (keepPaidBills) {
             // 保留已付账单，只删未付
-            state.bills.filter((b) => billBelongsTo(b) && b.status !== 'paid').forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+            state.bills.filter((b) => billBelongsTo(b) && b.status !== 'paid').forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           } else {
             // 全部账单删除
-            state.bills.filter(billBelongsTo).forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+            state.bills.filter(billBelongsTo).forEach((b) => trashItems.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           }
           return {
             properties: state.properties.filter((p) => p.id !== id),
@@ -211,9 +217,9 @@ export const useStore = create<AppStore>()(
         set((state) => {
           const room = state.rooms.find((r) => r.id === id)
           const trash: TrashItem[] = []
-          if (room) trash.push({ id: createId(), type: 'room', originalId: id, data: room, label: `${formatRoomLabel(room.label)}`, deletedAt: new Date().toISOString().slice(0, 10) })
+          if (room) trash.push({ id: createId(), type: 'room', originalId: id, data: room, label: `${formatRoomLabel(room.label)}`, deletedAt: todayLocal() })
           // 只删未付账单，已付账单保留作为历史流水
-          state.bills.filter((b) => b.roomId === id && b.status !== 'paid').forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          state.bills.filter((b) => b.roomId === id && b.status !== 'paid').forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           return {
             rooms: state.rooms.filter((r) => r.id !== id),
             bills: state.bills.filter((b) => !(b.roomId === id && b.status !== 'paid')),
@@ -282,8 +288,8 @@ export const useStore = create<AppStore>()(
         set((state) => {
           const tenant = state.tenants.find((t) => t.id === id)
           const trash: TrashItem[] = []
-          if (tenant) trash.push({ id: createId(), type: 'tenant', originalId: id, data: tenant, label: tenant.name, deletedAt: new Date().toISOString().slice(0, 10) })
-          state.bills.filter((b) => b.tenantId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount} ${b.type}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          if (tenant) trash.push({ id: createId(), type: 'tenant', originalId: id, data: tenant, label: tenant.name, deletedAt: todayLocal() })
+          state.bills.filter((b) => b.tenantId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount} ${b.type}`, deletedAt: todayLocal() }))
           return {
             tenants: state.tenants.filter((t) => t.id !== id),
             bills: state.bills.filter((b) => b.tenantId !== id),
@@ -394,7 +400,7 @@ export const useStore = create<AppStore>()(
           const bill = state.bills.find((b) => b.id === id)
           return {
             bills: state.bills.filter((b) => b.id !== id),
-            trash: bill ? [...state.trash, { id: createId(), type: 'bill' as const, originalId: id, data: bill, label: `¥${bill.amount} ${bill.type}`, deletedAt: new Date().toISOString().slice(0, 10) }] : state.trash,
+            trash: bill ? [...state.trash, { id: createId(), type: 'bill' as const, originalId: id, data: bill, label: `¥${bill.amount} ${bill.type}`, deletedAt: todayLocal() }] : state.trash,
             auditLogs: recordLog(state, 'delete', 'bill', id, bill ? `¥${bill.amount}` : ''),
           }
         }),
@@ -520,7 +526,7 @@ export const useStore = create<AppStore>()(
           const contract = state.landlordContracts.find((c) => c.id === id)
           const trash: TrashItem[] = []
           if (contract) {
-            trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: new Date().toISOString().slice(0, 10) })
+            trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: todayLocal() })
             // 删除该合同关联的应付账单（landlordContractId 精确匹配）
             // 旧数据无 landlordContractId → 兜底按 propertyId + dueDate 在合同日期范围内删除
             state.bills.filter((b) =>
@@ -530,7 +536,7 @@ export const useStore = create<AppStore>()(
                   b.propertyId === propertyId &&
                   b.dueDate >= contract.contractStart &&
                   b.dueDate <= contract.contractEnd))
-            ).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+            ).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           }
           return {
             landlordContracts: state.landlordContracts.filter((c) => c.id !== id),
@@ -600,8 +606,8 @@ export const useStore = create<AppStore>()(
         set((state) => {
           const tenant = state.tenants.find((t) => t.id === id)
           const trash: TrashItem[] = []
-          if (tenant) trash.push({ id: createId(), type: 'tenant', originalId: id, data: tenant, label: tenant.name, deletedAt: new Date().toISOString().slice(0, 10) })
-          state.bills.filter((b) => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: new Date().toISOString().slice(0, 10) }))
+          if (tenant) trash.push({ id: createId(), type: 'tenant', originalId: id, data: tenant, label: tenant.name, deletedAt: todayLocal() })
+          state.bills.filter((b) => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           return {
             tenants: state.tenants.filter((t) => t.id !== id),
             bills: state.bills.filter((b) => !(b.roomId === roomId && b.direction === 'receivable' && b.tenantId === id)),
@@ -649,7 +655,7 @@ export const useStore = create<AppStore>()(
 
       addToTrash: (type, originalId, data, label) =>
         set((state) => ({
-          trash: [...state.trash, { id: createId(), type, originalId, data, label, deletedAt: new Date().toISOString().slice(0, 10) }],
+          trash: [...state.trash, { id: createId(), type, originalId, data, label, deletedAt: todayLocal() }],
         })),
 
       restoreFromTrash: (trashId) =>
@@ -832,20 +838,4 @@ export const useStore = create<AppStore>()(
   })
 )
 
-/** 数据迁移：已退租租客的合同结束日改为退租前一天（退租日当天不占房）。云端同步后需要调用 */
-export function migrateEndedTenantsContractEnd() {
-  const state = useStore.getState()
-  let changed = false
-  const tenants = state.tenants.map(t => {
-    if (t.status !== 'ended') return t
-    const ce = t.contractEnd
-    if (!ce) return t
-    const d = new Date(ce)
-    d.setDate(d.getDate() - 1)
-    const adjusted = d.toISOString().slice(0, 10)
-    if (adjusted >= ce) return t
-    changed = true
-    return { ...t, contractEnd: adjusted }
-  })
-  if (changed) useStore.setState({ tenants })
-}
+

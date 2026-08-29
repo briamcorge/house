@@ -30,6 +30,11 @@ let _skipNextSave = false
 // 同步失败自动重试定时器（10 秒后重试，直到成功）
 let _retryTimer: ReturnType<typeof setTimeout> | null = null
 
+// 同步失败标记（全局契约）：保存失败时置位，业务操作守卫据此在 60 秒内阻止新增/修改；
+// 保存成功（含 10 秒重试最终成功）时清除。仅此两处访问该全局标记。
+const markSyncBroken = () => { (window as any).__cloudSyncBrokenAt = Date.now() }
+const clearSyncBroken = () => { delete (window as any).__cloudSyncBrokenAt }
+
 /** 主动清空数据前调用：跳过下一次自动保存，防止空数据覆盖云端 */
 export function skipNextCloudSave() {
   _skipNextSave = true
@@ -161,13 +166,16 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       })
       setStatus(ok ? 'synced' : 'error')
       if (!ok) {
+        markSyncBroken()
         setLastError('保存失败，10 秒后自动重试')
         scheduleSaveRetry()
       } else {
+        clearSyncBroken()
         clearSaveRetry()
       }
       return ok
     } catch (e) {
+      markSyncBroken()
       setStatus('error')
       setLastError((e as Error).message || '同步失败，10 秒后自动重试')
       scheduleSaveRetry()
@@ -229,14 +237,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     return () => { _saveCallback = null }
   }, [doSave])
 
-  // 启动时加载云端数据（仅本地无数据时加载，避免覆盖已有数据）
+  // 启动时无条件拉取云端数据（在线强制：云端为唯一权威，本地只是缓存；
+  // 云端无数据时 loadNow 跳过覆盖，仅云端有数据才覆盖本地）
   useEffect(() => {
     if (!isSupabaseConfigured() || !ready || !user) return
-    const state = useStore.getState()
-    const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
-    if (!hasLocalData) {
-      loadNow()
-    }
+    loadNow()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user])
 

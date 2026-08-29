@@ -1,4 +1,5 @@
 import { Tenant, Room, LandlordContract } from '../types'
+import { todayLocal } from '../lib/utils'
 
 /**
  * 空置天数统计工具
@@ -18,15 +19,6 @@ export function dayDiffInclusive(a: string, b: string): number {
   const da = Date.UTC(ay, am - 1, ad)
   const db = Date.UTC(by, bm - 1, bd)
   return Math.round((db - da) / 86400000) + 1
-}
-
-/** 今天（本地时区，YYYY-MM-DD） */
-export function todayLocal(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 export interface RoomVacancy {

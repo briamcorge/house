@@ -28,30 +28,30 @@ DROP POLICY IF EXISTS "Users can update own data" ON public.user_data;
 DROP POLICY IF EXISTS "Users can delete own data" ON public.user_data;
 DROP POLICY IF EXISTS "Enable upsert for users" ON public.user_data;
 
--- 5. 创建新策略：允许用户查看、插入、更新自己的数据
+-- 5. 创建新策略：允许用户查看、插入、更新自己的数据（被停用用户无权访问自己的行）
 CREATE POLICY "Users can view own data" ON public.user_data
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id AND NOT disabled);
 
 CREATE POLICY "Users can insert own data" ON public.user_data
   FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid() = user_id AND NOT disabled);
 
 CREATE POLICY "Users can update own data" ON public.user_data
   FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id AND NOT disabled);
 
 CREATE POLICY "Users can delete own data" ON public.user_data
   FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id AND NOT disabled);
 
 -- 6. 创建策略：允许用户 upsert（插入或更新）自己的数据
 -- upsert 需要同时满足 INSERT 和 UPDATE 权限
 CREATE POLICY "Enable upsert for authenticated users" ON public.user_data
   FOR ALL
   TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (auth.uid() = user_id AND NOT disabled)
+  WITH CHECK (auth.uid() = user_id AND NOT disabled);
 
 -- 7. 检查策略是否创建成功
 SELECT schemaname, tablename, policyname, permissive, roles, cmd
