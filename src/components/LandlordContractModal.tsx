@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { PaymentMethod } from '../types'
 import { X, Calendar, DollarSign, ChevronRight, ChevronLeft, User, Phone, ChevronDown } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days, parseDate360, diffDays360 } from '../utils/calculator'
+import WheelDatePicker from './WheelDatePicker'
 
 interface LandlordContractModalProps {
   isOpen: boolean
@@ -362,12 +363,10 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   <Calendar className="w-4 h-4 inline mr-1" />
                   合同开始
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={contractStart}
-                  onChange={(e) => setContractStart(e.target.value)}
+                  onChange={(v) => setContractStart(v)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div>
@@ -375,12 +374,10 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   <Calendar className="w-4 h-4 inline mr-1" />
                   合同结束
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={contractEnd}
-                  onChange={(e) => setContractEnd(e.target.value)}
+                  onChange={(v) => setContractEnd(v)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
             </div>
@@ -549,12 +546,11 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-1.5">
                       <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">应付日</label>
-                      <input
-                        type="date"
+                      <WheelDatePicker
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
-                        onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        onChange={(v) => updateDraftBill(i, 'dueDate', v)}
+                        className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -569,22 +565,20 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     </div>
                     <div className="flex items-center gap-1.5">
                       <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">开始</label>
-                      <input
-                        type="date"
+                      <WheelDatePicker
                         defaultValue={bill.periodStart}
                         data-draft-index={i}
-                        onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        onChange={(v) => updateDraftBill(i, 'periodStart', v)}
+                        className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">结束</label>
-                      <input
-                        type="date"
+                      <WheelDatePicker
                         defaultValue={bill.periodEnd}
                         data-draft-index={i}
-                        onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        onChange={(v) => updateDraftBill(i, 'periodEnd', v)}
+                        className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                   </div>
