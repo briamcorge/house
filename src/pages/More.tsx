@@ -965,13 +965,29 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                       <button
                         type="button"
                         onClick={async () => {
+                          const text = diagList.map(e => `[${new Date(e.t).toISOString()}] ${e.reason}${e.detail ? ` (${e.detail})` : ''}${e.localToken || e.dbToken ? ` | 本地=${e.localToken ?? '-'} 云端=${e.dbToken ?? '-'}` : ''}`).join('\n')
+                          // Android WebView 里 navigator.clipboard 经常不可用（非安全上下文/WebView 未启用），
+                          // 必须降级 textarea + execCommand('copy')（与利润提取"一键复制"同一方案，手机上已验证可用）
                           try {
-                            const text = diagList.map(e => `[${new Date(e.t).toISOString()}] ${e.reason}${e.detail ? ` (${e.detail})` : ''}${e.localToken || e.dbToken ? ` | 本地=${e.localToken ?? '-'} 云端=${e.dbToken ?? '-'}` : ''}`).join('\n')
                             await navigator.clipboard.writeText(text)
                             setDiagCopied(true)
                             setTimeout(() => setDiagCopied(false), 2000)
+                            return
+                          } catch { /* 降级到 execCommand */ }
+                          try {
+                            const ta = document.createElement('textarea')
+                            ta.value = text
+                            ta.style.position = 'fixed'
+                            ta.style.opacity = '0'
+                            document.body.appendChild(ta)
+                            ta.select()
+                            const ok = document.execCommand('copy')
+                            document.body.removeChild(ta)
+                            if (!ok) throw new Error('execCommand copy 返回 false')
+                            setDiagCopied(true)
+                            setTimeout(() => setDiagCopied(false), 2000)
                           } catch {
-                            setAlertState({ title: '提示', message: '复制失败，请用浏览器远程调试查看 localStorage', variant: 'info' })
+                            setAlertState({ title: '复制失败', message: '日志无法自动复制到剪贴板。\n\n请直接截屏（本页面），把截图发给开发者即可。', variant: 'info' })
                           }
                         }}
                         className="flex-1 py-2 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
