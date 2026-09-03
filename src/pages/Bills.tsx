@@ -5,6 +5,7 @@ import { Bill, BillDirection } from '../types'
 import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
+import WheelDatePicker from '../components/WheelDatePicker'
 import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 import { calcCoveredPeriodEnd } from '../utils/calculator'
@@ -697,10 +698,9 @@ export default function Bills() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{payConfirmBill.direction === 'receivable' ? '实收日期' : '实付日期'}</label>
-                  <input
-                    type="date"
+                  <WheelDatePicker
                     value={payDate}
-                    onChange={(e) => setPayDate(e.target.value)}
+                    onChange={(v) => setPayDate(v)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -710,11 +710,11 @@ export default function Bills() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">开始日</label>
-                    <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <WheelDatePicker value={payPeriodStart} onChange={v => setPayPeriodStart(v)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">结束日</label>
-                    <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <WheelDatePicker value={payPeriodEnd} onChange={v => setPayPeriodEnd(v)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               )}

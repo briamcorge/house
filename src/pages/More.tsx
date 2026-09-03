@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
+import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
@@ -1109,10 +1110,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                           </div>
                           <div>
                             <label className="text-xs text-gray-500 mb-1 block">提取日期</label>
-                            <input
-                              type="date"
+                            <WheelDatePicker
                               value={profitExtractionDate}
-                              onChange={(e) => setProfitExtractionDate(e.target.value)}
+                              onChange={(v) => setProfitExtractionDate(v)}
                               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
