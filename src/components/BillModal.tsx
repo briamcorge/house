@@ -451,7 +451,11 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                     <input
                       type="number"
                       value={repeatCount}
-                      onChange={(e) => setRepeatCount(parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+              // 钳制到 1-60，防止误输超大值生成海量重复账单（max 属性不阻止输入）
+              const v = parseInt(e.target.value)
+              setRepeatCount(isNaN(v) ? 1 : Math.min(Math.max(v, 1), 60))
+            }}
                       min="1"
                       max="60"
                       className="w-12 px-2 py-1.5 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"

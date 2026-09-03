@@ -735,7 +735,8 @@ export default function Bills() {
                   const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
                   if (isPartial) {
                     // 拆单：原账单金额减少，新生成一笔已付账单
-                    const remaining = payConfirmBill.amount - paidAmt
+                    // 四舍五入到分，避免多次拆单后浮点累积（如 33.33×3 后剩 0.0099…）导致无法结清
+                    const remaining = Math.round((payConfirmBill.amount - paidAmt) * 100) / 100
                     // 剩余未收期间 = 本次收款结束日的次日 ~ 原账单结束日；无期间输入时无法得知拆分，保留原元数据
                     let remainingRange: { start: string; end: string } | undefined
                     if (payPeriodStart && payPeriodEnd) {
@@ -748,7 +749,7 @@ export default function Bills() {
                       }
                     }
                     const baseDesc = payConfirmBill.description || ''
-                    updateBill(payConfirmBill.id, {
+                    const okUpdate = updateBill(payConfirmBill.id, {
                       amount: remaining,
                       paidDate: undefined,
                       ...(remainingRange
@@ -765,7 +766,7 @@ export default function Bills() {
                     const newDesc = periodDesc
                       ? baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, periodDesc)
                       : baseDesc
-                    addBill({
+                    const okAdd = addBill({
                       propertyId: payConfirmBill.propertyId,
                       roomId: payConfirmBill.roomId,
                       tenantId: payConfirmBill.tenantId,
@@ -780,11 +781,20 @@ export default function Bills() {
                       periodEnd: payPeriodEnd || payConfirmBill.periodEnd,
                       landlordContractId: payConfirmBill.landlordContractId,
                     })
+                    // 离线/同步失败被拦截时保持弹窗打开并提示，避免「收款成功」假象
+                    if (!okUpdate || !okAdd) {
+                      setAlertState({ title: '提示', message: '网络异常，操作未保存，请稍后重试' })
+                      return
+                    }
                   } else {
-                    updateBill(payConfirmBill.id, {
+                    const ok = updateBill(payConfirmBill.id, {
                       status: 'paid',
                       paidDate: payDate || todayLocal(),
                     })
+                    if (!ok) {
+                      setAlertState({ title: '提示', message: '网络异常，操作未保存，请稍后重试' })
+                      return
+                    }
                   }
                   setPayConfirmBill(null)
                 }} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700">
