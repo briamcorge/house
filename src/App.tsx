@@ -184,6 +184,9 @@ export default function App() {
   const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [offlineToast, setOfflineToast] = useState(false)
   const offlineToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 登录已过期提示（saveCloudData 检测到 session 失效时触发，见 supabase.ts）
+  const [authExpiredToast, setAuthExpiredToast] = useState(false)
+  const authExpiredTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 账号被停用提示（登录页/应用页都可见）
   const [disabledNotice, setDisabledNotice] = useState(false)
   const disabledNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -456,6 +459,28 @@ export default function App() {
     return () => window.removeEventListener('open-auth', openAuthHandler)
   }, [])
 
+  // 监听 auth-session-expired 事件（supabase.ts saveCloudData 检测到 session 失效时触发）：
+  // 提示「登录已过期」并本地登出回登录页（不删业务数据，云端为准）
+  useEffect(() => {
+    const handler = () => {
+      console.warn('收到 auth-session-expired 事件，提示重新登录')
+      pushAuthDiag({ reason: '保存时检测到登录已过期（auth-session-expired），本地登出' })
+      setAuthExpiredToast(true)
+      if (authExpiredTimer.current) clearTimeout(authExpiredTimer.current)
+      authExpiredTimer.current = setTimeout(() => setAuthExpiredToast(false), 5000)
+      const sb = getSupabase()
+      if (sb) {
+        skipNextCloudSave()
+        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+      }
+    }
+    window.addEventListener('auth-session-expired', handler)
+    return () => {
+      window.removeEventListener('auth-session-expired', handler)
+      if (authExpiredTimer.current) clearTimeout(authExpiredTimer.current)
+    }
+  }, [])
+
   // 设备锁：监听 cloud-sync 触发的 kick 事件（另一台设备登录时立即踢出）
   useEffect(() => {
     const handler = () => {
@@ -610,6 +635,14 @@ export default function App() {
               <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
                 <div className="bg-gray-900/90 text-white text-sm rounded-full px-4 py-2">
                   网络异常，操作未保存，请检查网络后重试
+                </div>
+              </div>
+            )}
+            {/* 登录已过期提示 */}
+            {authExpiredToast && (
+              <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
+                <div className="bg-red-600/95 text-white text-sm rounded-full px-4 py-2">
+                  登录已过期，请重新登录
                 </div>
               </div>
             )}

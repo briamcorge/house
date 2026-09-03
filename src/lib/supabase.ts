@@ -276,6 +276,16 @@ export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Pro
   
   if (userError || !user) {
     console.error('[saveCloudData] 用户未登录（重试后仍失败）:', userError || 'user is null')
+    // ⚠️ session 已过期/无效（Auth 类错误或 401/403）：通知 UI 提示重新登录，
+    // 避免用户陷入「保存永远失败却不知道为什么」的无提示循环
+    const isAuthError = !!userError && (
+      (typeof (userError as any).status === 'number' && ((userError as any).status === 401 || (userError as any).status === 403)) ||
+      (typeof (userError as any).name === 'string' && /auth/i.test((userError as any).name)) ||
+      (typeof (userError as any).message === 'string' && /session|token|jwt|not found|invalid/i.test((userError as any).message))
+    )
+    if (isAuthError) {
+      window.dispatchEvent(new CustomEvent('auth-session-expired'))
+    }
     return false
   }
 
