@@ -5,6 +5,7 @@ import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/ca
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
 import ConfirmModal from './ConfirmModal'
+import WheelDatePicker from './WheelDatePicker'
 
 interface TenantModalProps {
   isOpen: boolean
@@ -499,12 +500,10 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   <Calendar className="w-4 h-4 inline mr-1" />
                   合同开始
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={contractStart}
-                  onChange={(e) => setContractStart(e.target.value)}
+                  onChange={(v) => setContractStart(v)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div>
@@ -512,12 +511,10 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   <Calendar className="w-4 h-4 inline mr-1" />
                   合同结束
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={contractEnd}
-                  onChange={(e) => setContractEnd(e.target.value)}
+                  onChange={(v) => setContractEnd(v)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
             </div>
@@ -691,12 +688,11 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-1.5">
                       <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">应收日</label>
-                      <input
-                        type="date"
+                      <WheelDatePicker
                         defaultValue={bill.dueDate}
                         data-draft-index={i}
-                        onChange={(e) => updateDraftBill(i, 'dueDate', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                        onChange={(v) => updateDraftBill(i, 'dueDate', v)}
+                        className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -713,22 +709,20 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                       <>
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">开始</label>
-                          <input
-                            type="date"
+                          <WheelDatePicker
                             defaultValue={bill.periodStart}
                             data-draft-index={i}
-                            onChange={(e) => updateDraftBill(i, 'periodStart', e.target.value)}
-                            className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                            onChange={(v) => updateDraftBill(i, 'periodStart', v)}
+                            className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-gray-400 whitespace-nowrap w-10 shrink-0">结束</label>
-                          <input
-                            type="date"
+                          <WheelDatePicker
                             defaultValue={bill.periodEnd}
                             data-draft-index={i}
-                            onChange={(e) => updateDraftBill(i, 'periodEnd', e.target.value)}
-                            className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
+                            onChange={(v) => updateDraftBill(i, 'periodEnd', v)}
+                            className="date-compact flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-xl text-sm"
                           />
                         </div>
                       </>
