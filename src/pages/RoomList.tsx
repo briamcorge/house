@@ -328,6 +328,11 @@ const [editContractPending, setEditContractPending] = useState<{
         onClose={() => { setEditContractId(null); setRenewContractId(null) }}
         onConfirm={(draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod) => {
           const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: paymentMethod || 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, vacancyAllowance })
+          // 离线/同步失败被拦截时中止后续 addBill，保持弹窗打开并提示（避免静默丢合同）
+          if (!contractId) {
+            setAlertState({ title: '提示', message: '网络异常，合同未保存，请稍后重试' })
+            return
+          }
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: bill.description, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })
@@ -338,10 +343,16 @@ const [editContractPending, setEditContractPending] = useState<{
           if (!cid) return
           // 续约：旧合同被替代（不是退租），新建合同并绑定
           const oldContract = landlordContracts.find(c => c.id === cid)
+          // 先新建成功再结束旧合同，避免新合同被离线拦截时旧合同已被标记 ended（数据不一致）
+          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: paymentMethod || 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id, vacancyAllowance })
+          if (!contractId) {
+            setAlertState({ title: '提示', message: '网络异常，合同未保存，请稍后重试' })
+            return
+          }
           if (oldContract) {
+            // ⚠️ 续约只标记旧合同 ended，不删除其未付账单——未付账单依然有效继续支付（2026-09-03 用户确认，勿报 bug）
             updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
           }
-          const contractId = addLandlordContract({ propertyId: propertyId!, landlordName: name, landlordPhone: phone, monthlyRent: rent || 0, paymentMethod: paymentMethod || 'quarterly', contractStart: cs || '', contractEnd: ce || '', status: 'active', deposit: deposit, previousContractId: oldContract?.id, vacancyAllowance })
           draftBills.forEach((bill) => {
             addBill({ propertyId: propertyId!, landlordContractId: contractId, amount: bill.amount, type: bill.type === 'deposit' ? 'deposit' : 'rent', status: 'pending', direction: 'payable', dueDate: bill.dueDate, description: `[续约] ${bill.description}`, periodStart: bill.periodStart, periodEnd: bill.periodEnd })
           })

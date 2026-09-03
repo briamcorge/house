@@ -321,6 +321,24 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         showError(setError, '请输入月租金')
         return
       }
+      // 校验租客合同日期不能超出房屋代理合同（与 handleNext 一致；编辑模式同样校验，防止改出业主合同范围）
+      if (selectedRoom) {
+        const allContracts = useStore.getState().landlordContracts
+        const lc = allContracts.filter(c => c.propertyId === selectedRoom.propertyId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+        if (lc) {
+          if (contractStart < lc.contractStart) {
+            showError(setError, `租赁合同开始日不能早于代理合同（${lc.contractStart}）`)
+            return
+          }
+          if (contractEnd > lc.contractEnd) {
+            showError(setError, `租赁合同结束日不能晚于代理合同（${lc.contractEnd}）`)
+            return
+          }
+        } else {
+          showError(setError, '请先签订该房源的业主合同')
+          return
+        }
+      }
       onSave({
         name: name.trim(),
         phone: phone.trim() || undefined,
@@ -334,7 +352,8 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         deposit: deposit ? parseFloat(deposit) : undefined,
         otherFeeName: otherFeeName === '卫管费' && !otherFeeAmount ? undefined : otherFeeName,
         otherFeeAmount: otherFeeAmount ? parseFloat(otherFeeAmount) : undefined,
-        status: 'active',
+        // 编辑已退租租客时保留原状态，避免「复活」为在租（房间状态不一致/一房双租客）
+        status: editingTenant?.status ?? 'active',
       })
       onClose()
     }
@@ -344,6 +363,12 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     if (!selectedRoom) return
     if (draftBills.length === 0) {
       showError(setError, '未生成账单，请返回检查合同信息')
+      return
+    }
+    // 预览页金额可被清空/改 0 → 校验非押金账单金额必须 > 0（负数退押金为正常业务，排除 deposit）
+    const invalidBill = draftBills.find(b => b.type !== 'deposit' && (!Number.isFinite(b.amount) || b.amount <= 0))
+    if (invalidBill) {
+      showError(setError, '账单金额必须大于 0，请返回检查')
       return
     }
     const tenantData: Omit<Tenant, 'id' | 'createdAt' | 'displayId'> = {
@@ -359,7 +384,8 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       deposit: deposit ? parseFloat(deposit) : undefined,
       otherFeeName: otherFeeName === '卫管费' && !otherFeeAmount ? undefined : otherFeeName,
       otherFeeAmount: otherFeeAmount ? parseFloat(otherFeeAmount) : undefined,
-      status: 'active',
+      // 编辑已退租租客时保留原状态，避免「复活」为在租
+      status: editingTenant?.status ?? 'active',
     }
     if (editingTenant) {
       onContractUpdate?.(editingTenant.id, tenantData, draftBills)
