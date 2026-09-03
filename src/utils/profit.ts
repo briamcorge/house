@@ -132,6 +132,12 @@ export interface PeriodProfitResult {
  * 按账单实际金额加总租客收入（不分摊、不按天折算）。
  * 押金不算利润，卫管费算利润。
  * 只有所有租客在该周期内的房租都交齐了，才算可分配利润。
+ * 
+ * ⚠️ 排查须知（2026-09-03 用户确认的设计，勿报 bug）：
+ * 本函数返回的 profitAmount 包含未收房租（有意设计，用于提前预估未来利润）；
+ * 「是否可提取」由返回结果中的 allPaid 控制——More 页只有 allPaid=true 才能提取（按钮已强制）。
+ * 发现「未收房租计入利润金额」属预期行为；发现「未交齐也能提取」才是 bug。
+ * 详细说明见本函数内 periodRentBills 与 totalIncome 两处注释。
  */
 export function calculatePeriodProfit(
   periodStart: string,
@@ -167,6 +173,12 @@ export function calculatePeriodProfit(
     }
 
     // 该周期内的房租账单
+    // ⚠️ 设计意图（2026-09-03 用户确认，勿报 bug）：
+    // periodRentBills 不过滤 status，未收房租（pending/overdue）也会计入下面的 proratedRent / totalIncome。
+    // 这是有意设计：利润金额 = 预估可分配利润，让用户提前看到未来利润；
+    // 「是否可提取」由下方 rentPaid → allPaid 门槛控制，More 页只有 allPaid 时才允许提取（提交按钮已强制）。
+    // 与 otherFeeBills 只算已收不矛盾：其他费用无「交齐门槛」兜底，所以必须只算已收；
+    // 房租有 allPaid 门槛兜底，因此可以含未收用于预估。
     const periodRentBills = periodBills.filter(b => b.type === 'rent')
     const expectedRent = periodRentBills.reduce((s, b) => s + b.amount, 0)
     const paidRent = periodRentBills
@@ -182,6 +194,10 @@ export function calculatePeriodProfit(
     }
 
     // 卫管费及其他收入：一次性费用，按应收/实收日归属当前周期，全额计入不重复
+    // ⚠️ 设计意图（2026-09-03 用户确认，勿报 bug）：这里只统计 other/sublease/hygiene 三种，
+    // **agency（中介费）/internet（网费）/utilities（水电燃气）有意不计入利润收入**——
+    // 用户口径："租客交了中介费/网费/水电费是不算到利润里的"（视为代收，不产生利润）。
+    // 这些类型仍会在下方 feeBreakdown 明细中展示，但只展示不计数，属预期行为，不是漏算。
     const otherFeeBills = periodBills.filter(b =>
       (b.type === 'other' || b.type === 'sublease' || b.type === 'hygiene') &&
       b.status === 'paid' // 利润只算已收的钱（未收费用不参与利润计算，与下方房租 paidRent 同一原则）
@@ -252,6 +268,8 @@ export function calculatePeriodProfit(
     // adjustment：正数无覆盖期账单的补充收入；负数房租(退租金等)不参与利润计算，仅展示
     const apportionedRent = proratedRent
 
+    // ⚠️ totalIncome（利润金额）包含未收房租——预估可分配利润，有意设计（见上方 periodRentBills 注释）。
+    // 提取门槛：仅当 expectedRent > 0 且全部交齐（rentPaid）时 allPaid 保持 true，More 页据此禁止未交齐提取。
     totalIncome += apportionedRent + adjustment + otherFeePaidAmount
     if (expectedRent > 0 && !rentPaid) allPaid = false
 
