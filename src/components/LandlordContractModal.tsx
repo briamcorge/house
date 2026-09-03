@@ -226,6 +226,12 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
       showError(setError, '未生成账单，请返回检查')
       return
     }
+    // 预览页金额可被清空/改 0 → 校验非押金账单金额必须 > 0（负数退押金为正常业务，排除 deposit）
+    const invalidBill = draftBills.find(b => b.type !== 'deposit' && (!Number.isFinite(b.amount) || b.amount <= 0))
+    if (invalidBill) {
+      showError(setError, '账单金额必须大于 0，请返回检查')
+      return
+    }
     const allowance = getVacancyPerYearDays()
     const allowanceVal: number | number[] | undefined =
       allowance === null ? undefined

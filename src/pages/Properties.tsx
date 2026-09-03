@@ -256,6 +256,11 @@ export default function Properties() {
             deposit: deposit,
             vacancyAllowance,
           })
+          // 离线/同步失败被拦截时中止后续 addBill，保持弹窗打开并提示
+          if (!contractId) {
+            setAlertState({ title: '提示', message: '网络异常，合同未保存，请稍后重试' })
+            return
+          }
           draftBills.forEach((bill) => {
             addBill({
               propertyId: landlordPropertyId!,
@@ -276,11 +281,8 @@ export default function Properties() {
           const pid = landlordEdit?.pid
           if (!pid) return
           const now = todayLocal().slice(0, 7)
-          // 结束旧合同（续约被替代，不是退租）
+          // 续约：先新建成功再结束旧合同，避免新合同被离线拦截时旧合同已被标记 ended（数据不一致）
           const oldContract = landlordContracts.find(c => c.propertyId === pid && c.status === 'active')
-          if (oldContract) {
-            updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
-          }
           const contractId = addLandlordContract({
             propertyId: pid,
             landlordName: name,
@@ -294,6 +296,15 @@ export default function Properties() {
             previousContractId: oldContract?.id,
             vacancyAllowance,
           })
+          // 离线/同步失败被拦截时中止后续操作，保持弹窗打开并提示
+          if (!contractId) {
+            setAlertState({ title: '提示', message: '网络异常，合同未保存，请稍后重试' })
+            return
+          }
+          if (oldContract) {
+            // ⚠️ 续约只标记旧合同 ended，不删除其未付账单——未付账单依然有效继续支付（2026-09-03 用户确认，勿报 bug）
+            updateLandlordContract(oldContract.id, { status: 'ended', endReason: 'renew' })
+          }
           draftBills.forEach((bill) => {
             addBill({
               propertyId: pid,
