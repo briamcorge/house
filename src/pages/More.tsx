@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, Info, Copy } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -104,6 +104,7 @@ export default function More() {
   const [showProfitForm, setShowProfitForm] = useState(false)
   const [showProfitRecords, setShowProfitRecords] = useState(false)
   const [showBillPicker, setShowBillPicker] = useState(false)
+const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
@@ -990,24 +991,18 @@ export default function More() {
                 )}
                 {isProfit && showProfitForm && (
                   <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px space-y-3">
-                    <select
-                      value={profitPropertyId}
-                      onChange={(e) => {
-                        setProfitPropertyId(e.target.value)
-                        setProfitBillId('')
-                        setProfitCycleStart('')
-                        setProfitCycleEnd('')
-                        setProfitResult(null)
-                        setProfitAmount('')
-                        setProfitExtracted(false)
-                      }}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs whitespace-nowrap overflow-hidden text-ellipsis focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <button
+                      type="button"
+                      onClick={() => setShowPropPickerForProfit(true)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">选择房源</option>
-                      {properties.map((p) => (
-                        <option key={p.id} value={p.id}>{p.address}</option>
-                      ))}
-                    </select>
+                      <span className={profitPropertyId ? 'text-gray-900 truncate' : 'text-gray-400'}>
+                        {profitPropertyId
+                          ? properties.find(p => p.id === profitPropertyId)?.address || '选择房源'
+                          : '选择房源'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
 
                     <button
                       type="button"
@@ -1391,6 +1386,48 @@ export default function More() {
               ))}
               {propertyProfitRecords.length === 0 && (
                 <p className="text-center text-gray-400 py-8">暂无提取记录</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 房源选择弹窗（利润提取） */}
+      {showPropPickerForProfit && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPickerForProfit(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">选择房源</h3>
+              <button type="button" onClick={() => setShowPropPickerForProfit(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {properties.map((p) => {
+                const isSelected = profitPropertyId === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setProfitPropertyId(p.id)
+                      setProfitBillId('')
+                      setProfitCycleStart('')
+                      setProfitCycleEnd('')
+                      setProfitResult(null)
+                      setProfitAmount('')
+                      setProfitExtracted(false)
+                      setShowPropPickerForProfit(false)
+                    }}
+                    className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${isSelected ? 'bg-blue-100 text-blue-700' : 'active:bg-gray-50'}`}
+                  >
+                    <span className="text-sm truncate">{p.address}</span>
+                    {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                  </button>
+                )
+              })}
+              {properties.length === 0 && (
+                <div className="p-8 text-center text-gray-400 text-sm">暂无房源</div>
               )}
             </div>
           </div>
