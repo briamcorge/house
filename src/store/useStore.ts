@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord, AuditLogEntry } from '../types'
 import { DraftBill } from '../utils/calculator'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
+import { setLocalDirtyAt } from '../lib/supabase'
 import { formatRoomLabel, todayLocal } from '../lib/utils'
 
 interface AppStore {
@@ -45,8 +46,6 @@ interface AppStore {
   createTenantContract: (tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
   editTenantContract: (tenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
   renewTenantContract: (oldTenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
-
-  clearAllData: () => boolean
 
   profitRecords: ProfitRecord[]
   addProfitRecord: (record: Omit<ProfitRecord, 'id' | 'createdAt'>) => void
@@ -128,6 +127,10 @@ export const useStore = create<AppStore>()(
             prev.profitRecords !== next.profitRecords ||
             prev.trash !== next.trash
           ) {
+            // ⚠️ 本地未同步数据标记：任何业务操作成功都记录时间戳。
+            // 加载时若该时间戳比云端 updated_at 新 → 禁止云端旧数据覆盖本地
+            //（2026-09-03 数据丢失事故修复：8-28/9-03 两次都是云端旧数据覆盖本地新数据）。
+            setLocalDirtyAt()
             triggerCloudSave()
           }
         }
@@ -634,18 +637,6 @@ export const useStore = create<AppStore>()(
           }
         }),
 
-      clearAllData: () =>
-        set((state) => ({
-          properties: [],
-          rooms: [],
-          tenants: [],
-          bills: [],
-          landlordContracts: [],
-          profitRecords: [],
-          trash: [],
-          auditLogs: recordLog(state, 'clear', 'all', '', '清空全部数据'),
-        })),
-
       addProfitRecord: (record) =>
         set((state) => {
           const now = new Date().toISOString()
@@ -789,7 +780,12 @@ export const useStore = create<AppStore>()(
           if (!actualEnd || actualEnd >= String(t.contractEnd || '')) return t
           return { ...t, contractEnd: actualEnd }
         })
-        const endedIds = new Set(tenants.filter(t => String(t.status) === 'ended').map(t => String(t.id)))
+        // ⚠️ 只删除退租(checkout)租客的未付账单；续约(renew)租客的未付账单必须保留
+        // （2026-09-03 用户确认：续约后旧合同未付账单依然有效，继续收款）。
+        // v2 时代旧数据大多无 endReason：迁移只针对老数据，排除明确 renew 的即可。
+        const endedIds = new Set(
+          tenants.filter(t => String(t.status) === 'ended' && String(t.endReason) !== 'renew').map(t => String(t.id))
+        )
         const bills = rawBills.filter(b =>
           !(endedIds.has(String(b.tenantId)) && String(b.status) === 'pending' && String(b.direction) === 'receivable')
         )

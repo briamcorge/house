@@ -8,7 +8,7 @@ import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
@@ -88,7 +88,7 @@ const menuItems: MenuItem[] = [
 ]
 
 export default function More() {
-  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, clearAllData, addProfitRecord, deleteProfitRecord, settings, setSettings } = useStore()
+  const { properties, rooms, tenants, bills, landlordContracts, profitRecords, addProfitRecord, deleteProfitRecord, settings, setSettings } = useStore()
 ;(window as any).__store = useStore
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
@@ -571,6 +571,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               trash: s2.trash,
               auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
             })
+            // ⚠️ 写本地未同步标记：即使云端保存失败，reload 后时间戳保护也会保留本地导入数据
+            //（不被云端旧数据覆盖），并在下次启动时自动重试同步（2026-09-03 导入丢数据漏洞修复）
+            setLocalDirtyAt()
 
             try {
               const saved = await saveCloudData({
@@ -585,13 +588,17 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
               if (!saved) {
                 console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
-                setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+                setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存在本机，但云端同步失败，不会丢失。\n\n下次打开 App 时会自动重试同步。\n\n可能原因：\n1. 网络连接问题\n2. 登录状态失效\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+                // ⚠️ 保存失败时不刷新——本地导入数据保留，由 dirty 时间戳保护在下次启动自动同步，
+                // 避免刷新后被云端旧数据覆盖（2026-09-03 导入丢数据漏洞修复）
+                return
               } else {
                 console.log('✅ Excel 数据已成功保存到云端')
               }
             } catch (err) {
               console.error('云端保存异常', err)
-              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败：' + (err as Error).message, variant: 'error' })
+              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存在本机，但云端同步失败，不会丢失。下次打开 App 时会自动重试同步：' + (err as Error).message, variant: 'error' })
+              return
             }
 
             window.location.reload()
@@ -628,6 +635,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
             trash: s2.trash,
             auditLogs: [...s2.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'import', entity: 'excel', details: `导入Excel (${props.length}房源 ${roomList.length}房间 ${tenantList.length}租客 ${billList.length}账单)`, createdAt: new Date().toISOString() }],
           })
+          // ⚠️ 写本地未同步标记：即使云端保存失败，reload 后时间戳保护也会保留本地导入数据
+          //（不被云端旧数据覆盖），并在下次启动时自动重试同步（2026-09-03 导入丢数据漏洞修复）
+          setLocalDirtyAt()
 
           try {
             const saved = await saveCloudData({
@@ -642,13 +652,17 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
             console.log('Excel 导入后云端保存结果:', saved ? '成功' : '失败')
             if (!saved) {
               console.error('❌ 云端保存失败，请检查控制台 [saveCloudData] 日志')
-              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败。\n\n可能原因：\n1. 网络连接问题\n2. Supabase 数据库权限不足\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+              setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存在本机，但云端同步失败，不会丢失。\n\n下次打开 App 时会自动重试同步。\n\n可能原因：\n1. 网络连接问题\n2. 登录状态失效\n\n请打开浏览器控制台（F12）查看详细错误。', variant: 'error' })
+              // ⚠️ 保存失败时不刷新——本地导入数据保留，由 dirty 时间戳保护在下次启动自动同步，
+              // 避免刷新后被云端旧数据覆盖（2026-09-03 导入丢数据漏洞修复）
+              return
             } else {
               console.log('✅ Excel 数据已成功保存到云端')
             }
           } catch (err) {
             console.error('云端保存异常', err)
-            setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存到本地，但云端同步失败：' + (err as Error).message, variant: 'error' })
+            setAlertState({ title: '云端同步失败', message: 'Excel 数据已保存在本机，但云端同步失败，不会丢失。下次打开 App 时会自动重试同步：' + (err as Error).message, variant: 'error' })
+            return
           }
 
           window.location.reload()
@@ -1227,47 +1241,6 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         </div>
 
         <input ref={excelInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
-
-        <div className="max-w-md mx-auto mt-8">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setConfirmAction({
-                title: '清除数据',
-                message: '确定要清除本机数据吗？此操作不可恢复！\n\n云端数据将同步清空，无法找回！',
-                variant: 'danger',
-                confirmText: '确认清除',
-                onAction: () => {
-                  const cleared = clearAllData()
-                  // 同步清空云端，防止下次启动又把旧数据拉回来。
-                  // ⚠️ 本地清除被离线拦截（断网/同步失败60s窗口）时不动云端——
-                  // 否则会出现「本地数据保留、云端被清空、重登后被空数据覆盖」的数据丢失链
-                  if (cleared && isSupabaseConfigured()) {
-                    saveCloudData({
-                      properties: [],
-                      rooms: [],
-                      tenants: [],
-                      bills: [],
-                      landlordContracts: [],
-                      profitRecords: [],
-                      trash: [],
-                    }).then(ok => {
-                      if (!ok) {
-                        setAlertState({ title: '云端清除失败', message: '本机数据已清除，但云端清除失败（可能网络问题）。下次登录可能从云端恢复旧数据。', variant: 'error' })
-                      }
-                    })
-                  }
-                },
-              })
-            }}
-            className="w-full bg-white rounded-2xl shadow-sm border border-red-100 p-4 flex items-center justify-center gap-3 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-5 h-5" />
-            <span className="font-medium">清除本机数据</span>
-          </button>
-        </div>
       </div>
 
       {/* 押金明细弹窗 */}

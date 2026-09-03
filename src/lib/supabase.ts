@@ -92,8 +92,13 @@ export function onAuthChange(callback: (user: any) => void) {
   })
 }
 
+export type CloudDataResult = {
+  data: SupabaseData
+  updatedAt: string | null
+}
+
 // 加载云端数据
-export async function loadCloudData(): Promise<SupabaseData | null> {  const sb = getSupabase()
+export async function loadCloudData(): Promise<CloudDataResult | null> {  const sb = getSupabase()
   if (!sb) {
     console.error('[loadCloudData] Supabase 未配置')
     return null
@@ -153,7 +158,7 @@ export async function loadCloudData(): Promise<SupabaseData | null> {  const sb 
     trash: cloudData.trash?.length || 0,
   })
   
-  return cloudData
+  return { data: cloudData, updatedAt: data.updated_at || null }
 }
 
 /**
@@ -164,10 +169,14 @@ export function normalizeCloudData(cloudData: SupabaseData): SupabaseData {
   let tenants = cloudData.tenants || []
   let bills = cloudData.bills || []
   if (tenants && bills) {
-    const endedIds = new Set(tenants.filter((t: any) => t.status === 'ended').map((t: any) => t.id))
-    // 删除 ended 租客的 pending 正数账单（退租没清理的遗留）
+    // ⚠️ 只删除"退租(checkout)"租客的 pending 正数账单（退租没清理的遗留）。
+    // 续约(renew)租客的未付账单必须保留（2026-09-03 用户确认：续约后旧合同未付账单依然有效，继续收款）。
+    // endReason 为空（旧数据无法确认）时保守不删——删除不可逆，宁可多显示未收，也不误删续约账单。
+    const checkoutIds = new Set(
+      tenants.filter((t: any) => t.status === 'ended' && t.endReason === 'checkout').map((t: any) => t.id)
+    )
     const filteredBills = bills.filter((b: any) =>
-      !(endedIds.has(b.tenantId) && b.amount > 0 && b.status === 'pending' && b.direction === 'receivable')
+      !(checkoutIds.has(b.tenantId) && b.amount > 0 && b.status === 'pending' && b.direction === 'receivable')
     )
     // 给旧账单补 periodStart/periodEnd（云端数据可能没有这些字段）
     const filledBills = filteredBills.map((b: any) => {
@@ -336,6 +345,24 @@ export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Pro
   }
   
   return true
+}
+
+// ========== 本地未同步数据标记（2026-09-03 数据丢失事故修复） ==========
+// 业务操作成功时写入时间戳（useStore 的 set 包装）；云端覆盖本地成功时清除。
+// 加载时若本地标记比云端 updated_at 新，说明本地有未同步数据——
+// 此时禁止云端旧数据覆盖本地（8-28 / 9-03 两次事故的放大器：云端优先覆盖本地新数据）。
+export const LOCAL_DIRTY_KEY = 'property-manager-dirty-at'
+
+export function getLocalDirtyAt(): string | null {
+  try { return localStorage.getItem(LOCAL_DIRTY_KEY) } catch { return null }
+}
+
+export function setLocalDirtyAt() {
+  try { localStorage.setItem(LOCAL_DIRTY_KEY, new Date().toISOString()) } catch { /* ignore */ }
+}
+
+export function clearLocalDirty() {
+  try { localStorage.removeItem(LOCAL_DIRTY_KEY) } catch { /* ignore */ }
 }
 
 // ========== 管理员功能 ==========

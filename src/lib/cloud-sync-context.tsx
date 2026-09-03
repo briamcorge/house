@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
@@ -210,8 +210,23 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     // 重登/刷新后请以云端状态为准，加载完成（约 1-2 秒）后再操作
     _loading = true
     try {
-      const cloudData = await loadCloudData()
-      if (cloudData) {
+      const result = await loadCloudData()
+      if (result) {
+        const cloudData = result.data
+        // ⚠️ 本地未同步数据保护（2026-09-03 数据丢失事故修复）：
+        // 本地业务操作时间戳比云端 updated_at 新 → 说明本地有未同步数据（同步断链/失败），
+        // 此时禁止云端旧数据覆盖本地——保留本地，自动把本地推上云。
+        // （8-28 / 9-03 两次事故都是「云端旧数据覆盖本地新数据」导致操作丢失）
+        const dirtyAt = getLocalDirtyAt()
+        if (dirtyAt && result.updatedAt && dirtyAt > result.updatedAt) {
+          console.warn('[loadNow] 本地有比云端新的未同步数据，保留本地并自动同步（跳过云端覆盖）:', { dirtyAt, cloudUpdatedAt: result.updatedAt })
+          setStatus('syncing')
+          setLastError('检测到本地有比云端新的未同步数据，已保留本地数据并自动重新同步')
+          window.dispatchEvent(new CustomEvent('local-newer-than-cloud'))
+          // 把本地推上云（_loading=true 期间 triggerCloudSave 会被挡 → 标记 _pending → finally 重排保存）
+          triggerCloudSave()
+          return true
+        }
         const normalized = normalizeCloudData(cloudData)
         useStore.setState({
           properties: normalized.properties,
@@ -222,6 +237,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           profitRecords: normalized.profitRecords,
           trash: normalized.trash,
         } as any)
+        // 本地已被云端数据替换 → 清除未同步标记
+        clearLocalDirty()
         setStatus('synced')
         return true
       }
