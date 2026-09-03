@@ -42,6 +42,8 @@ export default function Statistics() {
   const yearlyPayablePaid = useMemo(() => {
     return bills
       .filter(b => b.direction === 'payable' && b.status === 'paid' && b.paidDate?.startsWith(selectedYear.toString()))
+      // ⚠️ 付给业主的押金不算支出（2026-09-03 用户确认，勿报 bug）：与收入侧排除押金口径一致（押金为保证金会退回）
+      .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
@@ -76,6 +78,8 @@ export default function Statistics() {
         .reduce((s, b) => s + b.amount, 0)
       const expense = propBills
         .filter(b => b.direction === 'payable' && b.status === 'paid')
+        // ⚠️ 付给业主的押金不算支出（2026-09-03 用户确认，勿报 bug）
+        .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
         .reduce((s, b) => s + b.amount, 0)
       const refund = propBills
         .filter(b => b.status === 'refunded')

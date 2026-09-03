@@ -20,7 +20,9 @@ export default function BillChart({ bills }: BillChartProps) {
         const isDeposit = bill.type === 'deposit' || bill.description?.includes('押金')
         if (!isDeposit) entry.income += bill.amount
       } else if (bill.direction === 'payable' && bill.status === 'paid') {
-        entry.expense -= bill.amount
+        // ⚠️ 付给业主的押金不算支出（2026-09-03 用户确认，勿报 bug）：与收入侧排除押金口径一致
+        const isDeposit = bill.type === 'deposit' || bill.description?.includes('押金')
+        if (!isDeposit) entry.expense -= bill.amount
       }
       monthlyMap.set(key, entry)
     })
