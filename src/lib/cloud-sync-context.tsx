@@ -205,6 +205,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     setLastError(null)
     // 提前置位：加载期间用户若编辑，triggerCloudSave 会被挡并标记 _pending，
     // 加载完成后统一重排一次保存（云端优先：以加载到的云端数据为准）
+    // ⚠️ 设计意图（2026-09-03 用户确认，勿报 bug）：加载完成时用云端数据覆盖本地，
+    // 加载瞬间用户刚做的修改会被冲掉——这是「云端为准」的预期行为，不是数据丢失 bug；
+    // 重登/刷新后请以云端状态为准，加载完成（约 1-2 秒）后再操作
     _loading = true
     try {
       const cloudData = await loadCloudData()

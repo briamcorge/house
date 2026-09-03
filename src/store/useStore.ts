@@ -32,8 +32,8 @@ interface AppStore {
   restoreTenant: (id: string, roomId: string) => void
   extendContract: (id: string, newEndDate: string) => void
 
-  addBill: (bill: Omit<Bill, 'id' | 'createdAt'>) => void
-  updateBill: (id: string, bill: Partial<Bill>) => void
+  addBill: (bill: Omit<Bill, 'id' | 'createdAt'>) => boolean
+  updateBill: (id: string, bill: Partial<Bill>) => boolean
   deleteBill: (id: string) => void
 
   addLandlordContract: (contract: Omit<LandlordContract, 'id' | 'createdAt' | 'displayId'>) => string
@@ -46,7 +46,7 @@ interface AppStore {
   editTenantContract: (tenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
   renewTenantContract: (oldTenantId: string, tenant: Omit<Tenant, 'id' | 'createdAt' | 'displayId'>, bills: DraftBill[], roomId: string) => void
 
-  clearAllData: () => void
+  clearAllData: () => boolean
 
   profitRecords: ProfitRecord[]
   addProfitRecord: (record: Omit<ProfitRecord, 'id' | 'createdAt'>) => void
@@ -81,9 +81,10 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
     }
   }
   // 同时扫描回收站中可恢复的同类型条目，避免恢复后 displayId 重复
+  // ⚠️ 防御损坏数据：trash 条目 data 可能缺失/非对象（历史脏数据），直接取 displayId 会抛 TypeError 导致新增租客/合同崩溃
   for (const item of items) scan(item.displayId)
   for (const item of state.trash) {
-    if (item.type === trashType) scan(item.data.displayId)
+    if (item.type === trashType && item.data && typeof item.data.displayId === 'string') scan(item.data.displayId)
   }
   return `${prefix}-${String(maxNum + 1).padStart(4, '0')}`
 }
@@ -93,21 +94,28 @@ let hydrated = false
 export const useStore = create<AppStore>()(
   persist(
     (rawSet, get) => {
-      const set: typeof rawSet = ((fn) => {
-        // ⚠️ 在线强制（产品铁律）：断网时阻止一切业务数据变更。
-        // 只拦截业务操作（actions 走这里的包装 set）；
-        // 云端加载/踢出等系统路径走 useStore.setState 原始方法，不受影响。
-        // 云同步失败后 60s 内同样视为离线（__cloudSyncBrokenAt 由 cloud-sync-context 设置）
+      // ⚠️ 在线强制（产品铁律）：断网时阻止一切业务数据变更。
+      // 只拦截业务操作（actions 走这里的包装 set）；
+      // 云端加载/踢出等系统路径走 useStore.setState 原始方法，不受影响。
+      // 云同步失败后持续视为离线（__cloudSyncBrokenAt 由 cloud-sync-context 设置，
+      // 直到重试成功 clearSyncBroken 删除标记才恢复——不做 60s 过期，避免窗口过期后操作不落云的无感知风险）
+      // 返回值 boolean：true=已写入，false=被离线拦截（调用方可据此中止后续操作）
+      // fn 允许返回 Partial（与 zustand 运行时行为一致，persist 包装的类型推导不准确）
+      type GuardedSet = (
+        fn: AppStore | Partial<AppStore> | ((state: AppStore) => AppStore | Partial<AppStore>),
+        replace?: boolean
+      ) => boolean
+      const set = ((fn) => {
         const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
         if (
           (typeof navigator !== 'undefined' && navigator.onLine === false) ||
-          (brokenAt !== undefined && Date.now() - brokenAt < 60000)
+          brokenAt !== undefined
         ) {
           window.dispatchEvent(new CustomEvent('app-offline-blocked'))
           return false
         }
         const prev = get() as AppStore
-        ;(rawSet as typeof rawSet)(fn)
+        ;(rawSet as unknown as GuardedSet)(fn)
         if (hydrated) {
           const next = get() as AppStore
           // 只有业务数据变更时才触发云同步（审计日志变更不触发）
@@ -124,7 +132,7 @@ export const useStore = create<AppStore>()(
           }
         }
         return true
-      }) as typeof rawSet
+      }) as GuardedSet
 
       // 操作日志辅助
       const recordLog = (state: AppStore, action: AuditLogEntry['action'], entity: string, entityId?: string, details?: string): AuditLogEntry[] => {
@@ -492,6 +500,8 @@ export const useStore = create<AppStore>()(
               ),
               newTenant,
             ],
+            // ⚠️ 续约（2026-09-03 用户确认，勿报 bug）：旧租客的账单（含未收）全部保留，未收账单继续收款——
+            // "租客提前续约也是这样的逻辑。如有未收账单，依然需要继续支付"（与业主续约一致，区别于退租会删除未付账单）
             bills: [...state.bills, ...newBills],
             rooms: state.rooms.map((r) =>
               r.id === roomId ? { ...r, status: 'occupied' as const } : r
@@ -503,14 +513,15 @@ export const useStore = create<AppStore>()(
       addLandlordContract: (contract) => {
         const now = new Date().toISOString()
         const id = createId()
-        set((state) => ({
+        const ok = set((state) => ({
           landlordContracts: [
             ...state.landlordContracts,
             { ...contract, displayId: nextDisplayId(state, 'DL'), id, createdAt: now } as LandlordContract,
           ],
           auditLogs: recordLog(state, 'create', 'landlord_contract', id, `业主合同`),
         }))
-        return id
+        // 离线/同步失败窗口内 set 被拦截 → 返回 '' 表示未创建，调用方应中止后续 addBill 并提示
+        return ok ? id : ''
       },
 
       updateLandlordContract: (id, data) =>
@@ -529,6 +540,9 @@ export const useStore = create<AppStore>()(
             trash.push({ id: createId(), type: 'landlord_contract', originalId: id, data: contract, label: `代理合同 ${contract.displayId}`, deletedAt: todayLocal() })
             // 删除该合同关联的应付账单（landlordContractId 精确匹配）
             // 旧数据无 landlordContractId → 兜底按 propertyId + dueDate 在合同日期范围内删除
+            // ⚠️ 设计前提（2026-09-03 用户确认，勿报 bug）：「提前续约」= 提前办理续约手续，
+            // 新合同日期从旧合同结束后开始（衔接不重叠），因此兜底按日期匹配不会误删续约新合同的账单。
+            // 若未来出现同一房源多份合同日期重叠的数据，此兜底需加「排除其他合同期间」保护，勿直接改。
             state.bills.filter((b) =>
               b.direction === 'payable' &&
               (b.landlordContractId === id ||
@@ -607,6 +621,9 @@ export const useStore = create<AppStore>()(
           const tenant = state.tenants.find((t) => t.id === id)
           const trash: TrashItem[] = []
           if (tenant) trash.push({ id: createId(), type: 'tenant', originalId: id, data: tenant, label: tenant.name, deletedAt: todayLocal() })
+          // ⚠️ 设计意图（2026-09-03 用户确认，勿报 bug）：删除租客 = 彻底断绝关系，**已付账单也一并删除**（进回收站可恢复）；
+          // 用户原话："我之所以要删除这个租客，就是不想和他发生任何关系，要不然只会给他点退租"。
+          // 想保留已付流水应走「退租」（terminateTenant），而非删除。
           state.bills.filter((b) => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === id).forEach((b) => trash.push({ id: createId(), type: 'bill', originalId: b.id, data: b, label: `¥${b.amount}`, deletedAt: todayLocal() }))
           return {
             tenants: state.tenants.filter((t) => t.id !== id),
@@ -687,8 +704,18 @@ export const useStore = create<AppStore>()(
               return { properties: [...state.properties, data as Property], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'room':
               return { rooms: [...state.rooms, data as Room], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
-            case 'tenant':
-              return { tenants: [...state.tenants, data as Tenant], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
+            case 'tenant': {
+              const t = data as Tenant
+              return {
+                tenants: [...state.tenants, t],
+                // 恢复在租租客时同步把房间置为已入住，避免房间显示空置导致一房双租客
+                rooms: t.status === 'active'
+                  ? state.rooms.map(r => r.id === t.roomId && r.status === 'vacant' ? { ...r, status: 'occupied' } : r)
+                  : state.rooms,
+                trash: state.trash.filter((x) => x.id !== trashId),
+                auditLogs: log,
+              }
+            }
             case 'landlord_contract':
               return { landlordContracts: [...state.landlordContracts, data as LandlordContract], trash: state.trash.filter((t) => t.id !== trashId), auditLogs: log }
             case 'bill':
