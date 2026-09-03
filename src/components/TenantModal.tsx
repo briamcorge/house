@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
-import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft, ChevronDown } from 'lucide-react'
+import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft, ChevronDown, Check } from 'lucide-react'
 import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
@@ -60,7 +60,10 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('monthly')
   const [advanceDays, setAdvanceDays] = useState(0)
   const [advanceOpen, setAdvanceOpen] = useState(false)
+  const [showPaymentPicker, setShowPaymentPicker] = useState(false)
+  const [showBillSplitPicker, setShowBillSplitPicker] = useState(false)
   const [billSplit, setBillSplit] = useState<'front' | 'rear'>('front')
+  const [showRoomPicker, setShowRoomPicker] = useState(false)
   const [monthlyRent, setMonthlyRent] = useState('')
   const [deposit, setDeposit] = useState('')
   const [depositTouched, setDepositTouched] = useState(false)
@@ -446,20 +449,17 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                 <Home className="w-4 h-4 inline mr-1" />
                 房间
               </label>
-              <select
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+              <button
+                type="button"
+                onClick={() => { if (!selectedRoomId) setShowRoomPicker(true) }}
+                className={`w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 ${selectedRoomId ? 'opacity-60' : ''}`}
                 disabled={!!selectedRoomId}
               >
-                <option value="">请选择房间</option>
-                {rooms.filter(r => r.status === 'vacant' || r.id === editingTenant?.roomId).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {getRoomLabel(r.id)}
-                  </option>
-                ))}
-              </select>
+                <span className={roomId ? 'text-gray-900 truncate' : 'text-gray-400'}>
+                  {roomId ? getRoomLabel(roomId) || '请选择房间' : '请选择房间'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -602,15 +602,14 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   <DollarSign className="w-4 h-4 inline mr-1" />
                   付款方式
                 </label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentPicker(true)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  {paymentMethods.map((pm) => (
-                    <option key={pm.value} value={pm.value}>{pm.label}</option>
-                  ))}
-                </select>
+                  <span className="text-gray-900 truncate">{paymentMethods.find(pm => pm.value === paymentMethod)?.label || ''}</span>
+                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">提前付款</label>
@@ -674,18 +673,14 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-700">待生成账单（可修改）</h3>
-                <select
-                  value={billSplit}
-                  onChange={(e) => {
-                    const v = e.target.value as 'front' | 'rear'
-                    setBillSplit(v)
-                    regenerateBills(v)
-                  }}
-                  className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600"
+                <button
+                  type="button"
+                  onClick={() => setShowBillSplitPicker(true)}
+                  className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 flex items-center gap-1"
                 >
-                  <option value="front">先整后零</option>
-                  <option value="rear">先零后整</option>
-                </select>
+                  {billSplit === 'front' ? '先整后零' : '先零后整'}
+                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                </button>
               </div>
               {draftBills.map((bill, i) => (
                 <div key={`${billKey}-${i}`} className="bg-white rounded-2xl border border-gray-100 p-2.5 shadow-sm">
@@ -771,6 +766,107 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         )}
       </div>
     </div>
+
+    {/* 房间选择弹窗 */}
+    {showRoomPicker && (
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowRoomPicker(false) }}>
+        <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <h3 className="text-base font-semibold text-gray-900">选择房间</h3>
+            <button type="button" onClick={() => setShowRoomPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => { setRoomId(''); setShowRoomPicker(false) }}
+              className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${roomId === '' ? 'bg-blue-100 text-blue-700' : 'active:bg-gray-50'}`}
+            >
+              <span className="text-sm text-gray-400">请选择房间</span>
+              {roomId === '' && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+            </button>
+            {rooms.filter(r => r.status === 'vacant' || r.id === editingTenant?.roomId).map((r) => {
+              const isSelected = roomId === r.id
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => { setRoomId(r.id); setShowRoomPicker(false) }}
+                  className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${isSelected ? 'bg-blue-100 text-blue-700' : 'active:bg-gray-50'}`}
+                >
+                  <span className="text-sm truncate">{getRoomLabel(r.id)}</span>
+                  {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                </button>
+              )
+            })}
+            {rooms.filter(r => r.status === 'vacant' || r.id === editingTenant?.roomId).length === 0 && (
+              <div className="p-8 text-center text-gray-400 text-sm">暂无可选房间</div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 付款方式选择弹窗 */}
+    {showPaymentPicker && (
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPaymentPicker(false) }}>
+        <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <h3 className="text-base font-semibold text-gray-900">选择付款方式</h3>
+            <button type="button" onClick={() => setShowPaymentPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {paymentMethods.map((pm) => {
+              const isSelected = paymentMethod === pm.value
+              return (
+                <button
+                  key={pm.value}
+                  type="button"
+                  onClick={() => { setPaymentMethod(pm.value as PaymentMethod); setShowPaymentPicker(false) }}
+                  className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${isSelected ? 'bg-blue-100 text-blue-700' : 'active:bg-gray-50'}`}
+                >
+                  <span className="text-sm truncate">{pm.label}</span>
+                  {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 拆单方向选择弹窗 */}
+    {showBillSplitPicker && (
+      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowBillSplitPicker(false) }}>
+        <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <h3 className="text-base font-semibold text-gray-900">账单拆分方式</h3>
+            <button type="button" onClick={() => setShowBillSplitPicker(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {(['front', 'rear'] as const).map((v) => {
+              const isSelected = billSplit === v
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => { setBillSplit(v); regenerateBills(v); setShowBillSplitPicker(false) }}
+                  className={`w-full px-4 py-3 text-left border-b border-gray-50 flex items-center justify-between ${isSelected ? 'bg-blue-100 text-blue-700' : 'active:bg-gray-50'}`}
+                >
+                  <span className="text-sm truncate">{v === 'front' ? '先整后零' : '先零后整'}</span>
+                  {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* 编辑合同确认：重新生成账单将删除该租客已收/已退账单 */}
     <ConfirmModal
