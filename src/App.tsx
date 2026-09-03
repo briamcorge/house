@@ -190,6 +190,9 @@ export default function App() {
   // 账号被停用提示（登录页/应用页都可见）
   const [disabledNotice, setDisabledNotice] = useState(false)
   const disabledNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 本地有比云端新的未同步数据提示（loadNow 检测到同步断链、本地数据被保留时触发）
+  const [localNewerToast, setLocalNewerToast] = useState(false)
+  const localNewerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const goOnline = () => setOnline(true)
@@ -207,6 +210,20 @@ export default function App() {
       window.removeEventListener('offline', goOffline)
       window.removeEventListener('app-offline-blocked', blocked)
       if (offlineToastTimer.current) clearTimeout(offlineToastTimer.current)
+    }
+  }, [])
+
+  // 本地未同步数据提示：同步断链被检测到时，明确告知用户本地数据被保留（不再静默覆盖）
+  useEffect(() => {
+    const localNewer = () => {
+      setLocalNewerToast(true)
+      if (localNewerTimer.current) clearTimeout(localNewerTimer.current)
+      localNewerTimer.current = setTimeout(() => setLocalNewerToast(false), 6000)
+    }
+    window.addEventListener('local-newer-than-cloud', localNewer)
+    return () => {
+      window.removeEventListener('local-newer-than-cloud', localNewer)
+      if (localNewerTimer.current) clearTimeout(localNewerTimer.current)
     }
   }, [])
 
@@ -383,7 +400,7 @@ export default function App() {
       const state = useStore.getState()
       const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
       if (hasLocalData) {
-        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData }) => {
+        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData, getLocalDirtyAt, clearLocalDirty }) => {
           try {
             const cloudExists = await hasCloudData()
             const latest = useStore.getState()
@@ -394,9 +411,18 @@ export default function App() {
             }
             if (cloudExists) {
               // 云端优先：用云端数据覆盖本地（含数据修复）
-              const cloudData = await loadCloudData()
-              if (cloudData) {
-                const normalized = normalizeCloudData(cloudData)
+              const result = await loadCloudData()
+              if (result) {
+                // ⚠️ 本地未同步数据保护（2026-09-03 数据丢失事故修复）：
+                // 本地业务操作时间戳比云端 updated_at 新 → 说明同步断链、本地有未同步数据，
+                // 禁止云端旧数据覆盖本地（8-28/9-03 两次事故都是云端旧数据覆盖本地新数据）。
+                // 保留本地后由 CloudSyncProvider 的 loadNow/保存链自动把本地推上云。
+                const dirtyAt = getLocalDirtyAt()
+                if (dirtyAt && result.updatedAt && dirtyAt > result.updatedAt) {
+                  console.warn('登录后跳过云端覆盖：本地有比云端新的未同步数据（保留本地并自动同步）:', { dirtyAt, cloudUpdatedAt: result.updatedAt })
+                  return
+                }
+                const normalized = normalizeCloudData(result.data)
                 useStore.setState({
                   properties: normalized.properties,
                   rooms: normalized.rooms,
@@ -406,6 +432,8 @@ export default function App() {
                   profitRecords: normalized.profitRecords,
                   trash: normalized.trash,
                 } as any)
+                // 本地已被云端数据替换 → 清除未同步标记
+                clearLocalDirty()
               }
             } else {
               // 云端无数据 → 本地上传（云端优先的例外：云端为空）
@@ -643,6 +671,14 @@ export default function App() {
               <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
                 <div className="bg-red-600/95 text-white text-sm rounded-full px-4 py-2">
                   登录已过期，请重新登录
+                </div>
+              </div>
+            )}
+            {/* 本地有未同步数据提示（同步断链检测：本地数据被保留，未被云端旧数据覆盖） */}
+            {localNewerToast && (
+              <div className="fixed bottom-24 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
+                <div className="bg-blue-600/95 text-white text-sm rounded-full px-4 py-2">
+                  检测到本地有未同步数据（比云端新），已保留本地数据并自动同步
                 </div>
               </div>
             )}
