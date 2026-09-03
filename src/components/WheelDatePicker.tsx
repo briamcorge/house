@@ -107,14 +107,19 @@ export default function WheelDatePicker({
   const [open, setOpen] = useState(false)
   const [internal, setInternal] = useState(defaultValue ?? '')
 
+  // 默认年份范围（无 min/max 时）；⚠️ 下方 yearStart/yearEnd 会动态扩展到包含当前值年份，
+  // 避免已有值超范围（如 Excel 导入的历史账单 2008 年、30 年长合同到 2056 年）时打开再确定被静默篡改
   const minYear = min ? Number(min.slice(0, 4)) : 2010
   const maxYear = max ? Number(max.slice(0, 4)) : 2050
+  const parsedForRange = parseDate(value ?? internal)
+  const yearStart = Math.min(minYear, parsedForRange?.year ?? minYear)
+  const yearEnd = Math.max(maxYear, parsedForRange?.year ?? maxYear)
 
   const years = useMemo(() => {
     const list: string[] = []
-    for (let y = minYear; y <= maxYear; y++) list.push(String(y))
+    for (let y = yearStart; y <= yearEnd; y++) list.push(String(y))
     return list
-  }, [minYear, maxYear])
+  }, [yearStart, yearEnd])
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => String(i + 1)), [])
 
@@ -134,8 +139,8 @@ export default function WheelDatePicker({
     let month = parsed ? parsed.month : now.getMonth() + 1
     let day = parsed ? parsed.day : now.getDate()
 
-    if (year < minYear) year = minYear
-    if (year > maxYear) year = maxYear
+    if (year < yearStart) year = yearStart
+    if (year > yearEnd) year = yearEnd
     if (day > daysInMonth(year, month)) day = daysInMonth(year, month)
 
     setSelYear(year)
@@ -145,7 +150,7 @@ export default function WheelDatePicker({
   }
 
   function handleYearSelect(index: number) {
-    const year = minYear + index
+    const year = yearStart + index
     if (year === selYear) return
     setSelYear(year)
     setSelDay(Math.min(selDay, daysInMonth(year, selMonth)))
@@ -193,7 +198,7 @@ export default function WheelDatePicker({
           <div className="relative w-full max-w-xs overflow-hidden rounded-2xl bg-white">
             <div className="pb-1 pt-4 text-center text-[16px] font-medium text-gray-900">{title}</div>
             <div className="flex px-4 py-2">
-              <WheelColumn items={years} index={selYear - minYear} onSelect={handleYearSelect} />
+              <WheelColumn items={years} index={selYear - yearStart} onSelect={handleYearSelect} />
               <WheelColumn items={months} index={selMonth - 1} onSelect={handleMonthSelect} />
               <WheelColumn items={days} index={selDay - 1} onSelect={handleDaySelect} />
             </div>
