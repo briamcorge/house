@@ -26,7 +26,7 @@ const allTypes: TrashType[] = ['property', 'room', 'tenant', 'landlord_contract'
 
 export default function Trash() {
   const navigate = useNavigate()
-  const { trash, tenants, rooms, landlordContracts, restoreFromTrash, permanentlyDelete, emptyTrash } = useStore()
+  const { trash, tenants, rooms, landlordContracts, properties, restoreFromTrash, permanentlyDelete, emptyTrash } = useStore()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false)
@@ -38,11 +38,10 @@ export default function Trash() {
   // 恢复前校验：账单引用的租客/房间/业主合同必须存在，否则提示先恢复关联实体
   // restoringIds：批量恢复时同批勾选的项目视为已恢复（避免租客+其账单同批恢复被误拦），单条恢复时为 undefined
   const canRestore = (item: { type: TrashType; data: any }, restoringIds?: Set<string>): string | null => {
-    if (item.type !== 'bill') return null
-    const b = item.data
     const existsLive = (type: TrashType, originalId: string): boolean =>
       type === 'tenant' ? tenants.some(t => t.id === originalId)
         : type === 'room' ? rooms.some(r => r.id === originalId)
+        : type === 'property' ? properties.some(p => p.id === originalId)
         : landlordContracts.some(c => c.id === originalId)
     // 同批勾选恢复的回收站项目视为已恢复
     const willRestore = (type: TrashType, originalId: string): boolean =>
@@ -53,6 +52,29 @@ export default function Trash() {
       if (trash.some(t => t.type === type && t.originalId === originalId)) return `该账单关联的${label}仍在回收站，请同时勾选${label}一起恢复`
       return `该账单关联的${label}已被彻底删除，无法恢复`
     }
+
+    // 房间：所属房源必须存在（或同批恢复），否则静默失败无提示
+    if (item.type === 'room') {
+      const r = item.data
+      if (!r.propertyId) return null
+      if (existsLive('property', r.propertyId) || willRestore('property', r.propertyId)) return null
+      if (trash.some(t => t.type === 'property' && t.originalId === r.propertyId)) return '该房间所属房源仍在回收站，请同时勾选房源一起恢复'
+      return '该房间所属房源已被彻底删除，无法恢复'
+    }
+    // 租客：所属房间必须存在（或同批恢复），且房间未被其他在租租客占用
+    if (item.type === 'tenant') {
+      const t = item.data
+      if (!t.roomId) return null
+      if (!existsLive('room', t.roomId) && !willRestore('room', t.roomId)) {
+        if (trash.some(x => x.type === 'room' && x.originalId === t.roomId)) return '该租客所属房间仍在回收站，请同时勾选房间一起恢复'
+        return '该租客所属房间已被彻底删除，无法恢复'
+      }
+      const occupant = tenants.find(x => x.roomId === t.roomId && x.id !== t.id && x.status === 'active')
+      if (occupant) return `该房间已被在租租客 ${occupant.name} 占用，无法恢复`
+      return null
+    }
+    if (item.type !== 'bill') return null
+    const b = item.data
     return checkRef('tenant', b.tenantId, '租客') ?? checkRef('room', b.roomId, '房间') ?? checkRef('landlord_contract', b.landlordContractId, '业主合同')
   }
 

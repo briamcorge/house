@@ -341,8 +341,13 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     if (!file) return
 
     // 在线强制（产品铁律）：断网时阻止导入（导入会直接 setState 替换全部数据，绕过 store 的离线守卫）
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setAlertState({ title: '提示', message: '当前离线，无法导入数据，请恢复网络后重试', variant: 'info' })
+    // 同时检查云同步失败标记（__cloudSyncBrokenAt，与 useStore guard 判定一致），同步失败期间禁止导入
+    const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
+    if (
+      (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+      brokenAt !== undefined
+    ) {
+      setAlertState({ title: '提示', message: '网络异常，暂时无法导入数据，请稍后重试', variant: 'info' })
       e.target.value = ''
       return
     }
@@ -1090,7 +1095,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                             {!profitResult.allPaid && (
                               <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
                                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                <span>该周期部分租客房租未交齐，利润可能不准确</span>
+                                <span>该周期部分租客房租未交齐，暂不能提取利润（金额为预估）</span>
                               </div>
                             )}
                           </div>
@@ -1174,7 +1179,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                       </button>
                       <button
                         type="button"
-                        disabled={profitExtracted}
+                        disabled={profitExtracted || !profitResult?.allPaid}
                         onClick={() => {
                           const amount = parseFloat(profitAmount)
                           if (!profitPropertyId || isNaN(amount)) {
@@ -1183,6 +1188,11 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                           }
                           if (!profitCycleStart || !profitCycleEnd) {
                             setAlertState({ title: '提示', message: '请选择利润提取的账单周期', variant: 'error' })
+                            return
+                          }
+                          // 利润红线（用户规则）：只有该周期所有租客房租足额交齐（allPaid）才能提取
+                          if (profitResult && !profitResult.allPaid) {
+                            setAlertState({ title: '提示', message: '该周期租客房租未交齐，暂不能提取利润', variant: 'error' })
                             return
                           }
                            addProfitRecord({
@@ -1201,12 +1211,12 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                           setAlertState({ title: '成功', message: '利润提取记录已添加', variant: 'success' })
                         }}
                         className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-colors ${
-                          profitExtracted
+                          profitExtracted || !profitResult?.allPaid
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             : 'bg-purple-600 text-white hover:bg-purple-700'
                         }`}
                       >
-                        {profitExtracted ? '已提取' : '提交'}
+                        {profitExtracted ? '已提取' : !profitResult?.allPaid ? '未交齐' : '提交'}
                       </button>
                     </div>
                   </div>
@@ -1230,9 +1240,11 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 variant: 'danger',
                 confirmText: '确认清除',
                 onAction: () => {
-                  clearAllData()
-                  // 同步清空云端，防止下次启动又把旧数据拉回来
-                  if (isSupabaseConfigured()) {
+                  const cleared = clearAllData()
+                  // 同步清空云端，防止下次启动又把旧数据拉回来。
+                  // ⚠️ 本地清除被离线拦截（断网/同步失败60s窗口）时不动云端——
+                  // 否则会出现「本地数据保留、云端被清空、重登后被空数据覆盖」的数据丢失链
+                  if (cleared && isSupabaseConfigured()) {
                     saveCloudData({
                       properties: [],
                       rooms: [],
