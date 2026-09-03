@@ -3,6 +3,7 @@ import { Bill, Property, Tenant, Room, BillDirection } from '../types'
 import { X, Home, User, DollarSign, Calendar, FileText, Check, ChevronDown } from 'lucide-react'
 import { formatDate, repeatDueDate } from '../utils/calculator'
 import { formatRoomLabel } from '../lib/utils'
+import WheelDatePicker from './WheelDatePicker'
 
 interface BillModalProps {
   isOpen: boolean
@@ -343,12 +344,10 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   <Calendar className="w-3 h-3 inline mr-0.5" />
                   {direction === 'payable' ? '应付日期' : '应收日期'}
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  onChange={(v) => setDueDate(v)}
                   className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div className="flex-1">
@@ -402,12 +401,10 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
                   <Calendar className="w-3 h-3 inline mr-0.5" />
                   实际日期
                 </label>
-                <input
-                  type="date"
+                <WheelDatePicker
                   value={paidDate || ''}
-                  onChange={(e) => setPaidDate(e.target.value)}
+                  onChange={(v) => setPaidDate(v)}
                   className="w-full px-2.5 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div>

@@ -1,5 +1,6 @@
 import { useState , useEffect, useRef } from 'react'
 import { X, DollarSign, Calendar } from 'lucide-react'
+import WheelDatePicker from './WheelDatePicker'
 
 interface LandlordCheckoutModalProps {
   isOpen: boolean
@@ -66,7 +67,7 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
               <Calendar className="w-4 h-4 inline mr-1" />
               退租日期
             </label>
-            <input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <WheelDatePicker value={checkoutDate} onChange={v => setCheckoutDate(v)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <p className="text-xs text-gray-400 mt-1">实际退租日期，即账单的应收日/实付日</p>
           </div>
 
@@ -100,11 +101,11 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">退款开始日</label>
-                <input type="date" value={rentRefundStart} onChange={e => setRentRefundStart(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <WheelDatePicker value={rentRefundStart} onChange={v => setRentRefundStart(v)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">退款结束日</label>
-                <input type="date" value={rentRefundEnd} onChange={e => setRentRefundEnd(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <WheelDatePicker value={rentRefundEnd} onChange={v => setRentRefundEnd(v)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
           )}
