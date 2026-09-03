@@ -192,6 +192,17 @@ export default function More() {
     return { startDate: '', endDate: '' }
   }
 
+  // 业主账单描述简化显示：只保留期数和日期，去掉付款方式（月租/季租/半年付/年付等）
+  const formatBillDesc = (desc?: string): string => {
+    if (!desc) return ''
+    const periodMatch = desc.match(/(第\d+期)/)
+    const { startDate, endDate } = extractPeriod(desc)
+    // 先剥离日期范围，避免 base 残留日期导致重复显示
+    const noDates = desc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, '').trim()
+    const base = periodMatch?.[1] || noDates.slice(0, 30)
+    return startDate ? `${base} ${startDate} ~ ${endDate}` : base
+  }
+
   const handleExportExcel = async () => {
     const wb = XLSX.utils.book_new()
 
@@ -661,9 +672,8 @@ export default function More() {
     if (billId) {
       const bill = bills.find(b => b.id === billId)
       if (bill?.description) {
-        const m = bill.description.match(/第\d+期 .+? (\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
-        if (m) {
-          const start = m[1], end = m[2]
+        const { startDate: start, endDate: end } = extractPeriod(bill.description)
+        if (start && end) {
           setProfitCycleStart(start)
           setProfitCycleEnd(end)
           const alreadyExtracted = profitRecords.some(r =>
@@ -702,11 +712,12 @@ export default function More() {
     const prop = properties.find(p => p.id === profitPropertyId)
     const lines = profitResult.tenants.map(t => {
       let s = `${t.roomLabel} ${t.tenantName}：`
-      if (t.overlapDays > 0) s += `${t.overlapDays}天¥${t.proratedRent.toFixed(0)}`
+      if (t.overlapDays > 0) s += `${t.overlapDays}天${t.proratedRent.toFixed(0)}`
+      else s += `0天`
       t.feeBreakdown.filter(f => f.type !== 'rent' || f.amount < 0).forEach(f => {
-        s += `+${f.label}¥${f.amount.toFixed(0)}`
+        s += `${f.amount < 0 ? '' : '+'}${f.label} ${f.amount.toFixed(0)}`
       })
-      s += `=¥${(t.proratedRent + t.otherFeeIncome + t.adjustment).toFixed(0)}`
+      s += `=${(t.proratedRent + t.otherFeeIncome + t.adjustment).toFixed(0)}`
       if (!t.rentPaid && t.expectedRent > 0) s += '（未齐）'
       return s
     })
@@ -990,7 +1001,7 @@ export default function More() {
                         setProfitAmount('')
                         setProfitExtracted(false)
                       }}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs whitespace-nowrap overflow-hidden text-ellipsis focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">选择房源</option>
                       {properties.map((p) => (
@@ -1005,7 +1016,7 @@ export default function More() {
                     >
                       <span className={profitBillId ? 'text-gray-900' : 'text-gray-400'}>
                         {profitBillId
-                          ? landlordPayableBills.find(b => b.id === profitBillId)?.description || '选择业主账单期数'
+                          ? formatBillDesc(landlordPayableBills.find(b => b.id === profitBillId)?.description) || '选择业主账单期数'
                           : '选择业主账单期数'}
                       </span>
                       <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
@@ -1402,11 +1413,16 @@ export default function More() {
               ) : (
                 landlordPayableBills.map((b) => {
                   const desc = b.description || ''
-                  // 解析描述：提取期数信息、日期范围、免租标注
-                  const periodMatch = desc.match(/(第\d+期\s+\S+)/)
-                  const dateMatch = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+                  // 解析描述：提取免租标注
                   const vacancyMatch = desc.match(/（含免租(\d+)天）/)
                   const isSelected = profitBillId === b.id
+                  // 该周期是否已提取过利润（同房源 + 同周期起止）
+                  const { startDate, endDate } = extractPeriod(desc)
+                  const isExtracted = !!(startDate && profitRecords.some(r =>
+                    r.propertyId === profitPropertyId &&
+                    r.cycleStart === startDate &&
+                    r.cycleEnd === endDate
+                  ))
                   return (
                     <button
                       key={b.id}
@@ -1416,7 +1432,8 @@ export default function More() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {periodMatch?.[1] || desc.slice(0, 30)} {dateMatch ? `${dateMatch[1]} ~ ${dateMatch[2]}` : ''}
+                          {formatBillDesc(desc)}
+                          {isExtracted && <span className="text-green-600"> 已提取</span>}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           {vacancyMatch ? `含免租${vacancyMatch[1]}天 · ` : ''}¥{b.amount.toFixed(0)}
