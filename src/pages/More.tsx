@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check, FileText } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth-context'
 import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
+import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
 import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
@@ -334,6 +335,90 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     // 操作日志
     const s = useStore.getState()
     useStore.setState({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'export', entity: 'excel', details: `导出Excel (${sheets.length}个表)`, createdAt: new Date().toISOString() }] })
+  }
+
+  // 导出排查日志（同步日志 + 诊断日志）为纯文本 .log 文件，供开发者定位同步问题
+  const handleExportLog = async () => {
+    // 构建日志文本
+    const now = new Date()
+    const timeStr = `${todayLocal()} ${now.toTimeString().slice(0, 8)}`
+    const syncList = getSyncLog()
+    const authList = getAuthDiag()
+    const lines: string[] = []
+    lines.push('============ 房屋管理 排查日志 ============')
+    lines.push(`导出时间: ${timeStr}`)
+    lines.push(`App 版本: ${APP_VERSION}`)
+    lines.push(`最后同步成功: ${getLastSyncOkAt() ?? '无记录'}`)
+    lines.push('')
+    lines.push(`---- 同步日志 (最近 ${syncList.length} 条) ----`)
+    if (syncList.length === 0) {
+      lines.push('（暂无记录）')
+    } else {
+      ;[...syncList].reverse().forEach(e => lines.push(`[${e.t}] ${e.event}${e.detail ? ` | ${e.detail}` : ''}`))
+    }
+    lines.push('')
+    lines.push(`---- 诊断日志 (最近 ${authList.length} 条) ----`)
+    if (authList.length === 0) {
+      lines.push('（暂无记录）')
+    } else {
+      ;[...authList].reverse().forEach(e => lines.push(`[${new Date(e.t).toISOString()}] ${e.reason}${e.detail ? ` (${e.detail})` : ''}${e.localToken || e.dbToken ? ` | 本地=${e.localToken ?? '-'} 云端=${e.dbToken ?? '-'}` : ''}`))
+    }
+    const text = lines.join('\n')
+    const fileName = `房屋管理日志_${todayLocal()}.log`
+
+    // 检测是否在 Capacitor 原生环境
+    const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
+
+    if (isCapacitor) {
+      try {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const { Share } = await import('@capacitor/share')
+        // 写入临时文件（UTF-8 分块转 base64，避免大文件展开参数导致栈溢出）
+        const bytes = new TextEncoder().encode(text)
+        let binary = ''
+        const chunk = 0x8000
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
+        }
+        const base64 = btoa(binary)
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+        })
+        // 分享文件（弹保存/分享菜单）
+        await Share.share({
+          title: fileName,
+          text: '房屋管理排查日志',
+          url: (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri,
+        })
+        // 清理临时文件
+        await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }).catch(() => {})
+        return
+      } catch (e) {
+        console.warn('日志导出失败（Capacitor），降级到 Web API:', e)
+      }
+    }
+
+    // 降级：Blob URL 下载（桌面浏览器 / 备用）
+    try {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      // 延迟释放 URL，确保浏览器有时间启动下载
+      setTimeout(() => {
+        // 防止重复移除报错：链接可能已被用户/浏览器移除
+        if (link.parentNode) document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 5000)
+    } catch (e) {
+      console.error('日志导出失败:', e)
+      setAlertState({ title: '导出失败', message: '日志导出失败，请重试。如果问题持续，请查看控制台错误信息。', variant: 'error' })
+    }
   }
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -962,6 +1047,14 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                       </div>
                     )}
                     <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleExportLog}
+                        className="flex-1 py-2 px-3 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>导出日志</span>
+                      </button>
                       <button
                         type="button"
                         onClick={async () => {

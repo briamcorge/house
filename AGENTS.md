@@ -145,9 +145,11 @@ ProfitRecord / TrashItem
 
 ## 部署流程（硬性要求）
 
+⚠️ 2026-09-05 更新：**版本号由构建脚本自动管理，不要手动改 version.ts**。`npm run build` 会先跑 `scripts/bump-version.js` 自动 patch+1（如 1.270→1.271）并同步 android/app/build.gradle 的 versionCode/versionName。手动改 version.ts 再 build 会导致**双重自增**（如想发 1.271 实际变 1.272）。
+
 每次构建前必须执行：
-1. 先读 `src/version.ts`，确认版本号是否需要加
-2. 如需加版本号 → **先改 version.ts，再 `npm run build`**
+1. 先读 `src/version.ts`，确认当前版本号（如 1.270）
+2. 确认是否需要发版；需要 → 直接 `npm run build`（自动 bump 到 1.271）
 3. 版本号永远不能往回走 (1.0.8 → 1.0.9 → 1.0.10...)
 
 ## 业务规则

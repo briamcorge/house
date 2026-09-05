@@ -2,13 +2,33 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 let _supabase: SupabaseClient | null = null
 
+// ⏱️ 网络请求超时（2026-09-05 同步可靠性修复）
+// 此前所有请求无超时：请求挂起 → saving.current/_loading 卡死 → 后续保存被静默吞掉（9-04 事故根因）。
+// 通过 createClient 的 global.fetch 包装，所有经 supabase client 的请求（含认证/设备锁/数据读写）
+// 超时后 AbortController.abort() → fetch reject → 走现有失败链（红横幅 + 10s 重试 + 拦截操作）。
+const FETCH_TIMEOUT_MS = 20000
+
+function createTimeoutFetch(): typeof fetch {
+  return (input: RequestInfo | URL, init?: RequestInit) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    const signal = init?.signal
+    if (signal) {
+      // 尊重调用方传入的 signal（supabase-js 可能自带取消）
+      if (signal.aborted) controller.abort()
+      else signal.addEventListener('abort', () => controller.abort())
+    }
+    return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+  }
+}
+
 function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase
   // 凭据只从环境变量读取（.env），不再内置硬编码回退
   const url = import.meta.env.VITE_SUPABASE_URL
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY
   if (!url || !key) return null
-  _supabase = createClient(url, key)
+  _supabase = createClient(url, key, { global: { fetch: createTimeoutFetch() } })
   return _supabase
 }
 
@@ -261,7 +281,10 @@ export async function getUserDisabledStatus(): Promise<boolean> {
 }
 
 // 保存数据到云端
-export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Promise<boolean> {
+// maxRetries 默认 1：getUser 内部（auth-js）对 AuthRetryableFetchError 已有指数退避重试，
+// 外层再重试会放大最坏耗时（3 次 × 20s 超时 = 60s+，超过 doSave 的 30s watchdog），
+// 故外层只保留 1 次尝试（2026-09-05 Oracle 审查修复）。
+export async function saveCloudData(syncData: SupabaseData, maxRetries = 1): Promise<boolean> {
   const sb = getSupabase()
   if (!sb) {
     console.error('[saveCloudData] Supabase 未配置')
@@ -286,10 +309,14 @@ export async function saveCloudData(syncData: SupabaseData, maxRetries = 3): Pro
   if (userError || !user) {
     console.error('[saveCloudData] 用户未登录（重试后仍失败）:', userError || 'user is null')
     // ⚠️ session 已过期/无效（Auth 类错误或 401/403）：通知 UI 提示重新登录，
-    // 避免用户陷入「保存永远失败却不知道为什么」的无提示循环
+    // 避免用户陷入「保存永远失败却不知道为什么」的无提示循环。
+    // ⚠️ 2026-09-05 Oracle 审查修复：不得用 /auth/i 模糊匹配——
+    // 超时(AbortError)会被 auth-js 包装为 AuthRetryableFetchError（name 含 "Auth"），
+    // 模糊匹配会把「网络超时」误判为「登录已过期」→ 误踢用户回登录页。
+    // 只认明确的认证错误类型（AuthApiError/AuthSessionMissingError/AuthInvalidJwtError）或 401/403。
     const isAuthError = !!userError && (
       (typeof (userError as any).status === 'number' && ((userError as any).status === 401 || (userError as any).status === 403)) ||
-      (typeof (userError as any).name === 'string' && /auth/i.test((userError as any).name)) ||
+      (typeof (userError as any).name === 'string' && ['AuthApiError', 'AuthSessionMissingError', 'AuthInvalidJwtError', 'AuthUnknownError'].includes((userError as any).name)) ||
       (typeof (userError as any).message === 'string' && /session|token|jwt|not found|invalid/i.test((userError as any).message))
     )
     if (isAuthError) {
