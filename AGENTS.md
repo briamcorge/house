@@ -22,6 +22,16 @@
 - **教训**: ① 每次代码改动必须实际打 APK 并让用户安装（勿只 bump 版本号），用户端保护滞后 = 事故放大器 ② 同步相关改动先与用户逐条确认（已做）③ 仍需每周 Excel 导出（免费版唯一可控备份）
 - 事实核对：手机 1.274 与 1.275 web 同步逻辑逐字节相同（仅 version.ts 不同）；事故放大来自"设备各自时钟"+"dirty 成功不清"
 
+### 云端自动备份 L1+L2（2026-09-06 实施，用户同意，临时 PAT 代办执行）
+- **动机**: 四次数据丢失后用户明确要求云端自动备份（Supabase 免费版无平台级备份）；本小节取代早期「免费版无备份、Excel 是唯一可控备份」的说法——**2026-09-06 起云端有自动备份**，但每周 More 页导出 Excel 仍建议保留（双保险、可离线留档）
+- **线上表结构（2026-09-06 实测，勿按旧 DDL 猜）**: `user_data(id uuid PK, user_id uuid UNIQUE REFERENCES auth.users, data jsonb, updated_at timestamptz)`，RLS 开启；`admin-sql.sql` 里的 user_id-PK 旧结构未生效
+- **L1 覆盖前存档**: 表 `user_data_history`（identity id PK、user_id、data、updated_at_before、reason('overwrite'|'delete')、archived_at），保留 30 天；触发器 `trg_user_data_archive`（BEFORE UPDATE OR DELETE，仅 data 真变才存档；1% 概率清 30 天前旧档）
+- **L2 每日全量快照**: 表 `user_data_daily_snapshots`（PK(user_id, snap_date)，含 data/updated_at/taken_at），保留 90 天；函数 `take_user_data_snapshot()` 同日重复执行=覆盖为最新；pg_cron 任务 `house-daily-snapshot` 每天 **22:00 UTC（北京 06:00）** 自动执行
+- **A4 DB trigger（已执行）**: `trg_user_data_updated_at` BEFORE INSERT OR UPDATE 强制 `updated_at = now()`（服务器时钟，A4 代码修复的 DB 侧落地；SQL 见 `sql/2026-09-06_updated_at_trigger.sql`）
+- **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）
+- **完整可执行脚本**: `E:\DSH\_house-incident-20260906\auto-backup\2026-09-06_auto_backup_L1_L2.sql`（v0.1 DRAFT → 已执行，2026-09-06 实测 2 表 2 触发器 1 cron 全存活）；改/恢复前先读该脚本与 `sql/2026-09-06_updated_at_trigger.sql`
+- **注意事项**: 备份表未开 RLS（靠 SECURITY DEFINER 函数隔离访问，直接查表需 service/postgres 权限）；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
+
 ### 云同步数据丢失排查记录（2026-08-28，已修复 → 1.259 实施）
 - **现象**: 手机 APK 确认林世轮 2200 房租收款（第3期 2026-08-25~09-24），重新登录后恢复为未交
 - **实锤（日志分析 2026-08-28）**: 24h API 日志中 user_data **零写请求**（全部是 GET）——收款从未上云；云端停留在 8-26 10:27
