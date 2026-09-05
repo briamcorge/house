@@ -463,6 +463,63 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
         const validBillTypes = new Set(['rent', 'deposit', 'agency', 'sublease', 'hygiene', 'internet', 'utilities', 'other'])
 
+        // 纯日期字段（YYYY-MM-DD）。createdAt 是 ISO 时间戳，不在此列，避免归一化误伤
+        const DATE_FIELDS = new Set([
+          'dueDate', 'paidDate', '_dueDateR', '_dueDateP', '_paidDateR',
+          '_startDate', '_endDate', 'periodStart', 'periodEnd',
+          'contractStart', 'contractEnd', 'effectiveEnd',
+          'cycleStart', 'cycleEnd', 'extractedAt', 'withdrawnAt',
+        ])
+
+        // 归一化 Excel 日期值 → YYYY-MM-DD；空值返回 ''（由调用方决定是否置 undefined）
+        // 处理：Excel 日期序列号（如 46244）、斜杠/点号格式（2026/8/5）、已是 YYYY-MM-DD 原样保留
+        const normalizeExcelDate = (v: unknown): string => {
+          if (v === undefined || v === null || v === '') return ''
+          if (typeof v === 'number' && v >= 36526 && v < 60000) {
+            // Excel 日期序列号 → UTC 日期（25569 = 1970-01-01 在 Excel 中的序列号）
+            // 下限 36526 = 2000-01-01，避免把手填的年份数字（如 2026）误当序列号转成 1905 年
+            const d = new Date(Math.round((v - 25569) * 86400 * 1000))
+            if (!isNaN(d.getTime())) {
+              return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+            }
+          }
+          const s = String(v).trim()
+          const m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/)
+          if (m) {
+            return `${m[1]}-${String(Number(m[2])).padStart(2, '0')}-${String(Number(m[3])).padStart(2, '0')}`
+          }
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+          const d = new Date(s)
+          if (!isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          }
+          return s
+        }
+
+        const parseSheet = (sheetName: string): Record<string, unknown>[] => {
+          const sheet = wb.Sheets[sheetName]
+          if (!sheet) return []
+          const headerMap = sheetHeaders[sheetName]
+          if (!headerMap) return []
+          const json = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[]
+          return json.map(row => {
+            const obj: Record<string, unknown> = {}
+            for (const [cn, en] of Object.entries(headerMap)) {
+              if (row[cn] !== undefined) {
+                if (DATE_FIELDS.has(en)) {
+                  // 日期字段：空值保持 undefined，非空归一化为 YYYY-MM-DD
+                  obj[en] = row[cn] === '' ? undefined : normalizeExcelDate(row[cn])
+                } else {
+                  // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
+                  const n = Number(row[cn])
+                  obj[en] = row[cn] === '' || row[cn] === undefined ? undefined : (isNaN(n) ? row[cn] : n)
+                }
+              }
+            }
+            return obj
+          })
+        }
+
         function validateImportRow(sheetName: string, row: Record<string, unknown>, index: number): string[] {
           const errors: string[] = []
           const prefix = `[${sheetName} 第${index + 1}行]`
@@ -495,25 +552,6 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               break
           }
           return errors
-        }
-
-        const parseSheet = (sheetName: string): Record<string, unknown>[] => {
-          const sheet = wb.Sheets[sheetName]
-          if (!sheet) return []
-          const headerMap = sheetHeaders[sheetName]
-          if (!headerMap) return []
-          const json = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[]
-          return json.map(row => {
-            const obj: Record<string, unknown> = {}
-            for (const [cn, en] of Object.entries(headerMap)) {
-              if (row[cn] !== undefined) {
-                // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
-                const n = Number(row[cn])
-                obj[en] = row[cn] === '' || row[cn] === undefined ? undefined : (isNaN(n) ? row[cn] : n)
-              }
-            }
-            return obj
-          })
         }
 
         const rawProps = parseSheet('房源')

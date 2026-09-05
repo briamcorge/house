@@ -2,23 +2,16 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import StatCard from '../components/StatCard'
-import { Building2, Users, Search, AlertTriangle, Bell, X, FileText } from 'lucide-react'
+import { Building2, Users, Search, FileText } from 'lucide-react'
 import { formatMoney, todayLocal, daysFromTodayLocal, formatRoomLabel, pinyinKeys, matchText } from '../lib/utils'
 import { Property, Room, Tenant, LandlordContract } from '../types'
-
-type AlertType = 'expiring'
 
 export default function Home() {
   const navigate = useNavigate()
   const { properties, rooms, tenants, bills, landlordContracts, updateBill } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [dismissedAlerts, setDismissedAlerts] = useState<Set<AlertType>>(new Set())
   const [loading, setLoading] = useState(true)
   useEffect(() => { requestAnimationFrame(() => setLoading(false)) }, [])
-
-  const dismissAlert = (type: AlertType) => {
-    setDismissedAlerts(prev => new Set(prev).add(type))
-  }
 
   // 自动标记逾期账单（每分钟检测一次）
   useEffect(() => {
@@ -94,12 +87,15 @@ export default function Home() {
     [landlordContracts]
   )
 
-  const expiringSoon = (expiringTenants.length + expiringLandlords.length) > 0
-  const hasExpired = (expiredTenants.length + expiredLandlords.length) > 0
-
   const recentTransactions = useMemo(() =>
-    bills.filter(b => b.status === 'paid' || b.status === 'refunded')
-      .sort((a, b) => (b.paidDate || b.dueDate || '').localeCompare(a.paidDate || a.dueDate || ''))
+    bills
+      .filter(b => b.status === 'paid' || b.status === 'refunded')
+      .map((b, i) => ({ b, i }))
+      .sort((x, y) =>
+        (y.b.paidDate || y.b.dueDate || '').localeCompare(x.b.paidDate || x.b.dueDate || '') ||
+        y.i - x.i
+      )
+      .map(x => x.b)
       .slice(0, 6),
     [bills]
   )
@@ -152,45 +148,6 @@ export default function Home() {
 
       <div className="px-4 -mt-7">
         <div className="max-w-md mx-auto">
-          {/* 告警横幅 */}
-          <div className="mb-2 space-y-2">
-            {!dismissedAlerts.has('expiring') && (expiringSoon || hasExpired) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 space-y-2">
-                {expiringSoon && (
-                  <div className="flex items-start gap-3">
-                    <Bell className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-yellow-800">
-                        {expiringTenants.length > 0 && `${expiringTenants.length} 位租客`}
-                        {expiringTenants.length > 0 && expiringLandlords.length > 0 && '、'}
-                        {expiringLandlords.length > 0 && `${expiringLandlords.length} 份业主合同`}
-                        {' '}30天内到期
-                      </p>
-                      <p className="text-xs text-yellow-600 mt-0.5">请提前准备续约或退租</p>
-                    </div>
-                    <button type="button" onClick={() => dismissAlert('expiring')} className="text-yellow-400 hover:text-yellow-600 shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                {hasExpired && (
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-red-800">
-                        {expiredTenants.length > 0 && `${expiredTenants.length} 位租客`}
-                        {expiredTenants.length > 0 && expiredLandlords.length > 0 && '、'}
-                        {expiredLandlords.length > 0 && `${expiredLandlords.length} 份业主合同`}
-                        {' '}已过期未处理
-                      </p>
-                      <p className="text-xs text-red-600 mt-0.5">合同已到期，请尽快办理续约或退租</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           <div className="grid grid-cols-2 gap-2 mb-4">
             <StatCard title="房源总数" value={totalProperties} icon={Building2} color="blue" onClick={() => navigate('/properties')} />
             <StatCard title="已出租" value={`${occupiedRooms}/${totalRooms}`} icon={Users} color="green" onClick={() => navigate('/properties')} />
@@ -257,7 +214,7 @@ export default function Home() {
                         <p className={`text-sm font-bold ${isRefund ? 'text-orange-700' : b.direction === 'receivable' ? 'text-green-700' : 'text-blue-700'}`}>
                           {isRefund ? '-' : b.direction === 'receivable' ? '+' : '-'}¥{Math.abs(b.amount).toFixed(0)}
                         </p>
-                        <p className="text-xs text-gray-400">{b.paidDate}</p>
+                        <p className="text-xs text-gray-400">{b.paidDate || b.dueDate || ''}</p>
                       </div>
                     </div>
                   )
