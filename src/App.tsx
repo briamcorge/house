@@ -400,7 +400,7 @@ export default function App() {
       const state = useStore.getState()
       const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
       if (hasLocalData) {
-        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData, getLocalDirtyAt, clearLocalDirty }) => {
+        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud }) => {
           try {
             const cloudExists = await hasCloudData()
             const latest = useStore.getState()
@@ -418,7 +418,7 @@ export default function App() {
                 // 禁止云端旧数据覆盖本地（8-28/9-03 两次事故都是云端旧数据覆盖本地新数据）。
                 // 保留本地后由 CloudSyncProvider 的 loadNow/保存链自动把本地推上云。
                 const dirtyAt = getLocalDirtyAt()
-                if (dirtyAt && result.updatedAt && dirtyAt > result.updatedAt) {
+                if (dirtyAt && result.updatedAt && isLocalNewerThanCloud(dirtyAt, result.updatedAt)) {
                   console.warn('登录后跳过云端覆盖：本地有比云端新的未同步数据（保留本地并自动同步）:', { dirtyAt, cloudUpdatedAt: result.updatedAt })
                   return
                 }
@@ -437,7 +437,7 @@ export default function App() {
               }
             } else {
               // 云端无数据 → 本地上传（云端优先的例外：云端为空）
-              await saveCloudData({
+              const ok = await saveCloudData({
                 properties: latest.properties,
                 rooms: latest.rooms,
                 tenants: latest.tenants,
@@ -446,6 +446,8 @@ export default function App() {
                 profitRecords: latest.profitRecords,
                 trash: latest.trash,
               })
+              // A1（2026-09-06）：整文档已入云，上传成功即清除「未同步」标记
+              if (ok) clearLocalDirty()
             }
           } catch (err) {
             console.error('登录后数据同步失败:', err)
@@ -631,8 +633,17 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* 未登录 → 显示登录页 */}
-      {isSupabaseConfigured() && authReady && !currentUser ? (
+      {/* A3（2026-09-06）：云端未配置（坏部署/缺 env）→ 禁止进入应用，杜绝"纯本地可写"模式静默
+          累积本地数据——9-05 事故的土壤：修复前网页版无 Supabase env 仍能进入并本地写入，
+          陈旧本地随后被当作"比云端新"推上云，覆盖手机最新数据。 */}
+      {!isSupabaseConfigured() ? (
+        <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center">
+          <div className="text-center px-6">
+            <p className="text-white font-medium text-lg mb-2">无法连接数据服务</p>
+            <p className="text-white/70 text-sm">应用云端配置缺失，为保护数据已禁止使用。请更新到最新版本后再试。</p>
+          </div>
+        </div>
+      ) : isSupabaseConfigured() && authReady && !currentUser ? (
         <LoginPage onLogin={() => {}} />
       ) : passwordResetMode && currentUser ? (
         <PasswordResetPage onComplete={() => { setPasswordResetMode(false); window.location.href = import.meta.env.BASE_URL }} />

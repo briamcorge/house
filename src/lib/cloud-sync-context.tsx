@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 import { pushSyncLog, setLastSyncOkAt } from './sync-log'
 
@@ -187,19 +187,26 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
                 localToken: myToken,
                 dbToken: data.session_token,
               })
-              // 最佳努力：把本次改动先推上云端（绕过设备锁、单次尝试），再踢出，避免丢操作
-              try {
-                const st = useStore.getState()
-                await saveCloudData({
-                  properties: st.properties,
-                  rooms: st.rooms,
-                  tenants: st.tenants,
-                  bills: st.bills,
-                  landlordContracts: st.landlordContracts,
-                  profitRecords: st.profitRecords,
-                  trash: st.trash,
-                }, 1)
-              } catch { /* 推送失败不阻断踢出流程 */ }
+              // 最佳努力：把本次改动先推上云端（绕过设备锁、单次尝试），再踢出，避免丢操作。
+              // A2（2026-09-06）：仅当本地确有「未同步」标记时才推送——无 dirty 说明本地所有改动
+              // 均已成功入云（整文档快照），此时再推 = 把（可能已陈旧的）本地整文档盖掉云端新数据
+              // （9-05 事故同型：陈旧设备无脑推云）。有 dirty 才推送，杜绝陈旧覆盖。
+              if (getLocalDirtyAt()) {
+                try {
+                  const st = useStore.getState()
+                  await saveCloudData({
+                    properties: st.properties,
+                    rooms: st.rooms,
+                    tenants: st.tenants,
+                    bills: st.bills,
+                    landlordContracts: st.landlordContracts,
+                    profitRecords: st.profitRecords,
+                    trash: st.trash,
+                  }, 1)
+                } catch { /* 推送失败不阻断踢出流程 */ }
+              } else {
+                pushSyncLog('device_lock_kick_no_dirty', '本地无未同步数据，跳过推送直接踢出')
+              }
               window.dispatchEvent(new CustomEvent('device-kicked'))
               saving.current = false
               clearSaveWatchdog()
@@ -255,6 +262,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         clearSyncBroken()
         clearSaveRetry()
         setLastSyncOkAt()
+        // A1（2026-09-06）：保存成功即清除「未同步」标记——整文档快照已入云，
+        // 标记语义=「存在未确认同步的本地改动」；继续保留会让陈旧设备冒充"比云端新"
+        // （9-05 事故根因：旧语义保存成功也不清，陈旧标记永久有效）。
+        // ⚠️ _pending 存在 = 本次快照之后又产生了新改动（busy 排队），本快照不含它，
+        // 此时不清除，等 finally 已重排的下一轮保存成功后由该轮清除，避免新改动失去保护。
+        if (!_pending) clearLocalDirty()
         pushSyncLog('save_ok', `保存成功（${elapsed}ms）`)
       }
       return ok
@@ -322,7 +335,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         // 此时禁止云端旧数据覆盖本地——保留本地，自动把本地推上云。
         // （8-28 / 9-03 两次事故都是「云端旧数据覆盖本地新数据」导致操作丢失）
         const dirtyAt = getLocalDirtyAt()
-        if (dirtyAt && result.updatedAt && dirtyAt > result.updatedAt) {
+        if (dirtyAt && result.updatedAt && isLocalNewerThanCloud(dirtyAt, result.updatedAt)) {
           console.warn('[loadNow] 本地有比云端新的未同步数据，保留本地并自动同步（跳过云端覆盖）:', { dirtyAt, cloudUpdatedAt: result.updatedAt })
           setStatus('syncing')
           setLastError('检测到本地有比云端新的未同步数据，已保留本地数据并自动重新同步')

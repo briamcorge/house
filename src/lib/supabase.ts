@@ -374,10 +374,14 @@ export async function saveCloudData(syncData: SupabaseData, maxRetries = 1): Pro
   return true
 }
 
-// ========== 本地未同步数据标记（2026-09-03 数据丢失事故修复） ==========
-// 业务操作成功时写入时间戳（useStore 的 set 包装）；云端覆盖本地成功时清除。
-// 加载时若本地标记比云端 updated_at 新，说明本地有未同步数据——
-// 此时禁止云端旧数据覆盖本地（8-28 / 9-03 两次事故的放大器：云端优先覆盖本地新数据）。
+// ========== 本地未同步数据标记（2026-09-03 修复；2026-09-06 A1 语义修正） ==========
+// 每次业务操作写入时间戳（useStore 的 set 包装，覆盖崩溃/掉电窗口）；
+// 保存成功后立即清除（cloud-sync-context doSave ok 分支），云端覆盖本地成功后也清除。
+// 标记语义 = 「存在尚未确认同步到云端的本地改动」。
+// 旧语义「每次操作都打、保存成功也不清」是 9-05 网页版用陈旧本地覆盖云端新数据的根因
+// （陈旧设备带着永不过期的标记，把自己的旧整文档冒充"比云端新"推上云）。
+// 加载时若标记比云端 updated_at 新 → 禁止云端旧数据覆盖本地（保留本地并推云），
+// 这是 8-28 / 9-03 两次事故（云端旧覆盖本地新）的放大器修复。
 export const LOCAL_DIRTY_KEY = 'property-manager-dirty-at'
 
 export function getLocalDirtyAt(): string | null {
@@ -390,6 +394,21 @@ export function setLocalDirtyAt() {
 
 export function clearLocalDirty() {
   try { localStorage.removeItem(LOCAL_DIRTY_KEY) } catch { /* ignore */ }
+}
+
+/**
+ * 跨设备时间比较（2026-09-06 事故修复 A4）：
+ * dirtyAt 与云端 updated_at 均为 ISO 字符串但格式不对称（本地 '…xxx.123Z'，
+ * PostgREST 常返回 '…xxx.123456+00:00' 或 'Z'），字典序比较会把近值一律判为「本地新」，
+ * 导致陈旧本地被误认为比云端新而推云覆盖。这里一律先解析为 epoch 毫秒再比，
+ * 解析失败才退回字符串比较。返回 true = 本地存在比云端更新的未同步改动。
+ */
+export function isLocalNewerThanCloud(dirtyAt: string | null, cloudUpdatedAt: string | null): boolean {
+  if (!dirtyAt || !cloudUpdatedAt) return false
+  const d = Date.parse(dirtyAt)
+  const c = Date.parse(cloudUpdatedAt)
+  if (!Number.isNaN(d) && !Number.isNaN(c)) return d > c
+  return dirtyAt > cloudUpdatedAt
 }
 
 // ========== 管理员功能 ==========
