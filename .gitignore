@@ -33,3 +33,25 @@ filters.xml
 *.njsproj
 *.sln
 *.sw?
+
+# 本地运行时数据（勿入库）
+.house-sync/
+
+# 根目录调试快照残留（Playwright MCP / 排查截图，勿入库）
+/*.yml
+/*.png
+/*.jpg
+/contracts-after-fix.md
+/contracts-snapshot.md
+/current-page.md
+/home-page-snapshot.md
+/home-snapshot2.md
+/room-list-snapshot.md
+/roomlist-afterfix.md
+/roomlist-fixed.md
+/1
+/CSI300_ETF_Volatility_Analysis.xlsx
+
+# 无关调研脚本（CSI300 分析，与本项目无关）
+/scripts/check_edge*.py
+/scripts/fetch_csi300_data.py

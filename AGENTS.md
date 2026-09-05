@@ -86,7 +86,7 @@ npm run check        # 同上
 ### 之前踩过的坑（避免再犯）
 1. ~~`VITE_BASE` 忘记设 `./` → 白屏~~ ✅ 已修复：`build` 默认 `--base=./`
 2. ~~`npx cap copy` 忘记跑 → APK 里还是旧代码~~ ✅ 已修复：`release` 命令包含 cap copy
-3. ~~`dist/assets/` 旧文件堆积 → APK 膨胀到 3.3MB~~ ⚠️ 仍需注意：build 前清理旧 assets
+3. ~~`dist/assets/` 旧文件堆积 → APK 膨胀到 3.3MB~~ ✅ 已修复（sync 1.234 起）：`build` 先跑 `scripts/clean-dist.cjs` 清理 dist（rmSync + cmd rmdir 双保险，解决 Windows 占用文件静默失败）
 4. ~~build 多次导致版本号乱跳~~ ⚠️ 注意：`release` 也会 bump，避免不必要的 release
 
 ## 技术栈
