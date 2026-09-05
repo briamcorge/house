@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, ProfitRecord, AuditLogEntry } from '../types'
 import { DraftBill } from '../utils/calculator'
@@ -127,9 +127,10 @@ export const useStore = create<AppStore>()(
             prev.profitRecords !== next.profitRecords ||
             prev.trash !== next.trash
           ) {
-            // ⚠️ 本地未同步数据标记：任何业务操作成功都记录时间戳。
-            // 加载时若该时间戳比云端 updated_at 新 → 禁止云端旧数据覆盖本地
-            //（2026-09-03 数据丢失事故修复：8-28/9-03 两次都是云端旧数据覆盖本地新数据）。
+            // ⚠️ 本地未同步数据标记：每次业务操作写入时间戳（A1 起保存成功即清除，
+            // 见 cloud-sync-context doSave ok 分支）——语义=「存在未确认同步到云端的本地改动」。
+            // 加载时若标记比云端 updated_at 新 → 禁止云端旧数据覆盖本地
+            //（2026-09-03 修复 / 2026-09-06 A1 语义修正：8-28/9-03/9-05 三次均为覆盖事故）。
             setLocalDirtyAt()
             triggerCloudSave()
           }
