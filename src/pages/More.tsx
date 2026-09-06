@@ -492,6 +492,12 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           'cycleStart', 'cycleEnd', 'extractedAt', 'withdrawnAt',
         ])
 
+        // 字符串字段：即使 Excel 存成数字（如 11 位手机号被转数值）也强制还原为字符串（2026-09-06 修复）
+        const STRING_FIELDS = new Set(['phone'])
+
+        // ISO 时间戳字段：Excel 可能把 ISO 时间转成日期序列号，检测到序列号转回 ISO 字符串（2026-09-06 修复）
+        const ISO_FIELDS = new Set(['createdAt'])
+
         // 归一化 Excel 日期值 → YYYY-MM-DD；空值返回 ''（由调用方决定是否置 undefined）
         // 处理：Excel 日期序列号（如 46244）、斜杠/点号格式（2026/8/5）、已是 YYYY-MM-DD 原样保留
         const normalizeExcelDate = (v: unknown): string => {
@@ -530,6 +536,18 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 if (DATE_FIELDS.has(en)) {
                   // 日期字段：空值保持 undefined，非空归一化为 YYYY-MM-DD
                   obj[en] = row[cn] === '' ? undefined : normalizeExcelDate(row[cn])
+                } else if (ISO_FIELDS.has(en)) {
+                  // ISO 时间戳字段：Excel 数字序列号 → 转回 ISO 字符串；已是字符串原样保留
+                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
+                    ? undefined
+                    : (typeof row[cn] === 'number' && row[cn] >= 36526 && row[cn] < 60000
+                      ? new Date(Math.round((row[cn] - 25569) * 86400 * 1000)).toISOString()
+                      : String(row[cn]))
+                } else if (STRING_FIELDS.has(en)) {
+                  // 字符串字段（电话号）：Excel 可能转成数字，强制还原为字符串
+                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
+                    ? undefined
+                    : String(row[cn])
                 } else {
                   // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
                   // 安全：拒绝 Infinity/NaN（Number('Infinity')/Number('1e999') 会得到 Infinity，必须拦下）
@@ -588,6 +606,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
               if (!row.label || String(row.label).trim() === '') errors.push(`${prefix} 编号不能为空`)
               if (!row.roomType || String(row.roomType).trim() === '') errors.push(`${prefix} 类型不能为空`)
+              // 状态空值默认 vacant（2026-09-06 修复：避免导入后 undefined 导致 UI 异常）
+              if (row.status === undefined || row.status === '') row.status = 'vacant'
               if (row.status !== undefined && row.status !== '' && !['vacant', 'occupied'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 vacant/occupied 之一`)
               break
             case '代理合同':
@@ -600,6 +620,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               checkDate('contractStart', '合同开始日期')
               checkDate('contractEnd', '合同结束日期')
               if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
+              // 状态空值默认 active（2026-09-06 修复）
+              if (row.status === undefined || row.status === '') row.status = 'active'
               if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
               if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
               break
@@ -616,12 +638,18 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               checkAmount('otherFeeAmount', '其他金额')
               if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
               if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
+              // 状态空值默认 active（2026-09-06 修复）
+              if (row.status === undefined || row.status === '') row.status = 'active'
               if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
               if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
               if (row.billSplit !== undefined && row.billSplit !== '' && !['front', 'rear'].includes(String(row.billSplit))) errors.push(`${prefix} 切分方式必须为 front/rear 之一`)
               break
             case '账单':
               if (row.amount === undefined || isNaN(Number(row.amount)) || !isFinite(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
+              // 空值默认值（2026-09-06 修复：避免导入后 undefined 导致 UI 异常）
+              if (row.type === undefined || row.type === '') row.type = 'other'
+              if (row.status === undefined || row.status === '') row.status = 'pending'
+              if (row.direction === undefined || row.direction === '') row.direction = 'receivable'
               if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/deposit/agency/sublease/hygiene/internet/utilities/other 之一`)
               if (row.status !== undefined && row.status !== '' && !['pending', 'paid', 'overdue', 'cancelled', 'refunded'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 pending/paid/overdue/cancelled/refunded 之一`)
               if (row.direction !== undefined && row.direction !== '' && !['payable', 'receivable'].includes(String(row.direction))) errors.push(`${prefix} 方向必须为 payable/receivable 之一`)
@@ -644,6 +672,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               checkDate('cycleEnd', '周期结束')
               checkDate('extractedAt', '提取日期')
               checkDate('withdrawnAt', '提现时间')
+              // 状态空值默认 available（2026-09-06 修复）
+              if (row.status === undefined || row.status === '') row.status = 'available'
               if (row.status !== undefined && row.status !== '' && !['available', 'withdrawn'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 available/withdrawn 之一`)
               break
           }
@@ -712,11 +742,32 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
         // ─── 行级校验 ───
         const allErrors: string[] = []
-        const validProps = rawProps.filter((row, i) => { const e = validateImportRow('房源', row, i); allErrors.push(...e); return e.length === 0 })
-        const validRooms = rawRooms.filter((row, i) => { const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
-        const validContracts = rawContracts.filter((row, i) => { const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
-        const validTenants = rawTenants.filter((row, i) => { const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
-        const validProfitRecords = rawProfitRecords.filter((row, i) => { const e = validateImportRow('利润提取', row, i); allErrors.push(...e); return e.length === 0 })
+        // 重复 ID 检测：每个 sheet 内 ID 必须唯一，重复行报错并跳过（2026-09-06 修复：防 React key 冲突）
+        const checkDuplicateIds = (sheetName: string, rows: Record<string, unknown>[], seen: Set<string>) => {
+          const result: boolean[] = []
+          rows.forEach((row, i) => {
+            const id = String((row as { id?: unknown }).id ?? '')
+            if (!id) { result.push(true); return }
+            if (seen.has(id)) {
+              allErrors.push(`[${sheetName} 第${i + 1}行] ID 重复：${id}`)
+              result.push(false)
+            } else {
+              seen.add(id)
+              result.push(true)
+            }
+          })
+          return result
+        }
+        const propIdOk = checkDuplicateIds('房源', rawProps, new Set())
+        const roomIdOk = checkDuplicateIds('房间', rawRooms, new Set())
+        const contractIdOk = checkDuplicateIds('代理合同', rawContracts, new Set())
+        const tenantIdOk = checkDuplicateIds('租客', rawTenants, new Set())
+        const profitIdOk = checkDuplicateIds('利润提取', rawProfitRecords, new Set())
+        const validProps = rawProps.filter((row, i) => { if (!propIdOk[i]) return false; const e = validateImportRow('房源', row, i); allErrors.push(...e); return e.length === 0 })
+        const validRooms = rawRooms.filter((row, i) => { if (!roomIdOk[i]) return false; const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
+        const validContracts = rawContracts.filter((row, i) => { if (!contractIdOk[i]) return false; const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
+        const validTenants = rawTenants.filter((row, i) => { if (!tenantIdOk[i]) return false; const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
+        const validProfitRecords = rawProfitRecords.filter((row, i) => { if (!profitIdOk[i]) return false; const e = validateImportRow('利润提取', row, i); allErrors.push(...e); return e.length === 0 })
 
         // 引用完整性：以各实体的有效 ID 集合为准，剔除引用不存在的租客/房间/业主合同的孤儿账单
         // 注：validTenants/validContracts 经过 .map() 后 TS 推断丢失了展开的 id 字段，此处经 unknown 断言访问（运行时必存在）
@@ -724,7 +775,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         const roomIds = new Set(validRooms.map(r => String((r as { id: string }).id)))
         const contractIds = new Set(validContracts.map(c => String((c as unknown as { id: string }).id)))
         const billWarnings: string[] = []
+        const billIdOk = checkDuplicateIds('账单', rawBills, new Set())
         const validBills = rawBills.filter((row, i) => {
+          if (!billIdOk[i]) return false
           const e = validateImportRow('账单', row, i)
           allErrors.push(...e)
           if (e.length > 0) return false
