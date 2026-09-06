@@ -365,6 +365,9 @@ export default function App() {
       setDisabledNotice(false)
       kickDisabledUser()
 
+      // 更新最后活跃时间（Admin 页"最后活跃"展示用；失败静默不影响主流程）
+      import('./lib/supabase').then(({ updateLastActive }) => { updateLastActive() })
+
       // 生成设备会话 token，写入数据库（严格单设备模式）
       // 优先复用本地已有 token：冷启动恢复会话时 auth-js 也会触发 SIGNED_IN 事件，
       // 若重新生成新 token，会与并发执行的 INITIAL_SESSION 设备锁检查竞态——
