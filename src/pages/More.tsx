@@ -90,7 +90,6 @@ const menuItems: MenuItem[] = [
 
 export default function More() {
   const { properties, rooms, tenants, bills, landlordContracts, profitRecords, addProfitRecord, deleteProfitRecord, settings, setSettings } = useStore()
-;(window as any).__store = useStore
   const navigate = useNavigate()
   const excelInputRef = useRef<HTMLInputElement>(null)
   const [showBackup, setShowBackup] = useState(false)
@@ -433,6 +432,20 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     const file = e.target.files?.[0]
     if (!file) return
 
+    // 安全校验：文件类型与大小（防止恶意 xlsx / 超大文件导致内存耗尽）
+    const fName = file.name || ''
+    const isXlsx = /\.(xlsx|xls)$/i.test(fName)
+    if (!isXlsx) {
+      setAlertState({ title: '提示', message: '仅支持 .xlsx / .xls 格式的 Excel 文件', variant: 'info' })
+      e.target.value = ''
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAlertState({ title: '提示', message: '文件过大（超过 10MB），请确认文件来源后重试', variant: 'info' })
+      e.target.value = ''
+      return
+    }
+
     // 在线强制（产品铁律）：断网时阻止导入（导入会直接 setState 替换全部数据，绕过 store 的离线守卫）
     // 同时检查云同步失败标记（__cloudSyncBrokenAt，与 useStore guard 判定一致），同步失败期间禁止导入
     const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
@@ -519,8 +532,11 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                   obj[en] = row[cn] === '' ? undefined : normalizeExcelDate(row[cn])
                 } else {
                   // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
+                  // 安全：拒绝 Infinity/NaN（Number('Infinity')/Number('1e999') 会得到 Infinity，必须拦下）
                   const n = Number(row[cn])
-                  obj[en] = row[cn] === '' || row[cn] === undefined ? undefined : (isNaN(n) ? row[cn] : n)
+                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
+                    ? undefined
+                    : (isNaN(n) || !isFinite(n) ? row[cn] : n)
                 }
               }
             }
@@ -531,6 +547,29 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         function validateImportRow(sheetName: string, row: Record<string, unknown>, index: number): string[] {
           const errors: string[] = []
           const prefix = `[${sheetName} 第${index + 1}行]`
+
+          // 通用：id 非空（引用完整性依赖 id，缺失会导致账单引用校验误判）
+          if (!row.id || String(row.id).trim() === '') errors.push(`${prefix} ID不能为空`)
+
+          // 通用：日期字段格式校验（YYYY-MM-DD，防畸形日期 NaN 传播）
+          const checkDate = (field: string, label: string) => {
+            const v = row[field]
+            if (v === undefined || v === null || v === '') return
+            if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+              errors.push(`${prefix} ${label} 格式必须为 YYYY-MM-DD`)
+            }
+          }
+
+          // 通用：金额字段拒绝 Infinity/NaN/负数
+          const checkAmount = (field: string, label: string) => {
+            const v = row[field]
+            if (v === undefined || v === null || v === '') return
+            const n = Number(v)
+            if (isNaN(n) || !isFinite(n) || n < 0) {
+              errors.push(`${prefix} ${label} 必须为有效非负数字`)
+            }
+          }
+
           switch (sheetName) {
             case '房源':
               if (!row.address || String(row.address).trim() === '') errors.push(`${prefix} 地址不能为空`)
@@ -539,24 +578,61 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
               if (!row.label || String(row.label).trim() === '') errors.push(`${prefix} 编号不能为空`)
               if (!row.roomType || String(row.roomType).trim() === '') errors.push(`${prefix} 类型不能为空`)
+              if (row.status !== undefined && row.status !== '' && !['vacant', 'occupied'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 vacant/occupied 之一`)
               break
             case '代理合同':
               if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
+              checkAmount('monthlyRent', '月租金')
+              checkAmount('deposit', '押金')
               if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
               if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
               if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
+              checkDate('contractStart', '合同开始日期')
+              checkDate('contractEnd', '合同结束日期')
+              if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
+              if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
+              if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
               break
             case '租客':
               if (!row.name || String(row.name).trim() === '') errors.push(`${prefix} 姓名不能为空`)
               if (!row.roomId || String(row.roomId).trim() === '') errors.push(`${prefix} 房间ID不能为空`)
               if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
               if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
+              checkDate('contractStart', '合同开始日期')
+              checkDate('contractEnd', '合同结束日期')
+              checkDate('effectiveEnd', '退租日')
+              checkAmount('monthlyRent', '月租金')
+              checkAmount('deposit', '押金')
+              checkAmount('otherFeeAmount', '其他金额')
               if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
+              if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
+              if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
+              if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
+              if (row.billSplit !== undefined && row.billSplit !== '' && !['front', 'rear'].includes(String(row.billSplit))) errors.push(`${prefix} 切分方式必须为 front/rear 之一`)
               break
             case '账单':
-              if (row.amount === undefined || isNaN(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
+              if (row.amount === undefined || isNaN(Number(row.amount)) || !isFinite(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
               if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/deposit/agency/sublease/hygiene/internet/utilities/other 之一`)
+              if (row.status !== undefined && row.status !== '' && !['pending', 'paid', 'overdue', 'cancelled', 'refunded'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 pending/paid/overdue/cancelled/refunded 之一`)
+              if (row.direction !== undefined && row.direction !== '' && !['payable', 'receivable'].includes(String(row.direction))) errors.push(`${prefix} 方向必须为 payable/receivable 之一`)
               if (!row.dueDate || String(row.dueDate).trim() === '') errors.push(`${prefix} 到期日不能为空`)
+              checkDate('dueDate', '到期日')
+              checkDate('paidDate', '实付日')
+              checkDate('periodStart', '覆盖开始')
+              checkDate('periodEnd', '覆盖结束')
+              checkAmount('amount', '金额')
+              checkAmount('paidAmount', '已付金额')
+              break
+            case '利润提取':
+              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
+              checkAmount('tenantIncome', '租客收入')
+              checkAmount('landlordExpense', '业主支出')
+              checkAmount('profitAmount', '利润')
+              checkDate('cycleStart', '周期开始')
+              checkDate('cycleEnd', '周期结束')
+              checkDate('extractedAt', '提取日期')
+              checkDate('withdrawnAt', '提现时间')
+              if (row.status !== undefined && row.status !== '' && !['available', 'withdrawn'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 available/withdrawn 之一`)
               break
           }
           return errors
@@ -628,6 +704,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         const validRooms = rawRooms.filter((row, i) => { const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
         const validContracts = rawContracts.filter((row, i) => { const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
         const validTenants = rawTenants.filter((row, i) => { const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
+        const validProfitRecords = rawProfitRecords.filter((row, i) => { const e = validateImportRow('利润提取', row, i); allErrors.push(...e); return e.length === 0 })
 
         // 引用完整性：以各实体的有效 ID 集合为准，剔除引用不存在的租客/房间/业主合同的孤儿账单
         // 注：validTenants/validContracts 经过 .map() 后 TS 推断丢失了展开的 id 字段，此处经 unknown 断言访问（运行时必存在）
@@ -660,7 +737,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
         // ─── 文件可识别性检查：防止导入无关 Excel 清空全部数据 ───
         // 若所有核心表都为空（无任何有效行），说明不是本系统的导出文件，中止导入
-        const totalValidRows = validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length
+        const totalValidRows = validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + validProfitRecords.length
         if (totalValidRows === 0) {
           console.warn('导入中止：文件中未找到任何有效数据（房源/房间/代理合同/租客/账单/利润提取 均为空）')
           setAlertState({
@@ -689,7 +766,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
             const contractList = validContracts
             const tenantList = validTenants
             const billList = validBills
-            const profitList = rawProfitRecords
+            const profitList = validProfitRecords
 
             const s2 = useStore.getState()
             useStore.setState({
@@ -736,7 +813,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           }
           setConfirmAction({
             title: '导入数据',
-            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + rawProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)${refWarningText}`,
+            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + validProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)${refWarningText}`,
             variant: 'default',
             confirmText: '导入',
             cancelText: '取消',
@@ -753,7 +830,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           const contractList = validContracts
           const tenantList = validTenants
           const billList = validBills
-          const profitList = rawProfitRecords
+          const profitList = validProfitRecords
 
           const s2 = useStore.getState()
           useStore.setState({
@@ -801,7 +878,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         // 无校验错误：确认后再导入（导入会替换现有全部数据）
         setConfirmAction({
           title: '导入数据',
-          message: `将从 Excel 导入 ${validProps.length} 房源、${validRooms.length} 房间、${validContracts.length} 代理合同、${validTenants.length} 租客、${validBills.length} 账单、${rawProfitRecords.length} 利润记录。\n\n⚠️ 导入将替换当前所有数据，确定继续？${refWarningText}`,
+          message: `将从 Excel 导入 ${validProps.length} 房源、${validRooms.length} 房间、${validContracts.length} 代理合同、${validTenants.length} 租客、${validBills.length} 账单、${validProfitRecords.length} 利润记录。\n\n⚠️ 导入将替换当前所有数据，确定继续？${refWarningText}`,
           variant: 'default',
           confirmText: '导入',
           cancelText: '取消',
