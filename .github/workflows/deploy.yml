@@ -8,7 +8,6 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  actions: write
 
 concurrency:
   group: "pages"
@@ -25,8 +24,11 @@ jobs:
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # 供应链安全：actions 全部 pin 到 commit SHA（2026-09-06，防 tag 被上游重指向）
+      # actions/checkout@v4 → f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      # actions/setup-node@v4 → 94196ee1d15439c1b6651cd87ef14e88ec435966
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
         with:
           node-version: 22
           cache: npm
@@ -34,9 +36,11 @@ jobs:
       - run: npm run build
       - name: Fix SPA routing
         run: cp dist/index.html dist/404.html
-      - uses: actions/upload-pages-artifact@v3
+      # actions/upload-pages-artifact@v3 → 98ef48e41587a300b82de4cf298aa98b57b2faae
+      - uses: actions/upload-pages-artifact@98ef48e41587a300b82de4cf298aa98b57b2faae
         with:
           path: dist
+      # actions/deploy-pages@v4 → 368f82528645a54fb793d4d04e342629a3f51346
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
 

@@ -34,12 +34,14 @@ create policy "users_can_check_own_admin" on admin_users
   for select using (auth.uid() = user_id);
 
 -- 3. 检查当前用户是否是管理员
+-- 安全：SECURITY DEFINER 必须固定 search_path（2026-09-06 加固，防 search_path 劫持提权）
 create or replace function is_admin()
 returns boolean
 language sql
 security definer
+set search_path = public
 as $$
-  select exists (select 1 from admin_users where user_id = auth.uid());
+  select exists (select 1 from public.admin_users where user_id = auth.uid());
 $$;
 
 -- 4. 管理员获取所有用户数据（含 last_active_at 和 disabled）
@@ -47,11 +49,12 @@ create or replace function get_all_user_data()
 returns table(user_id uuid, email text, data jsonb, updated_at timestamptz, last_active_at timestamptz, disabled boolean)
 language sql
 security definer
+set search_path = public
 as $$
   select u.id, u.email, d.data, d.updated_at, d.last_active_at, coalesce(d.disabled, false)
-  from user_data d
+  from public.user_data d
   join auth.users u on u.id = d.user_id
-  where (select is_admin())
+  where (select public.is_admin())
   order by d.updated_at desc nulls last;
 $$;
 
@@ -60,8 +63,9 @@ create or replace function update_last_active()
 returns boolean
 language sql
 security definer
+set search_path = public
 as $$
-  update user_data set last_active_at = now() where user_id = auth.uid();
+  update public.user_data set last_active_at = now() where user_id = auth.uid();
   select true;
 $$;
 
@@ -70,6 +74,7 @@ create or replace function set_user_disabled(target_user_id uuid, is_disabled bo
 returns void
 language sql
 security definer
+set search_path = public
 as $$
-  update user_data set disabled = is_disabled where user_id = target_user_id and (select is_admin());
+  update public.user_data set disabled = is_disabled where user_id = target_user_id and (select public.is_admin());
 $$;

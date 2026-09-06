@@ -90,6 +90,16 @@ function nextDisplayId(state: AppStore, prefix: 'DL' | 'ZL'): string {
 
 // Sync outer: wraps set() to auto-upload after every mutation
 let hydrated = false
+
+// ─── 云同步失败标记（模块级，2026-09-06 安全加固 M6）───
+// 原实现挂在 window 上，XSS/恶意脚本可篡改 window.__cloudSyncBrokenAt：
+// 置位=阻止全部业务操作（DoS），删除=绕过同步失败拦截。
+// 改为模块级私有变量 + 显式导出函数，外部无法通过 window 访问。
+let _cloudSyncBrokenAt: number | undefined
+export function getCloudSyncBrokenAt(): number | undefined { return _cloudSyncBrokenAt }
+export function setCloudSyncBroken(v: number) { _cloudSyncBrokenAt = v }
+export function clearCloudSyncBroken() { _cloudSyncBrokenAt = undefined }
+
 export const useStore = create<AppStore>()(
   persist(
     (rawSet, get) => {
@@ -105,7 +115,7 @@ export const useStore = create<AppStore>()(
         replace?: boolean
       ) => boolean
       const set = ((fn) => {
-        const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
+        const brokenAt = getCloudSyncBrokenAt()
         if (
           (typeof navigator !== 'undefined' && navigator.onLine === false) ||
           brokenAt !== undefined
@@ -739,22 +749,25 @@ export const useStore = create<AppStore>()(
     onRehydrateStorage: () => () => { hydrated = true },
     migrate: (persistedState: unknown, version: number) => {
       let state = persistedState as Record<string, unknown>
-      if (version === 0) {
-        return {
-          properties: [],
-          rooms: [],
-          tenants: [],
-          bills: [],
-          landlordContracts: [],
-          profitRecords: [],
-          trash: [],
-          auditLogs: [],
-        } as AppStore
-      }
-      if (version <= 1) {
-        // v1→v2: 水电燃气类型合并 + 押金类型识别
-        // 注意：不能 return，必须继续执行后续迁移链（v2→v8）
-        const bills = (state.bills as Array<Record<string, unknown>> || []).map(b => {
+      // 防御：persistedState 字段可能缺失或类型异常（localStorage 被污染/损坏），
+// 一律降级为空数组，避免 .map/.filter 对非数组抛 TypeError 导致启动崩溃（2026-09-06 M5 加固）
+        const arrOf = (v: unknown): Record<string, unknown>[] => Array.isArray(v) ? v as Record<string, unknown>[] : []
+        if (version === 0) {
+          return {
+            properties: [],
+            rooms: [],
+            tenants: [],
+            bills: [],
+            landlordContracts: [],
+            profitRecords: [],
+            trash: [],
+            auditLogs: [],
+          } as AppStore
+        }
+        if (version <= 1) {
+          // v1→v2: 水电燃气类型合并 + 押金类型识别
+          // 注意：不能 return，必须继续执行后续迁移链（v2→v8）
+          const bills = arrOf(state.bills).map(b => {
           let type = b.type as string
           if (type === 'water' || type === 'electric' || type === 'gas') {
             type = 'utilities'

@@ -51,10 +51,13 @@ function clearLoadWatchdog() {
   if (_loadWatchdog) { clearTimeout(_loadWatchdog); _loadWatchdog = null }
 }
 
-// 同步失败标记（全局契约）：保存失败时置位，业务操作守卫据此在 60 秒内阻止新增/修改；
-// 保存成功（含 10 秒重试最终成功）时清除。仅此两处访问该全局标记。
-const markSyncBroken = () => { (window as any).__cloudSyncBrokenAt = Date.now() }
-const clearSyncBroken = () => { delete (window as any).__cloudSyncBrokenAt }
+// 同步失败标记（模块级契约，2026-09-06 安全加固 M6）：
+// 保存失败时置位，业务操作守卫据此阻止新增/修改；
+// 保存成功（含 10 秒重试最终成功）时清除。
+// 由 useStore 导出的模块级函数管理，不暴露在 window（防 XSS 篡改 DoS/绕过守卫）。
+import { setCloudSyncBroken, clearCloudSyncBroken } from '../store/useStore'
+const markSyncBroken = () => { setCloudSyncBroken(Date.now()) }
+const clearSyncBroken = () => { clearCloudSyncBroken() }
 
 /** 主动清空数据前调用：跳过下一次自动保存，防止空数据覆盖云端 */
 export function skipNextCloudSave() {

@@ -1,4 +1,4 @@
-import { useStore } from '../store/useStore'
+import { useStore, getCloudSyncBrokenAt } from '../store/useStore'
 import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check, FileText, KeyRound, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -447,8 +447,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     }
 
     // 在线强制（产品铁律）：断网时阻止导入（导入会直接 setState 替换全部数据，绕过 store 的离线守卫）
-    // 同时检查云同步失败标记（__cloudSyncBrokenAt，与 useStore guard 判定一致），同步失败期间禁止导入
-    const brokenAt = (window as any).__cloudSyncBrokenAt as number | undefined
+    // 同时检查云同步失败标记（与 useStore guard 判定一致），同步失败期间禁止导入
+    const brokenAt = getCloudSyncBrokenAt()
     if (
       (typeof navigator !== 'undefined' && navigator.onLine === false) ||
       brokenAt !== undefined
