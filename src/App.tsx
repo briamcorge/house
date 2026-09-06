@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { HashRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./lib/auth-context";
-import { useStore } from "./store/useStore";
+import { useStore, setCloudSyncBroken } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
-import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync } from "./lib/cloud-sync-context";
+import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry } from "./lib/cloud-sync-context";
 import { pushAuthDiag } from "./lib/auth-diag";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
@@ -403,7 +403,7 @@ export default function App() {
       const state = useStore.getState()
       const hasLocalData = state.properties.length > 0 || state.tenants.length > 0 || state.bills.length > 0
       if (hasLocalData) {
-        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud }) => {
+        import('./lib/supabase').then(async ({ hasCloudData, loadCloudData, saveCloudData, getLocalDirtyAt, clearLocalDirty }) => {
           try {
             const cloudExists = await hasCloudData()
             const latest = useStore.getState()
@@ -413,33 +413,20 @@ export default function App() {
               return
             }
             if (cloudExists) {
-              // 云端优先：用云端数据覆盖本地（含数据修复）
+              // 云端优先：拉取并用 applyCloudLoad 统一入口应用（2026-09-06 二阶段修复）——
+              // 与 provider loadNow 共享全局应用代际：更晚发起的加载开始时本次结果整体作废，
+              // 陈旧快照不再可能晚落地覆盖本地/误清 dirty；dirty 保护也在 apply 内统一判定。
+              const token = beginCloudLoad()
               const result = await loadCloudData()
-              if (result) {
-                // ⚠️ 本地未同步数据保护（2026-09-03 数据丢失事故修复）：
-                // 本地业务操作时间戳比云端 updated_at 新 → 说明同步断链、本地有未同步数据，
-                // 禁止云端旧数据覆盖本地（8-28/9-03 两次事故都是云端旧数据覆盖本地新数据）。
-                // 保留本地后由 CloudSyncProvider 的 loadNow/保存链自动把本地推上云。
-                const dirtyAt = getLocalDirtyAt()
-                if (dirtyAt && result.updatedAt && isLocalNewerThanCloud(dirtyAt, result.updatedAt)) {
-                  console.warn('登录后跳过云端覆盖：本地有比云端新的未同步数据（保留本地并自动同步）:', { dirtyAt, cloudUpdatedAt: result.updatedAt })
-                  return
-                }
-                const normalized = normalizeCloudData(result.data)
-                useStore.setState({
-                  properties: normalized.properties,
-                  rooms: normalized.rooms,
-                  tenants: normalized.tenants,
-                  bills: normalized.bills,
-                  landlordContracts: normalized.landlordContracts,
-                  profitRecords: normalized.profitRecords,
-                  trash: normalized.trash,
-                } as any)
-                // 本地已被云端数据替换 → 清除未同步标记
-                clearLocalDirty()
+              const outcome = applyCloudLoad(token, result)
+              if (outcome === 'kept-local') {
+                console.warn('登录后跳过云端覆盖：本地有比云端新的未同步数据（保留本地，provider 将自动同步）:', { dirtyAt: getLocalDirtyAt(), cloudUpdatedAt: result?.updatedAt })
+              } else if (outcome === 'stale') {
+                console.warn('登录后云端加载结果作废：已有更新的应用代际开始')
               }
             } else {
-              // 云端无数据 → 本地上传（云端优先的例外：云端为空）
+              // 云端无数据 → 本地上传（云端优先的例外：云端为空；saveCloudData 走全局写锁队列，
+              // 不会与 provider 保存并发交错落库）
               const ok = await saveCloudData({
                 properties: latest.properties,
                 rooms: latest.rooms,
@@ -450,10 +437,20 @@ export default function App() {
                 trash: latest.trash,
               })
               // A1（2026-09-06）：整文档已入云，上传成功即清除「未同步」标记
-              if (ok) clearLocalDirty()
+              if (ok) {
+                clearLocalDirty()
+              } else {
+                // 首传失败不再静默（2026-09-06 二阶段修复）：置 broken 挡业务写入 + 红横幅提示
+                // + 10 秒自动重试（doSave 正规管道：带设备锁校验/成功清标记/失败继续重试）
+                console.error('登录后首次上传云端失败，已启用重试')
+                setCloudSyncBroken(Date.now())
+                requestSaveRetry()
+              }
             }
           } catch (err) {
             console.error('登录后数据同步失败:', err)
+            setCloudSyncBroken(Date.now())
+            requestSaveRetry()
           }
         })
       }

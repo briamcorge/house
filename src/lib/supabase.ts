@@ -294,11 +294,26 @@ export async function updateLastActive(): Promise<void> {
   }
 }
 
-// 保存数据到云端
+// 保存数据到云端（全局串行写锁包装，2026-09-06 并发双写修复·第二阶段）
+// ⚠️ saveCloudData 有四个调用方：provider doSave、被踢 best-effort 推送、登录后首传、Excel 导入。
+// 全部 upsert 都是整文档「后落库者胜」，并发时旧快照晚落地会覆盖新数据（9-05 事故同型）。
+// 这里用模块级 promise 链把所有云端写入串成单队列：落库顺序=发起顺序。
+// （队列内数据新鲜度由上游保证：doSave 靠 saving.current 串行 + _pending 用最新状态重发；
+//   链锁只负责不同调用方之间不再交错。）
+let _cloudWriteChain: Promise<unknown> = Promise.resolve()
+
+export function saveCloudData(syncData: SupabaseData, maxRetries = 1): Promise<boolean> {
+  const run = () => saveCloudDataInner(syncData, maxRetries)
+  // 上一笔无论成败都排在其后（then(run, run)），队列永不断链
+  const next = _cloudWriteChain.then(run, run)
+  _cloudWriteChain = next.catch(() => undefined)
+  return next
+}
+
+// 实际保存实现（仅供 saveCloudData 链内调用，勿直接使用）
 // maxRetries 默认 1：getUser 内部（auth-js）对 AuthRetryableFetchError 已有指数退避重试，
-// 外层再重试会放大最坏耗时（3 次 × 20s 超时 = 60s+，超过 doSave 的 30s watchdog），
-// 故外层只保留 1 次尝试（2026-09-05 Oracle 审查修复）。
-export async function saveCloudData(syncData: SupabaseData, maxRetries = 1): Promise<boolean> {
+// 外层再重试会放大最坏耗时，故只保留 1 次尝试（2026-09-05 Oracle 审查修复）。
+async function saveCloudDataInner(syncData: SupabaseData, maxRetries = 1): Promise<boolean> {
   const sb = getSupabase()
   if (!sb) {
     console.error('[saveCloudData] Supabase 未配置')
