@@ -911,14 +911,6 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setNewPw(''); setConfirmPw(''); setShowPw(false); setPwError(''); setPwDone(false); setShowChangePassword(true) }}
-                  className="shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                  title="修改密码"
-                >
-                  <KeyRound className="w-4 h-4 text-blue-200" />
-                </button>
-                <button
-                  type="button"
                   onClick={handleSignOut}
                   className="shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                   title="退出登录"
@@ -1076,6 +1068,21 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                         </div>
                       )
                     })()}
+                    {isSupabaseConfigured() && currentUser && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => { setNewPw(''); setConfirmPw(''); setShowPw(false); setPwError(''); setPwDone(false); setShowChangePassword(true) }}
+                          className="w-full flex items-center justify-between py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <KeyRound className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-700">修改密码</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
                 {isDiag && showDiag && (
