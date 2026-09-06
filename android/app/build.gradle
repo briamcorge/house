@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// 从 keystore.properties 读取签名凭据（不入库，见 .gitignore）
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.house.management"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +14,8 @@ android {
         applicationId "com.house.management"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 276
-        versionName "1.276"
+        versionCode 277
+        versionName "1.277"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,10 +25,12 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('house-management.keystore')
-            storePassword 'house123'
-            keyAlias 'house-management'
-            keyPassword 'house123'
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
     buildTypes {

@@ -23,6 +23,13 @@ filters.xml
 .env.local
 .env.*.local
 
+# Android 签名密钥（含密码，勿入库）
+android/app/*.keystore
+android/app/keystore.properties
+
+# 本地凭据说明文件（含 API Key / 密码，勿入库）
+/房屋管理系统-使用说明.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -6,10 +6,10 @@
 
 ### 云端数据库 (Supabase)
 - **URL**: `https://jvpkqqnfzkkcztkbzpdx.supabase.co`
-- **Key**: 已硬编码在 `src/lib/supabase.ts` 第 7 行（`VITE_SUPABASE_ANON_KEY`）
+- **Key**: 在 `.env`（`VITE_SUPABASE_ANON_KEY`，gitignore 不入库）；`src/lib/supabase.ts` 只从环境变量读取，无硬编码（2026-08-29 起）
 - **说明**: 免费版，数据库 500MB + 文件存储 1GB + 带宽 2GB/月
 - **登录**: 通过手机号+验证码登录（app 内 AuthModal）
-- **App 账号（调试用）**: `c94138228@163.com` / `ztzd12345`（邮箱+密码登录，非手机验证码；用 API 登录后可查 `user_data` 表）
+- **App 账号（调试用）**: `c94138228@163.com`（邮箱+密码登录，非手机验证码；用 API 登录后可查 `user_data` 表；**密码在 `房屋管理系统-使用说明.txt`，不在 AGENTS.md 存明文**——2026-09-06 安全整改，原明文曾随公开仓库泄露）
 - **管理令牌 (PAT)**: 已从文档移除（2026-08-28 GitHub Push Protection 拦截：账号级凭据不能入库；需要时去 supabase.com → Account → Access Tokens 重新生成，用完即撤销）
 - **Management API**: `https://api.supabase.com/v1/`，Header `Authorization: Bearer {PAT}`；项目 ref = `jvpkqqnfzkkcztkbzpdx`；日志查询端点 `logs?sql=`（404，需另找正确端点）；用户数据表 `user_data`（user_id + data JSON + updated_at），RLS 开启，anon key 读不到
 
@@ -56,9 +56,8 @@
 ### Android 签名 (APK 打包必需)
 - **keystore 路径**: `E:\新项目\house\android\app\house-management.keystore`
 - **keyAlias**: `house-management`
-- **storePassword**: `house123`
-- **keyPassword**: `house123`
-- **⚠️ 重要**: 签名文件丢失后无法覆盖安装已装过的 APK，务必保留
+- **凭据**: 密码在 `android/app/keystore.properties`（构建自动读取）与 `房屋管理系统-使用说明.txt`（人工查询），**不在 AGENTS.md 存明文**（2026-09-06 安全整改：旧 keystore 曾随公开仓库泄露，已轮换新密钥）
+- **⚠️ 重要**: 签名文件丢失后无法覆盖安装已装过的 APK，务必保留；新密钥签名与旧 APK 不同，**换新 keystore 后旧 APK 无法覆盖安装，需卸载重装**
 
 ### 项目路径
 - **本地**: `E:\新项目\house`
