@@ -8,7 +8,7 @@
 - **URL**: `https://jvpkqqnfzkkcztkbzpdx.supabase.co`
 - **Key**: 在 `.env`（`VITE_SUPABASE_ANON_KEY`，gitignore 不入库）；`src/lib/supabase.ts` 只从环境变量读取，无硬编码（2026-08-29 起）
 - **说明**: 免费版，数据库 500MB + 文件存储 1GB + 带宽 2GB/月
-- **登录**: 通过手机号+验证码登录（app 内 AuthModal）
+- **登录**: 邮箱+密码登录（app 内 AuthModal；**手机号验证码登录=付费功能，用户确认不做，勿加**）；修改密码入口在 More 页用户卡片（钥匙图标，2026-09-06 加，直接调 updatePassword）
 - **App 账号（调试用）**: `c94138228@163.com`（邮箱+密码登录，非手机验证码；用 API 登录后可查 `user_data` 表；**密码在 `房屋管理系统-使用说明.txt`，不在 AGENTS.md 存明文**——2026-09-06 安全整改，原明文曾随公开仓库泄露）
 - **管理令牌 (PAT)**: 已从文档移除（2026-08-28 GitHub Push Protection 拦截：账号级凭据不能入库；需要时去 supabase.com → Account → Access Tokens 重新生成，用完即撤销）
 - **Management API**: `https://api.supabase.com/v1/`，Header `Authorization: Bearer {PAT}`；项目 ref = `jvpkqqnfzkkcztkbzpdx`；日志查询端点 `logs?sql=`（404，需另找正确端点）；用户数据表 `user_data`（user_id + data JSON + updated_at），RLS 开启，anon key 读不到

@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check, FileText } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check, FileText, KeyRound, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
@@ -8,7 +8,7 @@ import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt, updatePassword } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
@@ -108,6 +108,14 @@ export default function More() {
   const [showBillPicker, setShowBillPicker] = useState(false)
 const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  // 修改密码弹窗状态
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwDone, setPwDone] = useState(false)
   const [profitPropertyId, setProfitPropertyId] = useState('')
   const [profitAmount, setProfitAmount] = useState('')
   const [profitBillId, setProfitBillId] = useState('')
@@ -903,6 +911,14 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 </div>
                 <button
                   type="button"
+                  onClick={() => { setNewPw(''); setConfirmPw(''); setShowPw(false); setPwError(''); setPwDone(false); setShowChangePassword(true) }}
+                  className="shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                  title="修改密码"
+                >
+                  <KeyRound className="w-4 h-4 text-blue-200" />
+                </button>
+                <button
+                  type="button"
                   onClick={handleSignOut}
                   className="shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                   title="退出登录"
@@ -1612,6 +1628,84 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                     </button>
                   )
                 })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改密码弹窗 */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowChangePassword(false) }}>
+          <div className="bg-white rounded-t-3xl w-full max-w-md flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold">修改密码</h3>
+              <button type="button" onClick={() => setShowChangePassword(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {pwDone ? (
+                <div className="py-6 text-center">
+                  <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <p className="text-base font-bold text-gray-900 mb-1">密码修改成功</p>
+                  <p className="text-sm text-gray-500 mb-4">请使用新密码登录</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePassword(false)}
+                    className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    确定
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">新密码</label>
+                    <div className="relative">
+                      <input
+                        type={showPw ? 'text' : 'password'}
+                        value={newPw}
+                        onChange={(e) => setNewPw(e.target.value)}
+                        placeholder="至少8位密码"
+                        minLength={8}
+                        className="w-full px-3 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      />
+                      <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
+                    <input
+                      type="password"
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      placeholder="再次输入新密码"
+                      minLength={8}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+                  {pwError && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{pwError}</p>}
+                  <button
+                    type="button"
+                    disabled={pwLoading || !newPw || !confirmPw}
+                    onClick={async () => {
+                      if (newPw !== confirmPw) { setPwError('两次密码不一致'); return }
+                      if (newPw.length < 8) { setPwError('密码至少8位'); return }
+                      setPwLoading(true); setPwError('')
+                      const { error } = await updatePassword(newPw)
+                      setPwLoading(false)
+                      if (error) { setPwError(error.message); return }
+                      setPwDone(true)
+                    }}
+                    className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {pwLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    确认修改
+                  </button>
+                </>
               )}
             </div>
           </div>
