@@ -282,6 +282,18 @@ export async function getUserDisabledStatus(): Promise<boolean> {
   return data.disabled === true
 }
 
+// 更新最后活跃时间（登录后调用，供 Admin 页展示"最后活跃"）。
+// 失败静默（不影响主流程），SECURITY DEFINER 函数内部 update_last_active 已 set search_path。
+export async function updateLastActive(): Promise<void> {
+  const sb = getSupabase()
+  if (!sb) return
+  try {
+    await sb.rpc('update_last_active')
+  } catch (e) {
+    console.warn('[updateLastActive] 更新最后活跃时间失败（忽略）:', e)
+  }
+}
+
 // 保存数据到云端
 // maxRetries 默认 1：getUser 内部（auth-js）对 AuthRetryableFetchError 已有指数退避重试，
 // 外层再重试会放大最坏耗时（3 次 × 20s 超时 = 60s+，超过 doSave 的 30s watchdog），

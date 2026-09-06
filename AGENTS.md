@@ -10,7 +10,7 @@
 - **说明**: 免费版，数据库 500MB + 文件存储 1GB + 带宽 2GB/月
 - **登录**: 邮箱+密码登录（app 内 AuthModal；**手机号验证码登录=付费功能，用户确认不做，勿加**）；修改密码入口在 More 页「设置」菜单（钥匙图标，2026-09-06 加，直接调 updatePassword，不校验旧密码——用户确认不做，勿加）
 - **App 账号（调试用）**: `c94138228@163.com`（邮箱+密码登录，非手机验证码；用 API 登录后可查 `user_data` 表；**密码在 `房屋管理系统-使用说明.txt`，不在 AGENTS.md 存明文**——2026-09-06 安全整改，原明文曾随公开仓库泄露）
-- **管理令牌 (PAT)**: 已从文档移除（2026-08-28 GitHub Push Protection 拦截：账号级凭据不能入库；需要时去 supabase.com → Account → Access Tokens 重新生成，用完即撤销）
+- **管理令牌 (PAT)**: 已从文档移除（2026-08-28 GitHub Push Protection 拦截：账号级凭据不能入库）；**临时 PAT 在 `房屋管理系统-使用说明.txt`**（2026-09-06 用户提供，30 天有效期，用完撤销；当前已用于执行 SECURITY DEFINER 加固 SQL）
 - **Management API**: `https://api.supabase.com/v1/`，Header `Authorization: Bearer {PAT}`；项目 ref = `jvpkqqnfzkkcztkbzpdx`；日志查询端点 `logs?sql=`（404，需另找正确端点）；用户数据表 `user_data`（user_id + data JSON + updated_at），RLS 开启，anon key 读不到
 
 ### 云同步数据丢失排查记录（2026-09-06，第四次，已修复 → 1.276）
@@ -24,11 +24,11 @@
 
 ### 云端自动备份 L1+L2（2026-09-06 实施，用户同意，临时 PAT 代办执行）
 - **动机**: 四次数据丢失后用户明确要求云端自动备份（Supabase 免费版无平台级备份）；本小节取代早期「免费版无备份、Excel 是唯一可控备份」的说法——**2026-09-06 起云端有自动备份**，但每周 More 页导出 Excel 仍建议保留（双保险、可离线留档）
-- **线上表结构（2026-09-06 实测，勿按旧 DDL 猜）**: `user_data(id uuid PK, user_id uuid UNIQUE REFERENCES auth.users, data jsonb, updated_at timestamptz)`，RLS 开启；`admin-sql.sql` 里的 user_id-PK 旧结构未生效
+- **线上表结构（2026-09-06 实测，勿按旧 DDL 猜）**: `user_data(id uuid PK, user_id uuid UNIQUE REFERENCES auth.users, data jsonb, updated_at timestamptz, last_active_at timestamptz, disabled boolean default false)`，RLS 开启；`last_active_at`/`disabled` 两列 2026-09-06 由 SQL 补加（线上原本只有 4 列）；`admin-sql.sql` 里的 user_id-PK 旧结构未生效
 - **L1 覆盖前存档**: 表 `user_data_history`（identity id PK、user_id、data、updated_at_before、reason('overwrite'|'delete')、archived_at），保留 30 天；触发器 `trg_user_data_archive`（BEFORE UPDATE OR DELETE，仅 data 真变才存档；1% 概率清 30 天前旧档）
 - **L2 每日全量快照**: 表 `user_data_daily_snapshots`（PK(user_id, snap_date)，含 data/updated_at/taken_at），保留 90 天；函数 `take_user_data_snapshot()` 同日重复执行=覆盖为最新；pg_cron 任务 `house-daily-snapshot` 每天 **22:00 UTC（北京 06:00）** 自动执行
 - **A4 DB trigger（已执行）**: `trg_user_data_updated_at` BEFORE INSERT OR UPDATE 强制 `updated_at = now()`（服务器时钟，A4 代码修复的 DB 侧落地；SQL 见 `sql/2026-09-06_updated_at_trigger.sql`）
-- **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）
+- **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）。⚠️ 2026-09-06 安全加固：`list_user_data_backups` 已加 `is_admin()` 校验（防 IDOR），所有 SECURITY DEFINER 函数已 `set search_path = public`（`get_all_user_data` 因返回类型与旧版不同需先 drop 再重建）；脚本见 `sql/2026-09-06_security_definer_fix.sql`，已由临时 PAT 在 Dashboard 执行完毕
 - **完整可执行脚本**: `E:\DSH\_house-incident-20260906\auto-backup\2026-09-06_auto_backup_L1_L2.sql`（v0.1 DRAFT → 已执行，2026-09-06 实测 2 表 2 触发器 1 cron 全存活）；改/恢复前先读该脚本与 `sql/2026-09-06_updated_at_trigger.sql`
 - **注意事项**: 备份表未开 RLS（靠 SECURITY DEFINER 函数隔离访问，直接查表需 service/postgres 权限）；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
 
