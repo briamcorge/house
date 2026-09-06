@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 2026-09-06 CSP 加固：限制脚本来源为自域 + Supabase API 域；style 允许内联（Tailwind/内联样式必需） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://jvpkqqnfzkkcztkbzpdx.supabase.co https://api.supabase.co wss://jvpkqqnfzkkcztkbzpdx.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <title>房屋管理</title>
     <script type="module">
       if (import.meta.hot?.on) {

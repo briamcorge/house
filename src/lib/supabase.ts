@@ -186,8 +186,10 @@ export async function loadCloudData(): Promise<CloudDataResult | null> {  const 
  * 云端数据可能缺失这些字段（旧版本写入），加载时统一修复。
  */
 export function normalizeCloudData(cloudData: SupabaseData): SupabaseData {
-  let tenants = cloudData.tenants || []
-  let bills = cloudData.bills || []
+  // 防御：云端数据字段可能缺失或类型异常（被污染/损坏），一律降级为空数组，
+  // 避免后续 .filter/.map 对非数组抛 TypeError 导致启动崩溃（2026-09-06 M5 加固）
+  let tenants = Array.isArray(cloudData.tenants) ? cloudData.tenants : []
+  let bills = Array.isArray(cloudData.bills) ? cloudData.bills : []
   if (tenants && bills) {
     // ⚠️ 只删除"退租(checkout)"租客的 pending 正数账单（退租没清理的遗留）。
     // 续约(renew)租客的未付账单必须保留（2026-09-03 用户确认：续约后旧合同未付账单依然有效，继续收款）。
@@ -233,13 +235,13 @@ export function normalizeCloudData(cloudData: SupabaseData): SupabaseData {
     })
   }
   return {
-    properties: cloudData.properties || [],
-    rooms: cloudData.rooms || [],
+    properties: Array.isArray(cloudData.properties) ? cloudData.properties : [],
+    rooms: Array.isArray(cloudData.rooms) ? cloudData.rooms : [],
     tenants,
     bills,
-    landlordContracts: cloudData.landlordContracts || [],
-    profitRecords: cloudData.profitRecords || [],
-    trash: cloudData.trash || [],
+    landlordContracts: Array.isArray(cloudData.landlordContracts) ? cloudData.landlordContracts : [],
+    profitRecords: Array.isArray(cloudData.profitRecords) ? cloudData.profitRecords : [],
+    trash: Array.isArray(cloudData.trash) ? cloudData.trash : [],
   }
 }
 

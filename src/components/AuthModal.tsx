@@ -41,11 +41,9 @@ export default function AuthModal({ isOpen, onClose, required = false }: AuthMod
       } else if (mode === 'login') {
         const { error } = await signIn(email, password)
         if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            setError('邮箱或密码错误')
-          } else {
-            setError(error.message)
-          }
+          // 错误泛化（2026-09-06 安全加固）：不向用户展示 Supabase 原始错误，
+          // 避免泄露内部细节（如账号状态、限流信息）
+          setError('登录失败，请检查邮箱和密码')
           return
         }
         onClose()
