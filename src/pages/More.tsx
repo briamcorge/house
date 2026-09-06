@@ -570,6 +570,16 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
             }
           }
 
+          // 通用：金额字段只拒绝 Infinity/NaN，允许负数（账单退押金/退租金、负利润是正常业务，2026-09-06 修复）
+          const checkFinite = (field: string, label: string) => {
+            const v = row[field]
+            if (v === undefined || v === null || v === '') return
+            const n = Number(v)
+            if (isNaN(n) || !isFinite(n)) {
+              errors.push(`${prefix} ${label} 必须为有效数字`)
+            }
+          }
+
           switch (sheetName) {
             case '房源':
               if (!row.address || String(row.address).trim() === '') errors.push(`${prefix} 地址不能为空`)
@@ -620,14 +630,16 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               checkDate('paidDate', '实付日')
               checkDate('periodStart', '覆盖开始')
               checkDate('periodEnd', '覆盖结束')
-              checkAmount('amount', '金额')
-              checkAmount('paidAmount', '已付金额')
+              // 账单金额允许负数（退押金/退租金/返款为负数账单，2026-09-06 修复导入被拒 bug）
+              checkFinite('amount', '金额')
+              checkFinite('paidAmount', '已付金额')
               break
             case '利润提取':
               if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
               checkAmount('tenantIncome', '租客收入')
               checkAmount('landlordExpense', '业主支出')
-              checkAmount('profitAmount', '利润')
+              // 利润允许负数（负利润也要允许提取，2026-09-06 修复导入被拒 bug）
+              checkFinite('profitAmount', '利润')
               checkDate('cycleStart', '周期开始')
               checkDate('cycleEnd', '周期结束')
               checkDate('extractedAt', '提取日期')
