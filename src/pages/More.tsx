@@ -8,7 +8,7 @@ import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt, updatePassword } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt, clearLocalDirty, updatePassword } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
@@ -867,6 +867,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 return
               } else {
                 console.log('✅ Excel 数据已成功保存到云端')
+                // 整文档已确认入云 → 清除未同步标记（2026-09-06 二阶段修复：此前不清除，
+                // 残留的 dirty 标记会让本设备日后被误判为「有未同步新数据」而把旧档冒充最新推云）
+                clearLocalDirty()
               }
             } catch (err) {
               console.error('云端保存异常', err)
@@ -931,6 +934,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               return
             } else {
               console.log('✅ Excel 数据已成功保存到云端')
+              // 整文档已确认入云 → 清除未同步标记（2026-09-06 二阶段修复：此前不清除，
+              // 残留的 dirty 标记会让本设备日后被误判为「有未同步新数据」而把旧档冒充最新推云）
+              clearLocalDirty()
             }
           } catch (err) {
             console.error('云端保存异常', err)
