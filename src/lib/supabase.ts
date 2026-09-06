@@ -264,6 +264,25 @@ export async function hasCloudData(): Promise<boolean | null> {
 }
 
 /**
+ * 轻量查询云端最后写入时间（updated_at，DB trigger 服务器时钟）。
+ * 供 Excel 导入前「文件是否陈旧」核对用（2026-09-06 导入护栏），不拉整档数据。
+ * 返回 ISO 字符串；无行/查询失败返回 null（调用方按「无法核对」处理）。
+ */
+export async function getCloudUpdatedAt(): Promise<string | null> {
+  const sb = getSupabase()
+  if (!sb) return null
+  const { data: { user }, error: userError } = await sb.auth.getUser()
+  if (userError || !user) return null
+  const { data, error } = await sb
+    .from('user_data')
+    .select('updated_at')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error || !data) return null
+  return data.updated_at ? String(data.updated_at) : null
+}
+
+/**
  * 获取当前登录用户是否被停用（登录后调用，用于阻止被停用用户使用）。
  * 返回 true 表示 disabled === true；行不存在 / 查询出错 / 未登录一律返回 false。
  * 永不抛异常。

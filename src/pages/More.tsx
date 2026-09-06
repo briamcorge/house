@@ -8,7 +8,7 @@ import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
 import { useAuth } from '../lib/auth-context'
-import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt, clearLocalDirty, updatePassword } from '../lib/supabase'
+import { isSupabaseConfigured, signOut, checkIsAdmin, saveCloudData, setLocalDirtyAt, clearLocalDirty, getCloudUpdatedAt, updatePassword } from '../lib/supabase'
 import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
@@ -813,6 +813,63 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           e.target.value = ''
           return
         }
+        // ─── 导入护栏（2026-09-06 修复排查报告第 3/4 条：导入确认前明示数据面风险）───
+        // 护栏 A（第4条）：缺 sheet 清空警示——某表在文件中无有效行且本机存在数据时，
+        // 整档替换会把该表清零。以前只有一句笼统「替换所有数据」，用户意识不到损失面。
+        const curState = useStore.getState()
+        const wipeChecks: Array<[string, number, number]> = [
+          ['房源', validProps.length, curState.properties.length],
+          ['房间', validRooms.length, curState.rooms.length],
+          ['代理合同', validContracts.length, curState.landlordContracts.length],
+          ['租客', validTenants.length, curState.tenants.length],
+          ['账单', validBills.length, curState.bills.length],
+          ['利润提取', validProfitRecords.length, curState.profitRecords.length],
+        ]
+        const wipeWarnings: string[] = []
+        for (const [sheetName, validCount, currentCount] of wipeChecks) {
+          if (validCount === 0 && currentCount > 0) {
+            wipeWarnings.push(`⚠️ 文件中「${sheetName}」表没有可导入的数据，本机现有 ${currentCount} 条${sheetName}将被清空`)
+          }
+        }
+
+        // 护栏 B（第3条）：旧备份覆盖警示——导入=整档覆盖云端并上推（dirty 打标后云端必被覆盖）。
+        // 若云端最后写入时间晚于文件内数据的新鲜度（最后记录创建时间/文件名日期），
+        // 说明这是陈旧备份，导入会湮灭云端比它新的改动（9-05 事故的人工操作版）。
+        // 注意：只警示不拦死——「用旧备份回滚」也是合法意图，由用户确认。
+        let staleWarning = ''
+        try {
+          let fileNewestMs = 0
+          for (const rows of [rawProps, rawRooms, rawContracts, rawTenants, rawBills, rawProfitRecords] as Record<string, unknown>[][]) {
+            for (const r of rows) {
+              const t = Date.parse(String((r as { createdAt?: unknown }).createdAt ?? ''))
+              if (!Number.isNaN(t) && t > fileNewestMs) fileNewestMs = t
+            }
+          }
+          const nameDate = fName.match(/(\d{4}-\d{2}-\d{2})/)
+          if (nameDate) {
+            // 文件名只有日期精度 → 取当天末尾，避免「当天导出当天导入」误报
+            const t = Date.parse(`${nameDate[1]}T23:59:59`)
+            if (!Number.isNaN(t) && t > fileNewestMs) fileNewestMs = t
+          }
+          const cloudUpdatedAt = await getCloudUpdatedAt()
+          if (cloudUpdatedAt === null) {
+            staleWarning = '⚠️ 无法核对云端数据时间（查询失败）。若此文件不是最新导出的备份，导入可能覆盖云端更新的数据。\n'
+          } else {
+            const cloudMs = Date.parse(cloudUpdatedAt)
+            if (fileNewestMs === 0) {
+              staleWarning = '⚠️ 此文件不含创建时间信息，无法核对新旧。若它不是最新导出的备份，导入可能覆盖云端更新的数据。\n'
+            } else if (!Number.isNaN(cloudMs) && cloudMs > fileNewestMs) {
+              staleWarning = `⛔ 云端最后同步于 ${new Date(cloudMs).toLocaleString('zh-CN')}，而此文件内数据截至 ${new Date(fileNewestMs).toLocaleString('zh-CN')}——这是陈旧备份！导入后云端比文件新的改动（收款、账单修改等）将被覆盖丢失。建议：取消，先导出当前最新数据。\n`
+            }
+          }
+        } catch {
+          staleWarning = '⚠️ 核对云端数据时间异常。若此文件不是最新导出的备份，导入可能覆盖云端更新的数据。\n'
+        }
+        const hasImportRisk = wipeWarnings.length > 0 || staleWarning !== ''
+        const riskWarningBlock = hasImportRisk ? `\n\n${staleWarning}${wipeWarnings.join('\n')}` : ''
+        const riskConfirmText = hasImportRisk ? '我已了解风险，仍要导入' : '导入'
+        const riskVariant = hasImportRisk ? 'danger' as const : 'default' as const
+
         if (totalInvalid > 0) {
           const summary = [
             `📋 导入校验结果：`,
@@ -881,9 +938,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           }
           setConfirmAction({
             title: '导入数据',
-            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + validProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)${refWarningText}`,
-            variant: 'default',
-            confirmText: '导入',
+            message: `共 ${allErrors.length} 行数据校验不通过（已跳过），确定导入 ${validProps.length + validRooms.length + validContracts.length + validTenants.length + validBills.length + validProfitRecords.length} 条有效数据？\n\n详细错误请查看控制台 (F12)${refWarningText}${riskWarningBlock}`,
+            variant: riskVariant,
+            confirmText: riskConfirmText,
             cancelText: '取消',
             onAction: doImportAll,
           })
@@ -949,9 +1006,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         // 无校验错误：确认后再导入（导入会替换现有全部数据）
         setConfirmAction({
           title: '导入数据',
-          message: `将从 Excel 导入 ${validProps.length} 房源、${validRooms.length} 房间、${validContracts.length} 代理合同、${validTenants.length} 租客、${validBills.length} 账单、${validProfitRecords.length} 利润记录。\n\n⚠️ 导入将替换当前所有数据，确定继续？${refWarningText}`,
-          variant: 'default',
-          confirmText: '导入',
+          message: `将从 Excel 导入 ${validProps.length} 房源、${validRooms.length} 房间、${validContracts.length} 代理合同、${validTenants.length} 租客、${validBills.length} 账单、${validProfitRecords.length} 利润记录。\n\n⚠️ 导入将替换当前所有数据，确定继续？${refWarningText}${riskWarningBlock}`,
+          variant: riskVariant,
+          confirmText: riskConfirmText,
           cancelText: '取消',
           onAction: doImportClean,
         })
