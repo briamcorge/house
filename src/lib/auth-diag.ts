@@ -48,3 +48,29 @@ export function clearAuthDiag() {
     // ignore
   }
 }
+
+// ─── F3 诊断增强（2026-09-07 幽灵锁排查）─────────────────────────
+// 背景：被踢流程 signOut({scope:'local'}) 依赖网络 /logout 成功后才清本地会话，
+// 网络失败/异常时 sb-* 会话键残留 →「无锁 token 但会话仍在」的僵尸实例，
+// 下次启动会生成新随机 token 静默抢走云端设备锁（9c1ad566 疑似来源）。
+// 以下函数只做证据采集，不改任何主流程行为。
+
+// 当前源下所有 sb-* 会话键名（signOut 后非空 = 僵尸状态实锤）
+export function listSbSessionKeys(): string[] {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('sb-')) keys.push(k)
+    }
+    return keys
+  } catch {
+    return []
+  }
+}
+
+// 本机 auth 相关存储全景指纹（用于抢锁/登出场景留证）
+export function scanAuthSnapshot(): string {
+  const sbKeys = listSbSessionKeys()
+  return `tab_active=${localStorage.getItem('tab_active') ? '1' : '0'} lockToken=${localStorage.getItem('device_session_token') ? '1' : '0'} sbKeys=${sbKeys.length ? sbKeys.join(',') : '无'}`
+}

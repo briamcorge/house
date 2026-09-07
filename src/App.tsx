@@ -5,7 +5,7 @@ import { useAuth } from "./lib/auth-context";
 import { useStore, setCloudSyncBroken } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
 import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry } from "./lib/cloud-sync-context";
-import { pushAuthDiag } from "./lib/auth-diag";
+import { pushAuthDiag, listSbSessionKeys, scanAuthSnapshot } from "./lib/auth-diag";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -35,6 +35,32 @@ function shouldHandleKick(): boolean {
   if (now - lastKickHandledAt < 5000) return false
   lastKickHandledAt = now
   return true
+}
+
+// ─── F3 诊断（2026-09-07 幽灵锁排查）─────────────────────────────
+// 被踢/登出时执行本地 signOut 并留证：supabase-js 的 signOut({scope:'local'})
+// 要先发网络 /logout 成功才清本地会话键；失败/异常 → sb-* 会话残留而锁 token 已被
+// removeItem →「僵尸实例」（下次启动无 token 有会话 → randomUUID 静默抢云端锁）。
+// 本函数只加日志，主流程时序与原版完全一致（fire-and-forget）。
+function signOutLocalTraced(sb: NonNullable<ReturnType<typeof getSupabase>>, scene: string) {
+  sb.auth.signOut({ scope: 'local' }).then(
+    (res) => {
+      const leftover = listSbSessionKeys()
+      if (res.error) {
+        console.error('退出登录失败:', res.error)
+        pushAuthDiag({ reason: `signOut[${scene}]`, detail: `error: ${res.error.message} | 会话残留: ${leftover.length ? leftover.join(',') : '无'}` })
+      } else if (leftover.length) {
+        pushAuthDiag({ reason: `signOut[${scene}]`, detail: `成功但会话残留（僵尸态，下次启动可能抢锁）: ${leftover.join(',')}` })
+      } else {
+        pushAuthDiag({ reason: `signOut[${scene}]`, detail: '成功且会话已清' })
+      }
+    },
+    (err) => {
+      console.error('退出登录失败:', err)
+      const leftover = listSbSessionKeys()
+      pushAuthDiag({ reason: `signOut[${scene}]`, detail: `reject（会话大概率残留=僵尸）: ${String(err)} | sbKeys: ${leftover.length ? leftover.join(',') : '无'}` })
+    }
+  )
 }
 
 function StorageWarning() {
@@ -250,7 +276,7 @@ export default function App() {
       const sb = getSupabase()
       if (sb) {
         skipNextCloudSave()
-        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+        signOutLocalTraced(sb, '停用踢出')
         localStorage.removeItem('device_session_token')
       }
     } catch (err) {
@@ -288,11 +314,11 @@ export default function App() {
       } else if (isNewBrowserSession) {
         // 理论上仅在首装/存储被系统清空时出现（登出/被踢已不再删除 tab_active）。
         // 只登出本机会话，不清业务数据（云端为准：重登后云端覆盖）。
-        pushAuthDiag({ reason: '新浏览器会话判定（tab_active 丢失）' })
+        pushAuthDiag({ reason: '新浏览器会话判定（tab_active 丢失）', detail: scanAuthSnapshot() })
         const sb = getSupabase()
         if (sb) {
           skipNextCloudSave()
-          sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+          signOutLocalTraced(sb, '新浏览器会话')
           localStorage.removeItem('device_session_token')
         }
       } else {
@@ -316,7 +342,7 @@ export default function App() {
                 })
                 if (shouldHandleKick()) {
                   skipNextCloudSave()
-                  sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+                  signOutLocalTraced(sb, '冷启动锁不匹配踢出')
                   localStorage.removeItem('device_session_token')
                   // 本地业务数据与 tab_active 保留：云端为准（重登后云端覆盖），
                   // 且避免下次冷启动被误判为"新浏览器会话"再次被踢
@@ -341,7 +367,18 @@ export default function App() {
           // 没有本地 token（可能是旧版本升级来的）→ 写入当前设备为活跃设备
           const deviceToken = crypto.randomUUID()
           localStorage.setItem('device_session_token', deviceToken)
-          pushAuthDiag({ reason: '设备锁初始化（本地无 token）', localToken: deviceToken })
+          // F3 留证：抢锁瞬间的存储全景（sb 会话存在+无锁 token = 疑似僵尸复活）
+          pushAuthDiag({ reason: '设备锁初始化（本地无 token）', localToken: deviceToken, detail: scanAuthSnapshot() })
+          // F3 留证：与 upsert 并发只读云端旧锁（谁在持锁；不 await，不影响主流程时序）
+          sb.from('active_sessions').select('session_token').eq('user_id', currentUser.id).maybeSingle()
+            .then(
+              ({ data }) => {
+                if (data && data.session_token !== deviceToken) {
+                  pushAuthDiag({ reason: '初始化抢锁时的云端旧锁', localToken: deviceToken, dbToken: data.session_token, detail: '覆盖了他人锁（正常首装不应有此行）' })
+                }
+              },
+              () => { /* 纯诊断，失败忽略 */ }
+            )
           sb.from('active_sessions')
             .upsert({ user_id: currentUser.id, session_token: deviceToken })
             .then(({ error }) => {
@@ -376,9 +413,21 @@ export default function App() {
       const existingToken = localStorage.getItem('device_session_token')
       const deviceToken = existingToken || crypto.randomUUID()
       localStorage.setItem('device_session_token', deviceToken)
-      pushAuthDiag({ reason: 'SIGNED_IN 写锁', localToken: deviceToken, detail: existingToken ? '复用本地 token' : '生成新 token' })
+      pushAuthDiag({ reason: 'SIGNED_IN 写锁', localToken: deviceToken, detail: `${existingToken ? '复用本地 token' : '生成新 token'} | ${scanAuthSnapshot()}` })
       const sb = getSupabase()
       if (sb) {
+        // F3 留证：本次若生成新 token，并发只读云端旧锁（登录抢锁是预期行为，但记录覆盖痕迹便于回溯）
+        if (!existingToken) {
+          sb.from('active_sessions').select('session_token').eq('user_id', currentUser.id).maybeSingle()
+            .then(
+              ({ data }) => {
+                if (data && data.session_token !== deviceToken) {
+                  pushAuthDiag({ reason: 'SIGNED_IN 新锁覆盖的云端旧值', localToken: deviceToken, dbToken: data.session_token })
+                }
+              },
+              () => { /* 纯诊断，失败忽略 */ }
+            )
+        }
         // 必须 await 写入完成，否则轮询会看到旧 token 把自己踢掉
         sb.from('active_sessions')
           .upsert({ user_id: currentUser.id, session_token: deviceToken })
@@ -501,7 +550,7 @@ export default function App() {
       const sb = getSupabase()
       if (sb) {
         skipNextCloudSave()
-        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+        signOutLocalTraced(sb, '登录过期本地登出')
       }
     }
     window.addEventListener('auth-session-expired', handler)
@@ -520,7 +569,7 @@ export default function App() {
       const sb = getSupabase()
       if (sb) {
         skipNextCloudSave()
-        sb.auth.signOut({ scope: 'local' }).catch(err => console.error('退出登录失败:', err))
+        signOutLocalTraced(sb, 'device-kicked踢出')
         localStorage.removeItem('device_session_token')
         // 本地业务数据与 tab_active 保留：云端为准（重登后云端覆盖），
         // 且避免下次冷启动被误判为"新浏览器会话"再次被踢
