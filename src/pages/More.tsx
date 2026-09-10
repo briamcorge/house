@@ -13,7 +13,7 @@ import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
-import { calculateAccountBalance } from '../utils/balance'
+import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -158,9 +158,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status))
   const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status))
-  // 账户余额：账目上真实进出过的钱 = 累计到账 − 累计付出（不含押金，押金见左侧两张卡）。
-  // 只认钱动没动，不按覆盖期分摊、不随时间变化（不会自己往下掉），便于实时感知资金情况。
-  const { account } = calculateAccountBalance(bills)
+  // 可支配余额：按覆盖期"按天消耗"的预交未住净额 = 租客侧剩余 − 业主侧剩余（不含押金，押金见左侧两张卡）。
+  // 随日期每天变化（今天当天算已住）；负数 = 垫钱。完整规则与例子见 utils/balance.ts 的 calcBillRemain 注释。
+  const { balance } = calculateBalance(bills, todayLocal())
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   const { saveNow } = useCloudSync()
@@ -1157,10 +1157,10 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               </button>
               <div
                 className="bg-white/10 rounded-xl p-2 text-center"
-                title="账目上真实进出过的钱：累计到账 − 累计付出。不含押金（押金见左侧两张卡），也不随时间变化"
+                title="按覆盖期按天分摊的预交未住净额：租客侧剩余 − 业主侧剩余。不含押金（押金见左侧两张卡），随时间每天变化；负数 = 垫钱"
               >
-                <p className={`text-base font-bold ${account < 0 ? 'text-red-300' : 'text-white'}`}>¥{account.toFixed(0)}</p>
-                <p className="text-blue-200 text-[10px]">账户余额</p>
+                <p className={`text-base font-bold ${balance < 0 ? 'text-red-300' : 'text-white'}`}>¥{balance.toFixed(0)}</p>
+                <p className="text-blue-200 text-[10px]">可支配余额</p>
               </div>
             </div>
           </div>

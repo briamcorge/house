@@ -47,27 +47,41 @@ function billAmount(bill: Bill): number {
 }
 
 /**
- * 计算某张已收/已付账单到今天为止的"未消耗剩余金额"。
- * - 无覆盖期（一次性费用如卫管费/网费）：已收即消耗完，剩余 0
- * - 覆盖期结束 < 今天：已全部消耗，剩余 0
- * - 覆盖期开始 > 今天：未开始，剩余 = 全额
- * - 覆盖期包含今天：剩余 = 金额 × (结束-今天+1)/(结束-开始+1)（30/360，含首尾）
+ * 计算某张已收/已付账单到今天为止的"未消耗剩余金额"（「可支配余额」的核心）。
+ *
+ * 口径（2026-09-11 与用户逐条确认，"按天消耗"模型）：
+ * - 日租 = 账单原价 ÷ 覆盖期总天数（30/360，含首尾）；如月租 2000 → 66.67/天
+ * - 已住天数 = 覆盖期开始 → 今天（含今天，"今天当天算已住"）
+ * - 剩余 = 实收金额 − 已住天数 × 日租
+ *   例①：月账单 2000、实收 500，今天 6.1 → 500 − 1×66.67 = 433.33
+ *   例②：预交 8000 覆盖 3.1~6.30，今天 6.1 已住 91 天 → 8000 − 91×66.67 = 1933.33
+ * - 部分收款按实收额消耗，且日租仍按账单原价算（不按实收等比例：500 也按每天 66.67 消耗）
+ * - 收款单（正数）住超实收时记 0（收了 500 最多住掉 500，不出负数）
+ * - 退款单（负数）不 clamp、按同一规则线性抵减（退未来期间的钱要抵减，随时间递减）
+ * - 覆盖期结束 < 今天：已全部住完，剩余 0
+ * - 覆盖期开始 > 今天：未开始，剩余 = 实收全额
+ * - 无覆盖期（一次性费用如卫管费/网费/中介费、缺期间老账单）：已收即消耗完，剩余 0
  */
 export function calcBillRemain(bill: Bill, today: string): number {
   if (bill.status === 'cancelled') return 0
-  const amount = billAmount(bill)
-  if (!Number.isFinite(amount)) return 0 // 金额非数字（脏数据）：记 0，避免污染总额成 NaN
+  const received = billAmount(bill) // 实收/实付（部分收款取实收额；负数退款单强制取账单金额）
+  if (!Number.isFinite(received)) return 0 // 金额非数字（脏数据）：记 0，避免污染总额成 NaN
   const period = getBillPeriod(bill)
-  if (!period) return 0 // 一次性费用：无覆盖期，已消耗
+  if (!period) return 0 // 一次性费用：无覆盖期，已收即消耗完
   const [bs, be] = period
-  // 含首尾口径：末日当天仍有 1 天份额（今天还没被"消耗"），故用 < 而非 <=。
-  // 原先用 <= 会在末日一次跳降 2 天份额（前一天 2/30 → 当天 0），与首日按日初语义返回全额不自洽。
-  if (be < today) return 0
-  if (bs > today) return amount // 未开始，全额未消耗
+  if (be < today) return 0 // 覆盖期已过完：住完，无剩余
+  if (bs > today) return received // 未开始：全额未消耗
   const total = days360(bs, be)
   if (total <= 0) return 0
-  const remain = amount * days360(today, be) / total
-  return Math.round(remain * 100) / 100
+  // 日租按「账单原价」计算（不是实收额的比例），部分收款才能按原价逐日消耗：
+  // 例：账单 2000/30 天、实收 500 → 每天消耗 66.67，而不是按 500/30=16.67 等比例
+  const original = Number(bill.amount)
+  const rate = (Number.isFinite(original) && original !== 0 ? original : received) / total
+  const lived = days360(bs, today) // 已住天数（含今天）
+  const remain = received - lived * rate
+  // 收款单最多消耗到 0（住超实收不记负数）；退款单（负数）保持线性抵减
+  const clamped = received > 0 ? Math.max(0, remain) : remain
+  return Math.round(clamped * 100) / 100
 }
 
 export interface BalanceResult {
@@ -77,20 +91,27 @@ export interface BalanceResult {
 }
 
 /**
- * 实时可支配余额：
- * 已收账单剩余（direction=receivable, 已收/已退, 不含押金）− 已付账单剩余（direction=payable, 已付/已退, 不含押金）
+ * 实时可支配余额（More 页概览第三个数字，2026-09-11 用户确认恢复启用）：
+ * 已收账单剩余（receivable）− 已付账单剩余（payable），均不含押金；负数 = 垫钱。
  *
- * 注：More.tsx 现已改用 calculateCashBalance（真实现金口径），本函数目前无调用点，
- * 保留仅为兼容与对照——收付两侧的 status 过滤必须保持对称（payable 也要收 refunded）。
+ * - 每张账单的"剩余"按覆盖期"按天消耗"计算（规则与例子见 calcBillRemain 注释）
+ * - 收付两侧对称：已结清（paid/refunded）或录了实收/实付（paidAmount > 0）的参与；
+ *   纯待收待付、cancelled 不参与；押金已单独成卡，整体排除
  */
 export function calculateBalance(bills: Bill[], today: string): BalanceResult {
   let tenantRemain = 0
   let landlordRemain = 0
   for (const b of bills) {
+    if (b.status === 'cancelled') continue
     if (isDepositBill(b)) continue // 押金不算（租客押金要退，业主押金不算支出）
-    if (b.direction === 'receivable' && (b.status === 'paid' || b.status === 'refunded')) {
+    // 只统计真正动过钱的账单：已结清（paid/refunded）全额；未结清但录了实收/实付金额
+    // （paidAmount > 0，手工编辑账单/Excel 导入可产生「待收 + 实收」组合）按实收额参与分摊
+    const settled = b.status === 'paid' || b.status === 'refunded'
+    const partialPaid = Number(b.paidAmount)
+    if (!settled && !(Number.isFinite(partialPaid) && partialPaid > 0)) continue
+    if (b.direction === 'receivable') {
       tenantRemain += calcBillRemain(b, today)
-    } else if (b.direction === 'payable' && (b.status === 'paid' || b.status === 'refunded')) {
+    } else if (b.direction === 'payable') {
       landlordRemain += calcBillRemain(b, today)
     }
   }
@@ -110,12 +131,10 @@ export interface AccountBalanceResult {
 }
 
 /**
- * 账户余额（More 页概览第三个数字）：账目上真实进出过的钱，让用户实时感知资金情况。
- *   累计到账 − 累计付出（**不含押金**）
+ * 账户余额（真实现金口径：累计到账 − 累计付出，不含押金）。
  *
- * 与 calculateBalance（按覆盖期分摊的"预交未住"）是两回事：本函数只认钱动没动，
- * 不按天分摊、不依赖 periodStart/periodEnd，因此手工账单、一次性费用、缺期间的账单
- * 都会如实计入；也**不随时间变化**（不会自己往下掉）。
+ * 注：2026-09-11 起 More 页概览第三个数字已改回「可支配余额」（calculateBalance，
+ * 按覆盖期按天消耗），本函数暂无调用点，保留仅为对照与兼容。
  *
  * 口径（2026-09-10 与用户确认）：
  * - **押金整体不计入**（用户要求：押金已单独成卡——已收租户押金、已付业主押金），
