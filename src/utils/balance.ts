@@ -12,10 +12,10 @@ function to360(s: string): { y: number; m: number; d: number } {
   return { y, m, d }
 }
 
-/** 30/360 间隔天数（不含首尾差值，与覆盖期剩余计算匹配） */
+/** 30/360 间隔天数（含首尾，与 calculator.ts actualDays 及 profit.ts days360 一致） */
 function days360(a: string, b: string): number {
   const da = to360(a), db = to360(b)
-  return (db.y - da.y) * 360 + (db.m - da.m) * 30 + (db.d - da.d)
+  return (db.y - da.y) * 360 + (db.m - da.m) * 30 + (db.d - da.d) + 1
 }
 
 /** 取账单覆盖期：优先 periodStart/periodEnd，旧数据从 description 提取 */
