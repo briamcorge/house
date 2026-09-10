@@ -13,7 +13,7 @@ import { useCloudSync } from '../lib/cloud-sync-context'
 import { pushAuthDiag, getAuthDiag, clearAuthDiag, AuthDiagEntry } from '../lib/auth-diag'
 import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
-import { calculateCashBalance } from '../utils/balance'
+import { calculateAccountBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
@@ -158,9 +158,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   const paidDeposit = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status)).reduce((s, b) => s + Number(b.amount), 0)
   const depositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'receivable' && depositPaidStatuses.has(b.status))
   const paidDepositBills = bills.filter(b => (b.type === 'deposit' || (b.description as string)?.includes('押金')) && b.direction === 'payable' && depositPaidStatuses.has(b.status))
-  // 手里的钱：累计真实到账 − 累计真实付出（只认已收/已付/已退，押金双向都不算），负数 = 垫钱
-  // prepaidUnearned = 其中租客预交但还没住到的部分，仅作「建议留存」提示，不参与上面的数
-  const { cash, prepaidUnearned } = calculateCashBalance(bills, todayLocal())
+  // 账户余额：账目上真实进出过的钱 = 累计到账 − 累计付出（不含押金，押金见左侧两张卡）。
+  // 只认钱动没动，不按覆盖期分摊、不随时间变化（不会自己往下掉），便于实时感知资金情况。
+  const { account } = calculateAccountBalance(bills)
 
   // 通过 Supabase RPC 判断管理员权限（服务端校验）
   const { saveNow } = useCloudSync()
@@ -1157,17 +1157,12 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               </button>
               <div
                 className="bg-white/10 rounded-xl p-2 text-center"
-                title="从记账至今真正收到手的钱，减去真正付出去的钱；押金两边都不算（押金另有单独统计）"
+                title="账目上真实进出过的钱：累计到账 − 累计付出。不含押金（押金见左侧两张卡），也不随时间变化"
               >
-                <p className={`text-base font-bold ${cash < 0 ? 'text-red-300' : 'text-white'}`}>¥{cash.toFixed(0)}</p>
-                <p className="text-blue-200 text-[10px]">手里的钱</p>
+                <p className={`text-base font-bold ${account < 0 ? 'text-red-300' : 'text-white'}`}>¥{account.toFixed(0)}</p>
+                <p className="text-blue-200 text-[10px]">账户余额</p>
               </div>
             </div>
-            {prepaidUnearned >= 1 && (
-              <p className="text-blue-200 text-[10px] mt-2 text-center">
-                其中 ¥{prepaidUnearned.toFixed(0)} 是租客预交、还没住到的部分（建议留存）
-              </p>
-            )}
           </div>
         </div>
       </div>

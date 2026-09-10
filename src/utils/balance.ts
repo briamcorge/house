@@ -103,62 +103,52 @@ export function calculateBalance(bills: Bill[], today: string): BalanceResult {
   }
 }
 
-export interface CashBalanceResult {
-  cash: number            // 手里的钱 = 累计到账 − 累计付出（均不含押金）
-  received: number        // 累计到账（已收租金/费用 − 退给租客的钱）
-  paid: number            // 累计付出（已付业主租金/费用 − 业主退回的钱）
-  prepaidUnearned: number // 其中：租客预交但尚未住到的部分（不含押金，建议留存）
+export interface AccountBalanceResult {
+  account: number  // 账户余额 = 累计到账 − 累计付出（均不含押金）
+  received: number // 累计到账（已收租金/费用 − 退给租客的钱 − 业主退回的钱）
+  paid: number     // 累计付出（已付业主租金/费用 − 业主退回的钱）
 }
 
 /**
- * 手里的钱（真实现金口径，不含押金）：
- *   累计到账（租客已收，退款单为负数自动抵减）
- * − 累计付出（已付业主，业主退回单为负数自动抵减）
+ * 账户余额（More 页概览第三个数字）：账目上真实进出过的钱，让用户实时感知资金情况。
+ *   累计到账 − 累计付出（**不含押金**）
  *
- * 与 calculateBalance 的「可支配余额」是两回事：本函数只认钱动没动，
- * 不按覆盖期分摊、不依赖 periodStart/periodEnd，因此手工账单、一次性费用、
- * 缺期间的账单都会如实计入（老口径对它们一律记 0，这是它"有时候不准"的主因）。
+ * 与 calculateBalance（按覆盖期分摊的"预交未住"）是两回事：本函数只认钱动没动，
+ * 不按天分摊、不依赖 periodStart/periodEnd，因此手工账单、一次性费用、缺期间的账单
+ * 都会如实计入；也**不随时间变化**（不会自己往下掉）。
  *
- * 口径（与用户确认）：
- * - 押金双向都不计入（租客押金、付业主押金各有单独统计卡）
+ * 口径（2026-09-10 与用户确认）：
+ * - **押金整体不计入**（用户要求：押金已单独成卡——已收租户押金、已付业主押金），
+ *   即：收/退租客押金、付/退业主押金都不影响本数字
  * - 只统计真正动过钱的账单：status = paid / refunded 全额计入；
  *   pending/overdue 若录了实收金额（paidAmount > 0）按实收额计入；cancelled 不算
- * - 退款单在数据里是负数金额且带方向：receivable 负数=退给租客（钱出去），
+ * - 退款单是负数金额且带方向：receivable 负数=退给租客（钱出去），
  *   payable 负数=业主退给我们（钱进来），直接按方向带符号累加即可
+ * - 与「利润提取」无关：利润提取只写 profitRecords、不生成账单，不参与本计算（用户确认）
  */
-export function calculateCashBalance(bills: Bill[], today: string): CashBalanceResult {
+export function calculateAccountBalance(bills: Bill[]): AccountBalanceResult {
   let received = 0
   let paid = 0
-  let prepaidUnearned = 0
   for (const b of bills) {
     if (b.status === 'cancelled') continue
     // 已结清（已收/已付/已退）全额计入。
     // 未结清但录了实收金额（> 0）的同样计入——手工建单/编辑账单、Excel 导入可以产生
     // 「待收 + 实收金额」的组合（BillModal 只校验实收 > 0 且 ≤ 账单金额，不改状态），
-    // 这笔钱确实到账了，旧逻辑会整笔漏掉（实测录 500 实收，cash 仍是 0）。
+    // 这笔钱确实到账了，漏掉会让余额偏低（实测录 500 实收时算成 0）。
     const settled = b.status === 'paid' || b.status === 'refunded'
     const partialPaid = Number(b.paidAmount)
     if (!settled && !(Number.isFinite(partialPaid) && partialPaid > 0)) continue
-    if (isDepositBill(b)) continue
+    if (isDepositBill(b)) continue // 押金不计入（已单独成卡）
     const amount = billAmount(b)
     if (!Number.isFinite(amount)) continue
-    if (b.direction === 'receivable') {
-      received += amount // 退款单为负数，自动抵减
-      // 预交未住：已收与已退都要算。退款单是负数、按其覆盖期抵减，漏掉它会让"退掉的租金"
-      // 仍被算作租客预交未住（实测：预交半年 12000、退 4/1~6/30 租金 6000，退租后小字虚高整笔 6000，
-      // 极端情况下会出现「手里的钱 −6000，其中 7067 是租客预交」这种自相矛盾的显示）。
-      prepaidUnearned += calcBillRemain(b, today)
-    } else if (b.direction === 'payable') {
-      paid += amount // 业主退回为负数，自动抵减
-    }
+    if (b.direction === 'receivable') received += amount // 退款单为负数，自动抵减
+    else if (b.direction === 'payable') paid += amount // 业主退回为负数，自动抵减
   }
   // 只在总额处取整到分，避免逐笔取整导致的累积误差
   const round2 = (n: number) => Math.round(n * 100) / 100
   return {
     received: round2(received),
     paid: round2(paid),
-    cash: round2(received - paid),
-    // 退款额大于剩余预交额（超额退款）时不显示负数：不存在"负的预交未住"
-    prepaidUnearned: Math.max(0, round2(prepaidUnearned)),
+    account: round2(received - paid),
   }
 }
