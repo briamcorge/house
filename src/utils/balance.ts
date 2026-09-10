@@ -32,6 +32,16 @@ export function isDepositBill(bill: Bill): boolean {
 }
 
 /**
+ * 取账单实际金额：paidAmount 有效（有限且 > 0）时用实收/实付，否则回退账单金额。
+ * 与 profit.ts 的 `paidAmount || amount` 口径一致——旧写法 `paidAmount ?? amount` 在
+ * paidAmount 为 0 时会取到 0（Excel 导入可产生这种数据），导致整笔账单被漏算。
+ */
+function billAmount(bill: Bill): number {
+  const p = Number(bill.paidAmount)
+  return Number.isFinite(p) && p > 0 ? p : Number(bill.amount)
+}
+
+/**
  * 计算某张已收/已付账单到今天为止的"未消耗剩余金额"。
  * - 无覆盖期（一次性费用如卫管费/网费）：已收即消耗完，剩余 0
  * - 覆盖期结束 < 今天：已全部消耗，剩余 0
@@ -40,7 +50,8 @@ export function isDepositBill(bill: Bill): boolean {
  */
 export function calcBillRemain(bill: Bill, today: string): number {
   if (bill.status === 'cancelled') return 0
-  const amount = Number(bill.paidAmount ?? bill.amount)
+  const amount = billAmount(bill)
+  if (!Number.isFinite(amount)) return 0 // 金额非数字（脏数据）：记 0，避免污染总额成 NaN
   const period = getBillPeriod(bill)
   if (!period) return 0 // 一次性费用：无覆盖期，已消耗
   const [bs, be] = period
@@ -62,7 +73,10 @@ export interface BalanceResult {
 
 /**
  * 实时可支配余额：
- * 已收账单剩余（direction=receivable, 已收/已退, 不含押金）− 已付账单剩余（direction=payable, 已付, 不含押金）
+ * 已收账单剩余（direction=receivable, 已收/已退, 不含押金）− 已付账单剩余（direction=payable, 已付/已退, 不含押金）
+ *
+ * 注：More.tsx 现已改用 calculateCashBalance（真实现金口径），本函数目前无调用点，
+ * 保留仅为兼容与对照——收付两侧的 status 过滤必须保持对称（payable 也要收 refunded）。
  */
 export function calculateBalance(bills: Bill[], today: string): BalanceResult {
   let tenantRemain = 0
@@ -71,7 +85,7 @@ export function calculateBalance(bills: Bill[], today: string): BalanceResult {
     if (isDepositBill(b)) continue // 押金不算（租客押金要退，业主押金不算支出）
     if (b.direction === 'receivable' && (b.status === 'paid' || b.status === 'refunded')) {
       tenantRemain += calcBillRemain(b, today)
-    } else if (b.direction === 'payable' && b.status === 'paid') {
+    } else if (b.direction === 'payable' && (b.status === 'paid' || b.status === 'refunded')) {
       landlordRemain += calcBillRemain(b, today)
     }
   }
@@ -113,7 +127,7 @@ export function calculateCashBalance(bills: Bill[], today: string): CashBalanceR
   for (const b of bills) {
     if (b.status !== 'paid' && b.status !== 'refunded') continue
     if (isDepositBill(b)) continue
-    const amount = Number(b.paidAmount ?? b.amount)
+    const amount = billAmount(b)
     if (!Number.isFinite(amount)) continue
     if (b.direction === 'receivable') {
       received += amount // 退款单为负数，自动抵减
