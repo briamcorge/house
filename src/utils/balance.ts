@@ -34,9 +34,9 @@ export function isDepositBill(bill: Bill): boolean {
 /**
  * 计算某张已收/已付账单到今天为止的"未消耗剩余金额"。
  * - 无覆盖期（一次性费用如卫管费/网费）：已收即消耗完，剩余 0
- * - 覆盖期结束 <= 今天：已全部消耗，剩余 0
+ * - 覆盖期结束 < 今天：已全部消耗，剩余 0
  * - 覆盖期开始 > 今天：未开始，剩余 = 全额
- * - 覆盖期包含今天：剩余 = 金额 × (结束-今天)/(结束-开始)（30/360）
+ * - 覆盖期包含今天：剩余 = 金额 × (结束-今天+1)/(结束-开始+1)（30/360，含首尾）
  */
 export function calcBillRemain(bill: Bill, today: string): number {
   if (bill.status === 'cancelled') return 0
@@ -44,7 +44,9 @@ export function calcBillRemain(bill: Bill, today: string): number {
   const period = getBillPeriod(bill)
   if (!period) return 0 // 一次性费用：无覆盖期，已消耗
   const [bs, be] = period
-  if (be <= today) return 0 // 已全部到期
+  // 含首尾口径：末日当天仍有 1 天份额（今天还没被"消耗"），故用 < 而非 <=。
+  // 原先用 <= 会在末日一次跳降 2 天份额（前一天 2/30 → 当天 0），与首日按日初语义返回全额不自洽。
+  if (be < today) return 0
   if (bs > today) return amount // 未开始，全额未消耗
   const total = days360(bs, be)
   if (total <= 0) return 0
@@ -79,5 +81,53 @@ export function calculateBalance(bills: Bill[], today: string): BalanceResult {
     tenantRemain,
     landlordRemain,
     balance: Math.round((tenantRemain - landlordRemain) * 100) / 100,
+  }
+}
+
+export interface CashBalanceResult {
+  cash: number            // 手里的钱 = 累计到账 − 累计付出（均不含押金）
+  received: number        // 累计到账（已收租金/费用 − 退给租客的钱）
+  paid: number            // 累计付出（已付业主租金/费用 − 业主退回的钱）
+  prepaidUnearned: number // 其中：租客预交但尚未住到的部分（不含押金，建议留存）
+}
+
+/**
+ * 手里的钱（真实现金口径，不含押金）：
+ *   累计到账（租客已收，退款单为负数自动抵减）
+ * − 累计付出（已付业主，业主退回单为负数自动抵减）
+ *
+ * 与 calculateBalance 的「可支配余额」是两回事：本函数只认钱动没动，
+ * 不按覆盖期分摊、不依赖 periodStart/periodEnd，因此手工账单、一次性费用、
+ * 缺期间的账单都会如实计入（老口径对它们一律记 0，这是它"有时候不准"的主因）。
+ *
+ * 口径（与用户确认）：
+ * - 押金双向都不计入（租客押金、付业主押金各有单独统计卡）
+ * - 只统计真正收付过的账单：status = paid / refunded；未收（pending/overdue）与 cancelled 不算
+ * - 退款单在数据里是负数金额且带方向：receivable 负数=退给租客（钱出去），
+ *   payable 负数=业主退给我们（钱进来），直接按方向带符号累加即可
+ */
+export function calculateCashBalance(bills: Bill[], today: string): CashBalanceResult {
+  let received = 0
+  let paid = 0
+  let prepaidUnearned = 0
+  for (const b of bills) {
+    if (b.status !== 'paid' && b.status !== 'refunded') continue
+    if (isDepositBill(b)) continue
+    const amount = Number(b.paidAmount ?? b.amount)
+    if (!Number.isFinite(amount)) continue
+    if (b.direction === 'receivable') {
+      received += amount // 退款单为负数，自动抵减
+      if (b.status === 'paid') prepaidUnearned += calcBillRemain(b, today)
+    } else if (b.direction === 'payable') {
+      paid += amount // 业主退回为负数，自动抵减
+    }
+  }
+  // 只在总额处取整到分，避免逐笔取整导致的累积误差
+  const round2 = (n: number) => Math.round(n * 100) / 100
+  return {
+    received: round2(received),
+    paid: round2(paid),
+    cash: round2(received - paid),
+    prepaidUnearned: round2(prepaidUnearned),
   }
 }

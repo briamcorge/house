@@ -47,15 +47,19 @@ export default function Statistics() {
       .reduce((s, b) => s + b.amount, 0)
   }, [bills, selectedYear])
 
-  // 该年退款 (refunded 状态的退款账单，退给租客/业主的钱)
+  // 该年退款净额：退给租客的算支出（正），业主退回给我们的算抵减（负）。
+  // 修正记录：原实现对所有 refunded 账单取 |金额| 汇总，有两个错：
+  //   1) 不看方向 —— 业主提前退租退回的租金是"钱进来"，却被当成支出扣掉（净收入少算两倍）；
+  //   2) 未排除押金 —— 押金本就不计入收入/支出，这里再扣一次等于重复扣减。
   const yearlyRefund = useMemo(() => {
     return bills
       .filter(b => b.status === 'refunded' && b.paidDate?.startsWith(selectedYear.toString()))
-      .reduce((s, b) => s + Math.abs(b.amount), 0)
+      .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
+      .reduce((s, b) => s + (b.direction === 'receivable' ? Math.abs(b.amount) : -Math.abs(b.amount)), 0)
   }, [bills, selectedYear])
 
-  // 净收入 = 已收 - 已付 - 退款（退款是退回的钱，必须从净收入中扣除；
-  // 已收只含 paid 正数，refunded 账单不参与收入统计，因此这里单独扣减，不会重复）
+  // 净收入 = 已收 - 已付 - 退款净额（已收只含 paid 正数，refunded 不参与收入，故此处单独抵扣；
+  // 退款净额里业主退回的部分为负，等于把多算的支出加回来）
   const netIncome = yearlyReceivablePaid - yearlyPayablePaid - yearlyRefund
 
   // 按房源统计
@@ -81,9 +85,11 @@ export default function Statistics() {
         // ⚠️ 付给业主的押金不算支出（2026-09-03 用户确认，勿报 bug）
         .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
         .reduce((s, b) => s + b.amount, 0)
+      // 与该年全局口径一致：排除押金；退给租客记支出（正），业主退回记抵减（负）
       const refund = propBills
         .filter(b => b.status === 'refunded')
-        .reduce((s, b) => s + Math.abs(b.amount), 0)
+        .filter(b => b.type !== 'deposit' && !(b.description as string)?.includes('押金'))
+        .reduce((s, b) => s + (b.direction === 'receivable' ? Math.abs(b.amount) : -Math.abs(b.amount)), 0)
 
       return {
         property: p,
@@ -92,7 +98,7 @@ export default function Statistics() {
         income,
         expense,
         refund,
-        // 净收入 = 已收 - 已付 - 退款（退款单独扣减，refunded 不参与 income）
+        // 净收入 = 已收 - 已付 - 退款净额（refunded 不参与 income，故单独抵扣）
         net: income - expense - refund,
       }
     }).sort((a, b) => b.net - a.net)
@@ -199,10 +205,13 @@ export default function Statistics() {
                 </div>
                 <p className="text-xl font-bold">¥{viewPayable.toFixed(0)}</p>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white">
+              <div
+                className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-4 text-white"
+                title="退给租客的钱（正）抵减业主退回给我们的钱（负）；押金不计入"
+              >
                 <div className="flex items-center gap-1 text-orange-100 text-xs mb-1">
                   <TrendingDown className="w-3 h-3" />
-                  退款
+                  退款净额
                 </div>
                 <p className="text-xl font-bold">¥{viewRefund.toFixed(0)}</p>
               </div>
