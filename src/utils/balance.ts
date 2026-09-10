@@ -35,10 +35,15 @@ export function isDepositBill(bill: Bill): boolean {
  * 取账单实际金额：paidAmount 有效（有限且 > 0）时用实收/实付，否则回退账单金额。
  * 与 profit.ts 的 `paidAmount || amount` 口径一致——旧写法 `paidAmount ?? amount` 在
  * paidAmount 为 0 时会取到 0（Excel 导入可产生这种数据），导致整笔账单被漏算。
+ *
+ * 例外：金额为负的退款单一律以账单金额为准。实收字段若被填成正数（手工编辑账单、
+ * Excel 导入的「已付金额」列都是正数习惯），会把退款方向翻转成收款，双倍虚增余额。
  */
 function billAmount(bill: Bill): number {
+  const amount = Number(bill.amount)
+  if (Number.isFinite(amount) && amount < 0) return amount
   const p = Number(bill.paidAmount)
-  return Number.isFinite(p) && p > 0 ? p : Number(bill.amount)
+  return Number.isFinite(p) && p > 0 ? p : amount
 }
 
 /**
@@ -116,7 +121,8 @@ export interface CashBalanceResult {
  *
  * 口径（与用户确认）：
  * - 押金双向都不计入（租客押金、付业主押金各有单独统计卡）
- * - 只统计真正收付过的账单：status = paid / refunded；未收（pending/overdue）与 cancelled 不算
+ * - 只统计真正动过钱的账单：status = paid / refunded 全额计入；
+ *   pending/overdue 若录了实收金额（paidAmount > 0）按实收额计入；cancelled 不算
  * - 退款单在数据里是负数金额且带方向：receivable 负数=退给租客（钱出去），
  *   payable 负数=业主退给我们（钱进来），直接按方向带符号累加即可
  */
@@ -125,13 +131,23 @@ export function calculateCashBalance(bills: Bill[], today: string): CashBalanceR
   let paid = 0
   let prepaidUnearned = 0
   for (const b of bills) {
-    if (b.status !== 'paid' && b.status !== 'refunded') continue
+    if (b.status === 'cancelled') continue
+    // 已结清（已收/已付/已退）全额计入。
+    // 未结清但录了实收金额（> 0）的同样计入——手工建单/编辑账单、Excel 导入可以产生
+    // 「待收 + 实收金额」的组合（BillModal 只校验实收 > 0 且 ≤ 账单金额，不改状态），
+    // 这笔钱确实到账了，旧逻辑会整笔漏掉（实测录 500 实收，cash 仍是 0）。
+    const settled = b.status === 'paid' || b.status === 'refunded'
+    const partialPaid = Number(b.paidAmount)
+    if (!settled && !(Number.isFinite(partialPaid) && partialPaid > 0)) continue
     if (isDepositBill(b)) continue
     const amount = billAmount(b)
     if (!Number.isFinite(amount)) continue
     if (b.direction === 'receivable') {
       received += amount // 退款单为负数，自动抵减
-      if (b.status === 'paid') prepaidUnearned += calcBillRemain(b, today)
+      // 预交未住：已收与已退都要算。退款单是负数、按其覆盖期抵减，漏掉它会让"退掉的租金"
+      // 仍被算作租客预交未住（实测：预交半年 12000、退 4/1~6/30 租金 6000，退租后小字虚高整笔 6000，
+      // 极端情况下会出现「手里的钱 −6000，其中 7067 是租客预交」这种自相矛盾的显示）。
+      prepaidUnearned += calcBillRemain(b, today)
     } else if (b.direction === 'payable') {
       paid += amount // 业主退回为负数，自动抵减
     }
@@ -142,6 +158,7 @@ export function calculateCashBalance(bills: Bill[], today: string): CashBalanceR
     received: round2(received),
     paid: round2(paid),
     cash: round2(received - paid),
-    prepaidUnearned: round2(prepaidUnearned),
+    // 退款额大于剩余预交额（超额退款）时不显示负数：不存在"负的预交未住"
+    prepaidUnearned: Math.max(0, round2(prepaidUnearned)),
   }
 }
