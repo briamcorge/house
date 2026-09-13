@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { Tenant, Property, Room, PaymentMethod } from '../types'
 import { X, User, Phone, Home, Calendar, DollarSign, ChevronRight, ChevronLeft, ChevronDown, Check } from 'lucide-react'
-import { formatDate, generateRentBills, DraftBill, add30Days } from '../utils/calculator'
+import { formatDate, generateRentBills, applyVacancyAllowance, DraftBill, add30Days } from '../utils/calculator'
 import { useStore } from '../store/useStore'
 import { formatRoomLabel } from '../lib/utils'
 import ConfirmModal from './ConfirmModal'
@@ -70,6 +70,10 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
   const [depositTouched, setDepositTouched] = useState(false)
   const [otherFeeName, setOtherFeeName] = useState('卫管费')
   const [otherFeeAmount, setOtherFeeAmount] = useState('')
+  // 客户免租期（日期区间）。勾选框控制是否启用；取消勾选即清空日期，保证"无免租"始终是主路径。
+  const [vacancyEnabled, setVacancyEnabled] = useState(false)
+  const [vacancyStart, setVacancyStart] = useState('')
+  const [vacancyEnd, setVacancyEnd] = useState('')
   const [error, setError] = useState('')
 
   const [draftBills, setDraftBills] = useState<DraftBill[]>([])
@@ -124,6 +128,9 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       setDeposit(editingTenant.deposit?.toString() || '')
       setOtherFeeName(editingTenant.otherFeeName || '卫管费')
       setOtherFeeAmount(editingTenant.otherFeeAmount?.toString() || '')
+      setVacancyEnabled(!!editingTenant.vacancyStart && !!editingTenant.vacancyEnd)
+      setVacancyStart(editingTenant.vacancyStart || '')
+      setVacancyEnd(editingTenant.vacancyEnd || '')
     } else {
       setName('')
       setPhone('')
@@ -142,6 +149,9 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       setAdvanceDays(0)
       setBillSplit('front')
       setMonthlyRent('')
+      setVacancyEnabled(false)
+      setVacancyStart('')
+      setVacancyEnd('')
       setDeposit('')
       setOtherFeeName('卫管费')
       setOtherFeeAmount('')
@@ -176,7 +186,7 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     const rent = parseFloat(monthlyRent)
     if (isNaN(rent) || rent <= 0) return
     // 生成房租分期账单（不含其他费）
-    const rentBills = generateRentBills(
+    const generatedRentBills = generateRentBills(
       rent,
       contractStart,
       contractEnd,
@@ -184,6 +194,11 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
       advanceDays,
       split ?? billSplit
     )
+    // 客户免租期：直接扣减对应期房租金额（做法 A，不新增账单，只减金额）。
+    // 未勾选免租时不传区间 → applyVacancyAllowance 原样返回，主路径零影响。
+    const rentBills = vacancyEnabled
+      ? applyVacancyAllowance(generatedRentBills, vacancyStart, vacancyEnd, rent)
+      : generatedRentBills
     // 押金和其他费用排在最前面
     const extras: DraftBill[] = []
     if (isRenewal) {
@@ -245,6 +260,16 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     setBillKey(k => k + 1)
   }
 
+  /** 免租期校验：返回错误文案，null = 通过 */
+  const validateVacancy = (): string | null => {
+    if (!vacancyEnabled) return null
+    if (!vacancyStart || !vacancyEnd) return '请选择免租期起止日期'
+    if (vacancyEnd < vacancyStart) return '免租期结束日不能早于开始日'
+    if (vacancyStart < contractStart) return '免租期开始日不能早于合同开始日'
+    if (vacancyEnd > contractEnd) return '免租期结束日不能晚于合同结束日'
+    return null
+  }
+
   const handleNext = () => {
     if (!name.trim()) {
       showError(setError, '请输入租客姓名')
@@ -269,6 +294,12 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
     const rent = parseFloat(monthlyRent)
     if (isNaN(rent) || rent <= 0) {
       showError(setError, '请输入月租金')
+      return
+    }
+
+    const vacancyError = validateVacancy()
+    if (vacancyError) {
+      showError(setError, vacancyError)
       return
     }
 
@@ -298,6 +329,11 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
+    const vacancyError = validateVacancy()
+    if (vacancyError) {
+      showError(setError, vacancyError)
+      return
+    }
     if (isEditing) {
       if (!name.trim()) {
         showError(setError, '请输入租客姓名')
@@ -352,6 +388,9 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
         deposit: deposit ? parseFloat(deposit) : undefined,
         otherFeeName: otherFeeName === '卫管费' && !otherFeeAmount ? undefined : otherFeeName,
         otherFeeAmount: otherFeeAmount ? parseFloat(otherFeeAmount) : undefined,
+        // 免租期只在勾选时写入；不勾选一律 undefined（清空，避免取消勾选后旧值残留）
+        vacancyStart: vacancyEnabled ? vacancyStart || undefined : undefined,
+        vacancyEnd: vacancyEnabled ? vacancyEnd || undefined : undefined,
         // 编辑已退租租客时保留原状态，避免「复活」为在租（房间状态不一致/一房双租客）
         status: editingTenant?.status ?? 'active',
       })
@@ -543,6 +582,62 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* 客户免租期（可选）。不勾选 = 无免租，这是绝大多数合同的情况，行为与加该功能前完全一致。
+                ⚠️ 勾选框用 id/htmlFor 关联而不是把 input 包在 label 里：
+                包在 label 里时，点 input 会"自身点击 + label 转发"双触发互相抵消，
+                自动化测试（Playwright check()）会点不动；真实用户虽不受影响，但 E2E 验证会踩坑。 */}
+            <div className="border border-gray-200 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  id="tenant-vacancy-enabled"
+                  type="checkbox"
+                  checked={vacancyEnabled}
+                  onChange={(e) => {
+                    const on = e.target.checked
+                    setVacancyEnabled(on)
+                    // 取消勾选即清空，避免残留的日期在保存时被写入
+                    if (!on) { setVacancyStart(''); setVacancyEnd('') }
+                  }}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                />
+                <label
+                  htmlFor="tenant-vacancy-enabled"
+                  className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                >
+                  有免租期（客户空置期）
+                </label>
+              </div>
+              {vacancyEnabled && (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">免租开始</label>
+                      <WheelDatePicker
+                        value={vacancyStart}
+                        onChange={(v) => setVacancyStart(v)}
+                        min={contractStart}
+                        max={contractEnd}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">免租结束</label>
+                      <WheelDatePicker
+                        value={vacancyEnd}
+                        onChange={(v) => setVacancyEnd(v)}
+                        min={contractStart}
+                        max={contractEnd}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    免租期内的房租会从对应账单里扣除，账单描述会标注「含免租 N 天」；免租日不计入利润消耗。
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">

@@ -10,7 +10,7 @@ import AlertModal from '../components/AlertModal'
 import { ChevronLeft, ChevronDown, ChevronRight, User, Phone, Calendar, Plus, FileText, Droplets, Zap, Flame, Receipt, Wifi, Sparkles, MoreVertical, History, Banknote, Handshake, ArrowLeftRight } from 'lucide-react'
 import HistoryTenantsModal from '../components/HistoryTenantsModal'
 import WheelDatePicker from '../components/WheelDatePicker'
-import { add30Days, formatDate, calcCoveredPeriodEnd } from '../utils/calculator'
+import { add30Days, formatDate, calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 import { todayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
 
 export default function RoomDetail() {
@@ -116,8 +116,11 @@ export default function RoomDetail() {
     if (!bill) return
     const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
     if (!m || bill.amount <= 0) return
+    // 客户免租期：免租日视为已覆盖（客户在免租期内不欠费），否则部分收款会少算覆盖天数
+    const payTenant = tenants.find(t => t.id === bill.tenantId)
+    const freeDays = freeDaysInPeriod(m[1], m[2], payTenant?.vacancyStart, payTenant?.vacancyEnd)
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount))
+    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount, freeDays))
   }
 
   const typeLabels: Record<string, string> = { rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费', hygiene: '卫管费', internet: '网费', utilities: '水电燃气费', other: '其他费用' }

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# 测试覆盖率报告（zcode测试/ 运行产物）
+coverage/
+
 # Tooling artifacts
 .playwright-mcp/
 .omo/

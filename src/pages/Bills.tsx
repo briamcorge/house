@@ -8,7 +8,7 @@ import AlertModal from '../components/AlertModal'
 import WheelDatePicker from '../components/WheelDatePicker'
 import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
-import { calcCoveredPeriodEnd } from '../utils/calculator'
+import { calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 
 function getDaysAgo(days: number): string {
   return daysFromTodayLocal(-days)
@@ -77,8 +77,11 @@ export default function Bills() {
     const m = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
     if (!m || bill.amount <= 0) return
     // 30/360 口径推算覆盖期，与账单金额口径一致（Bug 19 修复）
+    // 客户免租期：免租日视为已覆盖（客户在免租期内不欠费），否则部分收款会少算覆盖天数
+    const payTenant = tenants.find(t => t.id === bill.tenantId)
+    const freeDays = freeDaysInPeriod(m[1], m[2], payTenant?.vacancyStart, payTenant?.vacancyEnd)
     setPayPeriodStart(m[1])
-    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount))
+    setPayPeriodEnd(calcCoveredPeriodEnd(m[1], m[2], paidAmt, bill.amount, freeDays))
   }
 
   const getPropertyAddress = (pid?: string) => {

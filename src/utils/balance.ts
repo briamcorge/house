@@ -1,4 +1,5 @@
 import { Bill } from '../types'
+import { freeDaysInPeriod } from './calculator'
 
 /** 30/360 日期解析：每月30天，Feb 28→30，任何31→30（与 profit.ts 一致） */
 function to360(s: string): { y: number; m: number; d: number } {
@@ -62,7 +63,11 @@ function billAmount(bill: Bill): number {
  * - 覆盖期开始 > 今天：未开始，剩余 = 实收全额
  * - 无覆盖期（一次性费用如卫管费/网费/中介费、缺期间老账单）：已收即消耗完，剩余 0
  */
-export function calcBillRemain(bill: Bill, today: string): number {
+export function calcBillRemain(
+  bill: Bill,
+  today: string,
+  vacancy?: { start?: string; end?: string },
+): number {
   if (bill.status === 'cancelled') return 0
   const received = billAmount(bill) // 实收/实付（部分收款取实收额；负数退款单强制取账单金额）
   if (!Number.isFinite(received)) return 0 // 金额非数字（脏数据）：记 0，避免污染总额成 NaN
@@ -73,12 +78,20 @@ export function calcBillRemain(bill: Bill, today: string): number {
   if (bs > today) return received // 未开始：全额未消耗
   const total = days360(bs, be)
   if (total <= 0) return 0
+  // ⚠️ 客户免租期口径（2026-09 新增）：金额只对应**付费天数**，
+  // 所以日租分母用付费天数、已住天数也只数付费日（免租日不消耗）。
+  // 无免租时 freeInPeriod / freeLived 均为 0，与原实现**完全等价**（零影响）。
+  const freeInPeriod = freeDaysInPeriod(bs, be, vacancy?.start, vacancy?.end)
+  const paidDays = total - freeInPeriod
+  if (paidDays <= 0) return 0 // 整期免租：没有钱可消耗
   // 日租按「账单原价」计算（不是实收额的比例），部分收款才能按原价逐日消耗：
   // 例：账单 2000/30 天、实收 500 → 每天消耗 66.67，而不是按 500/30=16.67 等比例
   const original = Number(bill.amount)
-  const rate = (Number.isFinite(original) && original !== 0 ? original : received) / total
+  const rate = (Number.isFinite(original) && original !== 0 ? original : received) / paidDays
   const lived = days360(bs, today) // 已住天数（含今天）
-  const remain = received - lived * rate
+  const freeLived = freeDaysInPeriod(bs, today, vacancy?.start, vacancy?.end)
+  const livedPaid = Math.max(0, lived - freeLived) // 已住的付费天数
+  const remain = received - livedPaid * rate
   // 收款单最多消耗到 0（住超实收不记负数）；退款单（负数）保持线性抵减
   const clamped = received > 0 ? Math.max(0, remain) : remain
   return Math.round(clamped * 100) / 100
@@ -98,7 +111,16 @@ export interface BalanceResult {
  * - 收付两侧对称：已结清（paid/refunded）或录了实收/实付（paidAmount > 0）的参与；
  *   纯待收待付、cancelled 不参与；押金已单独成卡，整体排除
  */
-export function calculateBalance(bills: Bill[], today: string): BalanceResult {
+export function calculateBalance(
+  bills: Bill[],
+  today: string,
+  tenancies?: Array<{ id: string; vacancyStart?: string; vacancyEnd?: string }>,
+): BalanceResult {
+  // 租客免租期按 tenantId 建索引（业主应付账单没有 tenantId → 取不到 → 走无免租口径）
+  const vacancyByTenant = new Map<string, { start?: string; end?: string }>()
+  if (tenancies) {
+    for (const t of tenancies) vacancyByTenant.set(t.id, { start: t.vacancyStart, end: t.vacancyEnd })
+  }
   let tenantRemain = 0
   let landlordRemain = 0
   for (const b of bills) {
@@ -109,10 +131,11 @@ export function calculateBalance(bills: Bill[], today: string): BalanceResult {
     const settled = b.status === 'paid' || b.status === 'refunded'
     const partialPaid = Number(b.paidAmount)
     if (!settled && !(Number.isFinite(partialPaid) && partialPaid > 0)) continue
+    const vac = b.tenantId ? vacancyByTenant.get(b.tenantId) : undefined
     if (b.direction === 'receivable') {
-      tenantRemain += calcBillRemain(b, today)
+      tenantRemain += calcBillRemain(b, today, vac)
     } else if (b.direction === 'payable') {
-      landlordRemain += calcBillRemain(b, today)
+      landlordRemain += calcBillRemain(b, today, vac)
     }
   }
   tenantRemain = Math.round(tenantRemain * 100) / 100

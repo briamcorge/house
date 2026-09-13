@@ -1,5 +1,6 @@
 import { Tenant, Bill, Room } from '../types'
 import { formatRoomLabel } from '../lib/utils'
+import { freeDaysInPeriod } from './calculator'
 
 /** 30/360 日期解析：每月30天，Feb 28→30，任何31→30 */
 function to360(s: string): { y: number; m: number; d: number } {
@@ -34,6 +35,7 @@ function calcBillBasedRent(
   periodStart: string,
   periodEnd: string,
   effectiveEnd: string, // 实际有效截止日（退租日的次日），正数账单覆盖期不超出此日
+  vacancy?: { start?: string; end?: string }, // 该租客的客户免租期（无则按无免租口径）
 ): { proratedRent: number; adjustment: number; overlapDays: number } {
   let proratedRent = 0
   let adjustment = 0
@@ -57,13 +59,24 @@ function calcBillBasedRent(
     const oStart = bs > periodStart ? bs : periodStart
     const oEnd = capEnd < periodEnd ? capEnd : periodEnd
     if (oStart > oEnd) continue
-    const ovDays = days360(oStart, oEnd)
     const billDays = days360(bs, be)
     if (billDays <= 0) continue
-    proratedRent += bill.amount * ovDays / billDays
-    // 正数账单才计入天数范围
+    // 正数账单才计入天数范围（先记，保证 overlapDays 的展示不受免租影响）
     if (!earliestStart || bs < earliestStart) earliestStart = bs
     if (!latestEnd || oEnd > latestEnd) latestEnd = oEnd
+
+    // ⚠️ 客户免租期口径（2026-09 新增，用户确认）：账单金额只对应**付费天数**，
+    // 所以分摊必须按付费天数算——分母用"期间内付费天数"，分子用"重叠内付费天数"。
+    // 无免租时两者分别等于 billDays / ovDays，与原实现**完全等价**（零影响）。
+    // 若按原口径（含免租天数）分摊，整笔折扣会被按期间长度均摊到付费日上，
+    // 业主周期从账单期间中间切进来时归属就错了（实测单周期可差 2000 元级）。
+    const freeInBill = freeDaysInPeriod(bs, be, vacancy?.start, vacancy?.end)
+    const paidBillDays = billDays - freeInBill
+    if (paidBillDays <= 0) continue // 整期免租：没有收入可归属
+    const ovDays = days360(oStart, oEnd)
+    const freeInOverlap = freeDaysInPeriod(oStart, oEnd, vacancy?.start, vacancy?.end)
+    const paidOvDays = Math.max(0, ovDays - freeInOverlap)
+    proratedRent += bill.amount * paidOvDays / paidBillDays
   }
   let overlapDays = 0
   if (earliestStart && latestEnd) {
@@ -269,7 +282,10 @@ export function calculatePeriodProfit(
         effectiveEnd = d.toISOString().slice(0, 10)
       }
     }
-    const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, effectiveEnd)
+    const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, effectiveEnd, {
+      start: tenant.vacancyStart,
+      end: tenant.vacancyEnd,
+    })
     const overlapDays = summary.overlapDays
     const proratedRent = Math.round(summary.proratedRent)
     const adjustment = Math.round(summary.adjustment)

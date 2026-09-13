@@ -88,13 +88,25 @@ export function repeatDueDate(dueDate: string, index: number, periodMonths: numb
  * 与 generateRentBills 的期间/金额口径一致，避免真实日历天数与 30/360 不一致导致边界差 1-2 天。
  * periodStart/periodEnd 为账单 description 中的期间日期（YYYY-MM-DD）。
  */
-export function calcCoveredPeriodEnd(periodStart: string, periodEnd: string, paidAmt: number, billAmount: number): string {
+export function calcCoveredPeriodEnd(
+  periodStart: string,
+  periodEnd: string,
+  paidAmt: number,
+  billAmount: number,
+  freeDays = 0,
+): string {
   if (billAmount <= 0 || paidAmt <= 0) return periodEnd
   const start = parseDate360(periodStart)
   const end = parseDate360(periodEnd)
   const totalDays = diffDays360(start, end) + 1
   if (totalDays <= 0) return periodEnd
-  const covered = Math.max(1, Math.min(totalDays, Math.round(paidAmt / billAmount * totalDays)))
+  // 免租期口径（2026-09 新增）：账单金额只买得到"付费天数"的覆盖，
+  // 但免租日应视为已覆盖（客户在免租期内不欠费），所以先记上免租天数再加付费覆盖。
+  // 假设免租期位于期间前段——与「客户空置期」的实际用法一致。
+  const free = Math.max(0, freeDays)
+  const paidTotal = Math.max(1, totalDays - free)
+  const paidCovered = Math.round((paidAmt / billAmount) * paidTotal)
+  const covered = Math.max(1, Math.min(totalDays, free + paidCovered))
   return formatDate360Display(add30Days360(start, covered - 1))
 }
 
@@ -153,6 +165,18 @@ export interface DraftBill {
   periodStart: string
   periodEnd: string
   description?: string
+  /**
+   * 生成时的虚拟日序号（30/360：年*360 + 月*30 + (日-1)）。
+   * 仅生成期使用、**不落库**——用途是精确计算天数，绕开"2 月显示映射有损"
+   * （虚拟 2月28/29 显示成 02-28 后再解析会变成 30，差 1-2 天）。
+   */
+  periodStart360?: number
+  periodEnd360?: number
+}
+
+/** Date360 → 虚拟日序号（可比较、可相减的整数） */
+function toIndex360(d: Date360): number {
+  return d.y * 360 + d.m * 30 + (d.d - 1)
 }
 
 /**
@@ -256,6 +280,8 @@ export function generateRentBills(
         periodStart,
         periodEnd,
         description: `第${bills.length + 1}期 ${periodLabel}租 ${periodStart} ~ ${periodEnd}`,
+        periodStart360: toIndex360(periodStart360),
+        periodEnd360: toIndex360(periodEnd360),
       })
     }
 
@@ -285,10 +311,81 @@ export function generateRentBills(
       periodStart: formatDate360Display(periodStart),
       periodEnd: formatDate360Display(periodEnd),
       description: `第${i+1}期 ${periodLabel}租 ${formatDate360Display(periodStart)} ~ ${formatDate360Display(periodEnd)}`,
+      periodStart360: toIndex360(periodStart),
+      periodEnd360: toIndex360(periodEnd),
     })
 
     cursor = periodEnd
   }
 
   return bills
+}
+
+// ============================================================
+// 租客侧免租期（日期区间）
+// ============================================================
+
+/**
+ * 统计某期账单期间内落在免租区间的天数（30/360 含首尾）。
+ * 无免租 / 入参不合法 / 无重叠 → 0。
+ *
+ * ⚠️ 本函数用字符串解析日期（与项目其它位置口径一致）。若期间边界是
+ * 虚拟 2月28/29，解析会漂移到 30，结果可能差 1-2 天（已知问题、暂不修）。
+ * 生成期请改用 applyVacancyAllowance（它优先用无漂移的虚拟日序号）。
+ */
+export function freeDaysInPeriod(
+  periodStart: string,
+  periodEnd: string,
+  vacancyStart?: string,
+  vacancyEnd?: string,
+): number {
+  if (!periodStart || !periodEnd || !vacancyStart || !vacancyEnd) return 0
+  const ps = toIndex360(parseDate360(periodStart))
+  const pe = toIndex360(parseDate360(periodEnd))
+  const vs = toIndex360(parseDate360(vacancyStart))
+  const ve = toIndex360(parseDate360(vacancyEnd))
+  const oStart = Math.max(ps, vs)
+  const oEnd = Math.min(pe, ve)
+  return oEnd >= oStart ? oEnd - oStart + 1 : 0
+}
+
+/**
+ * 按免租区间扣减各期房租账单金额（做法 A：直接扣减对应期金额，不新增账单）。
+ *
+ * 规则：逐期取「该期期间 ∩ 免租区间」的天数，扣减 = 天数 ÷ 30 × 月租（四舍五入到分）；
+ * 扣减不超过该期原金额（不出负数）；区间跨多期时各期各扣，天然处理跨期。
+ * 描述追加"（含免租N天）"，与业主侧写法一致。
+ *
+ * 免租区间缺失 / 非法（起 > 止）/ 月租非正 → **原样返回**，
+ * 保证"没有免租"这条主路径与改动前逐字节一致。
+ *
+ * 天数优先用生成时写入的虚拟日序号（periodStart360 / periodEnd360），
+ * 因此不受"2 月显示映射有损"影响，扣减金额精确。
+ */
+export function applyVacancyAllowance(
+  bills: DraftBill[],
+  vacancyStart: string | undefined,
+  vacancyEnd: string | undefined,
+  monthlyRent: number,
+): DraftBill[] {
+  if (!vacancyStart || !vacancyEnd) return bills
+  if (!(monthlyRent > 0)) return bills
+  const vs = toIndex360(parseDate360(vacancyStart))
+  const ve = toIndex360(parseDate360(vacancyEnd))
+  if (ve < vs) return bills
+
+  return bills.map(bill => {
+    const ps = bill.periodStart360 ?? toIndex360(parseDate360(bill.periodStart))
+    const pe = bill.periodEnd360 ?? toIndex360(parseDate360(bill.periodEnd))
+    const oStart = Math.max(ps, vs)
+    const oEnd = Math.min(pe, ve)
+    if (oEnd < oStart) return bill
+    const freeDays = oEnd - oStart + 1
+    const deduct = Math.round((freeDays / 30) * monthlyRent * 100) / 100
+    return {
+      ...bill,
+      amount: Math.max(0, Math.round((bill.amount - deduct) * 100) / 100),
+      description: `${bill.description ?? ''}（含免租${freeDays}天）`,
+    }
+  })
 }

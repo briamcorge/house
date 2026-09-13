@@ -38,6 +38,16 @@ export interface Tenant {
   deposit?: number
   otherFeeName?: string
   otherFeeAmount?: number
+  /**
+   * 客户免租期起止（含首尾）。两个字段同时为空 = 无免租。
+   *
+   * ⚠️ 与业主侧 `vacancyAllowance`（天数额度）形状不同，这是**有意**的：
+   * 业主支出在利润里不按业主周期重叠分摊（直接取账单金额），只需知道免租多少天；
+   * 租客收入要按业主周期重叠分摊，必须知道免租发生在**哪几天**，
+   * 否则整笔折扣会被按期间长度均摊到付费日上，业主周期从中间切进来时归属就算错了。
+   */
+  vacancyStart?: string
+  vacancyEnd?: string
   status: 'active' | 'ended'
   createdAt: string
   /** 续约时指向上一个租客 ID，用于追踪续约链 */
