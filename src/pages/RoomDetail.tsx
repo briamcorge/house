@@ -571,7 +571,14 @@ export default function RoomDetail() {
                         if (origEnd) {
                           const d = new Date(payPeriodEnd)
                           d.setDate(d.getDate() + 1)
-                          remainingRange = { start: formatDateLocal(d), end: origEnd }
+                          const start = formatDateLocal(d)
+                          // 剩余期间必须 start ≤ end。本次收款覆盖到（或超过）原账单结束日时（实收 ≥ 约 99.4%
+                          // 就会被 calcCoveredPeriodEnd 取整到原结束日），剩余区间会反置（如 03-31 ~ 03-30）。
+                          // 反置期间的房租在 profit.ts 里既不匹配业主周期、收入也按 0 计（days360 的 oStart>oEnd
+                          // 防御）→ 该期房租凭空消失。此时说明本次收款已覆盖整期、剩余部分无期间可言 → 保持原元数据。
+                          if (start <= origEnd) {
+                            remainingRange = { start, end: origEnd }
+                          }
                         }
                       }
                       const baseDesc = payConfirmBill.description || ''

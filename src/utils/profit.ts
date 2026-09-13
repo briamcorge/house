@@ -167,8 +167,13 @@ export function calculatePeriodProfit(
       !(b.amount < 0 && b.type === 'rent') &&
       billOverlapsCycle(b, periodStart, periodEnd)
     )
-    // 已退租租客：排除未付的正数账单（这些是退租时没清理的遗留账单，含待收和已逾期）
-    if (tenant.status === 'ended') {
+    // 已退租（checkout）租客：排除未付的正数账单（退租时没清理的遗留账单，含待收和已逾期）
+    // ⚠️ 必须区分 endReason：续约（renew）租客同样是 status='ended'，但按业务规则其未付账单
+    // 仍然有效、要继续收（见 AGENTS.md「合同续约」）。若一并剔除，该周期 expectedRent 会归零
+    // → allPaid 误判为「已交齐」→ More 页放行「未交齐也能提取利润」，同时少算预估利润。
+    // 同类错误（把 renew 当 checkout）已在 normalizeCloudData 与 migrate v2→v3 修过，这是第三处。
+    // endReason 为空的历史数据（无法确认退租还是续约）走「不剔除」的保守分支。
+    if (tenant.status === 'ended' && tenant.endReason === 'checkout') {
       periodBills = periodBills.filter(b => !(b.amount > 0 && (b.status === 'pending' || b.status === 'overdue')))
     }
 
@@ -248,17 +253,20 @@ export function calculatePeriodProfit(
       // 注意：不能从 activeBills 找（它已过滤掉 refunded 状态的账单），
       // 退租金账单正是 refunded 状态，从 activeBills 找会永远找不到 → 截断失效
       // 改为从 allBills 找，只排除作废的 cancelled
-      const refund = allBills.find(b =>
-        b.tenantId === tenant.id && b.amount < 0 && b.type === 'rent' &&
-        b.status !== 'cancelled'
-      )
-      if (refund) {
-        const period = getBillPeriod(refund)
-        if (period) {
-          const d = new Date(period[0])
-          d.setDate(d.getDate() - 1)
-          effectiveEnd = d.toISOString().slice(0, 10)
-        }
+      // ⚠️ 同一租客可能有多张退租金（中途调整 + 退租结算）：必须取「起始日最晚」的那张，
+      // 语义是「房租实际交到的最后一天」。原实现用 .find() 取数组第一条＝创建顺序，属未定义行为
+      // ——实测同一批账单只调换数组顺序，tenantIncome 相差 241 倍（100 vs 24100）。
+      let latestStart = ''
+      for (const b of allBills) {
+        if (b.tenantId !== tenant.id) continue
+        if (b.amount >= 0 || b.type !== 'rent' || b.status === 'cancelled') continue
+        const period = getBillPeriod(b)
+        if (period && period[0] > latestStart) latestStart = period[0]
+      }
+      if (latestStart) {
+        const d = new Date(latestStart)
+        d.setDate(d.getDate() - 1)
+        effectiveEnd = d.toISOString().slice(0, 10)
       }
     }
     const summary = calcBillBasedRent(periodRentBills, periodStart, periodEnd, effectiveEnd)
