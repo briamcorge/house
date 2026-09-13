@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { dedupeDisplayIds } from './display-id'
 
 let _supabase: SupabaseClient | null = null
 
@@ -234,14 +235,25 @@ export function normalizeCloudData(cloudData: SupabaseData): SupabaseData {
       return c ? { ...b, landlordContractId: c.id } : b
     })
   }
+  const landlordContracts = Array.isArray(cloudData.landlordContracts) ? cloudData.landlordContracts : []
+  const trash = Array.isArray(cloudData.trash) ? cloudData.trash : []
+  // 重复合同编号（displayId）修复 —— 规则与成因见 lib/display-id.ts。
+  // ⚠️ displayId 只是给人看的标签：全项目没有任何地方按它查找/判等实体（关联一律走 UUID id），
+  // 所以这里【只改 displayId 一个字段】，不动任何金额、账单、利润数据。
+  const tenantFix = dedupeDisplayIds(tenants as { id: string; displayId?: string; createdAt?: string }[], 'ZL', trash as never[])
+  const contractFix = dedupeDisplayIds(landlordContracts as { id: string; displayId?: string; createdAt?: string }[], 'DL', trash as never[])
+  if (tenantFix.changed.length || contractFix.changed.length) {
+    console.warn('[normalizeCloudData] 检测到重复合同编号，已自动改号（只改编号，不动其他数据）:',
+      [...tenantFix.changed, ...contractFix.changed])
+  }
   return {
     properties: Array.isArray(cloudData.properties) ? cloudData.properties : [],
     rooms: Array.isArray(cloudData.rooms) ? cloudData.rooms : [],
-    tenants,
+    tenants: tenantFix.items as never,
     bills,
-    landlordContracts: Array.isArray(cloudData.landlordContracts) ? cloudData.landlordContracts : [],
+    landlordContracts: contractFix.items as never,
     profitRecords: Array.isArray(cloudData.profitRecords) ? cloudData.profitRecords : [],
-    trash: Array.isArray(cloudData.trash) ? cloudData.trash : [],
+    trash,
   }
 }
 
