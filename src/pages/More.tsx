@@ -494,7 +494,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         ])
 
         // 字符串字段：即使 Excel 存成数字（如 11 位手机号被转数值）也强制还原为字符串（2026-09-06 修复）
-        const STRING_FIELDS = new Set(['phone'])
+        // 2026-09-13 补漏：landlordPhone 变数字会让 Home 搜索 .includes 抛 TypeError（整页白屏）、
+        //                业主合同保存 .trim 抛错；description 变数字会让 profit.ts 的 .match 抛错，利润计算失败
+        const STRING_FIELDS = new Set(['phone', 'landlordPhone', 'description'])
 
         // ISO 时间戳字段：Excel 可能把 ISO 时间转成日期序列号，检测到序列号转回 ISO 字符串（2026-09-06 修复）
         const ISO_FIELDS = new Set(['createdAt'])

@@ -52,6 +52,7 @@ const [menuOpenContractId, setMenuOpenContractId] = useState<string | null>(null
 const [activeTab, setActiveTab] = useState<'rooms' | 'contracts'>('rooms')
 // 编辑合同且存在已付账单时，先弹确认框（已付账单删除后需手动重新认账）
 const [editContractPending, setEditContractPending] = useState<{
+  cid: string
   draftBills: DraftBill[]
   rent: number
   name: string
@@ -385,6 +386,7 @@ const [editContractPending, setEditContractPending] = useState<{
           }
           if (paidCount > 0) {
             setEditContractPending({
+              cid,
               draftBills,
               rent: rent || 0,
               name: name || '',
@@ -484,8 +486,9 @@ const [editContractPending, setEditContractPending] = useState<{
         onClose={() => setEditContractPending(null)}
         onConfirm={() => {
           if (!editContractPending) return
-          const { draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod, paidCount } = editContractPending
-          const cid = editContractId
+          // ⚠️ cid 必须从 pending 里取：弹窗外层 onClose 会在确认回调后立即把 editContractId 清空，
+          // 若仍从 editContractId 读则恒为 null，导致点「确定」后什么都不执行（静默失效）
+          const { cid, draftBills, rent, name, phone, cs, ce, deposit, vacancyAllowance, paymentMethod, paidCount } = editContractPending
           if (!cid) { setEditContractPending(null); return }
           updateLandlordContract(cid, {
             monthlyRent: rent,

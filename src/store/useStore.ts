@@ -364,13 +364,15 @@ export const useStore = create<AppStore>()(
           // 因此仅删除退租日当天及之后生成的账单，避免误删合同期内同名的合法账单（如中途违约金）。
           // 历史数据缺少 effectiveEnd 时退回旧行为：仅按描述匹配。
           const effectiveEnd = tenant?.effectiveEnd
+          // ⚠️ description 可能缺失（历史/导入数据），也可能被导入的 Number() 兜底转成数字
+          // → 一律 String() 包一层，避免 undefined.startsWith / 数字.startsWith 抛 TypeError 导致恢复静默失败
           const checkoutBillIds = new Set(
             state.bills
               .filter(b => b.tenantId === id && (
                 b.description === '退押金' ||
                 b.description === '违约金' ||
-                b.description.startsWith('退租金') ||
-                (b.amount < 0 && b.type === 'other' && b.description.startsWith('退'))
+                String(b.description || '').startsWith('退租金') ||
+                (b.amount < 0 && b.type === 'other' && String(b.description || '').startsWith('退'))
               ) && (!effectiveEnd || (b.paidDate || b.dueDate) >= effectiveEnd))
               .map(b => b.id)
           )
@@ -614,7 +616,7 @@ export const useStore = create<AppStore>()(
               .filter(b => b.landlordContractId === id && (
                 b.description === '退押金' ||
                 b.description === '业主违约金' ||
-                b.description.startsWith('退租金')
+                String(b.description || '').startsWith('退租金')
               ))
               .map(b => b.id)
           )
