@@ -412,7 +412,9 @@ const [editContractPending, setEditContractPending] = useState<{
         existingDeposit={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.deposit : undefined}
         existingVacancyAllowance={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.vacancyAllowance : undefined}
         existingName={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.landlordName : undefined}
-        existingPhone={editContractId ? landlordContracts.find(c => c.id === editContractId)?.landlordPhone : undefined}
+        // 电话必须与上面五个字段同口径（含续约）：续约弹窗里电话框是 disabled 的（设计上只读），
+        // 若不预填，保存时 landlordPhone.trim() || undefined 会把原电话抹成 undefined → 每次续约丢一次电话
+        existingPhone={editContractId || renewContractId ? landlordContracts.find(c => c.id === (editContractId || renewContractId))?.landlordPhone : undefined}
       />
       <HistoryTenantsModal
         isOpen={historyRoomId !== null}
