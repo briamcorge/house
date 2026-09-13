@@ -9,8 +9,7 @@
     "release": "npm run build && npx cap copy android && cd android && gradlew assembleRelease && node ../scripts/copy-apk.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "check": "tsc -b --noEmit",
-    "deploy": "powershell -ExecutionPolicy Bypass -File deploy.ps1"
+    "check": "tsc -b --noEmit"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",

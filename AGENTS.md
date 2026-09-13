@@ -21,8 +21,8 @@
 - **L2 每日全量快照**: 表 `user_data_daily_snapshots`（PK(user_id, snap_date)，含 data/updated_at/taken_at），保留 90 天；函数 `take_user_data_snapshot()` 同日重复执行=覆盖为最新；pg_cron 任务 `house-daily-snapshot` 每天 **22:00 UTC（北京 06:00）** 自动执行
 - **A4 DB trigger（已执行）**: `trg_user_data_updated_at` BEFORE INSERT OR UPDATE 强制 `updated_at = now()`（服务器时钟，A4 代码修复的 DB 侧落地；SQL 见 `sql/2026-09-06_updated_at_trigger.sql`）
 - **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）。⚠️ 2026-09-06 安全加固：`list_user_data_backups` 已加 `is_admin()` 校验（防 IDOR），所有 SECURITY DEFINER 函数已 `set search_path = public`（`get_all_user_data` 因返回类型与旧版不同需先 drop 再重建）；脚本见 `sql/2026-09-06_security_definer_fix.sql`，已由临时 PAT 在 Dashboard 执行完毕
-- **L1/L2 脚本位置**: 原执行脚本曾在 `E:\DSH\_house-incident-20260906\`（⚠️ **该路径已不可达**，E: 盘不存在，项目也已迁到 D:）。线上结构的权威快照见 `sql/2026-09-12_live_rls_functions_dump.sql`，各脚本状态说明见 `sql/README.md`；改/恢复前读这两份与 `sql/2026-09-06_updated_at_trigger.sql`
-- **注意事项**: 备份表未开 RLS（靠 SECURITY DEFINER 函数隔离访问，直接查表需 service/postgres 权限）；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
+- **L1/L2 脚本位置**: 原执行脚本放在项目外的临时目录（未入库；两台机器位置不同，且可能已不存在）。线上结构的权威快照见 `sql/2026-09-12_live_rls_functions_dump.sql`，各脚本状态说明见 `sql/README.md`；改/恢复前读这两份与 `sql/2026-09-06_updated_at_trigger.sql`
+- **注意事项**: 备份表**已开 RLS**（2026-09-12 线上快照实测 `rowsecurity=True`），且 `anon` 角色无 SELECT 授权（未登录客户端查询返回 42501 insufficient_privilege）；直接查表需 service/postgres 权限；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
 
 ### GitHub
 - **仓库**: `https://github.com/briamcorge/house`
@@ -30,16 +30,17 @@
 - **说明**: 2026-08-28 起恢复推送（用户明确要求"推送"）；`vite.config.ts` 的 `base` 已为 `'/house/'`（GitHub Pages 部署需要，勿改回 `./`）
 
 ### Android 签名 (APK 打包必需)
-- **keystore 路径**: `D:\新项目\house\android\app\house-management.keystore`（已从密钥包 zip 解压就位，2026-09-12）
+- **keystore 路径**: 项目根目录下 `android/app/house-management.keystore`（已从密钥包 zip 解压就位，2026-09-12）
 - **keyAlias**: `house-management`
 - **凭据**: 密码在 `android/app/keystore.properties`（构建自动读取）与 `房屋管理系统-使用说明.txt`（人工查询），**不在 AGENTS.md 存明文**（2026-09-06 安全整改：旧 keystore 曾随公开仓库泄露，已轮换新密钥）
 - **⚠️ 重要**: 签名文件丢失后无法覆盖安装已装过的 APK，务必保留；新密钥签名与旧 APK 不同，**换新 keystore 后旧 APK 无法覆盖安装，需卸载重装**
 
 ### 项目路径（2026-09-12 文件夹重组）
-- **工作区**: `D:\新项目`（4 个项目：house / fund-app / 房屋业绩计算器 / 房源聚合器，另有「金融」资料目录）
-- **本地(本项目)**: `D:\新项目\house`
-- **APK 输出**: 桌面 `房屋管理-v{version}.apk`
-- **Android 项目**: `D:\新项目\house\android`
+- **⚠️ 本文件随 git 同步到多台电脑，不要写盘符或绝对路径**（两台机器盘符不同，写死会让另一台踩空）。一律以「项目根目录」为基准描述。
+- **本项目**: 仓库根目录（即 `house/`，本文件所在目录）
+- **兄弟项目**: 与本项目并列存放（另有「金融」资料目录）
+- **APK 输出**: 桌面 `房屋管理-v{version}.apk`（`scripts/copy-apk.cjs` 按系统用户目录自动定位桌面）
+- **Android 项目**: 项目根目录下的 `android/`
 
 ## 构建 & 发布命令
 
@@ -212,7 +213,7 @@ ProfitRecord / TrashItem
 
 ```bash
 npm run build
-node pwa-server.cjs
-# 手机访问 https://192.168.1.185:5174/
+node server.cjs
+# 手机访问 http://<本机局域网IP>:5173/    （端口以 server.cjs 里的 PORT 为准）
 ```
 
