@@ -41,9 +41,9 @@ function shouldHandleKick(): boolean {
 // 被踢/登出时执行本地 signOut 并留证：supabase-js 的 signOut({scope:'local'})
 // 要先发网络 /logout 成功才清本地会话键；失败/异常 → sb-* 会话残留而锁 token 已被
 // removeItem →「僵尸实例」（下次启动无 token 有会话 → randomUUID 静默抢云端锁）。
-// 本函数只加日志，主流程时序与原版完全一致（fire-and-forget）。
+// 本函数只加日志，不改变 signOut 本身的行为；返回 Promise 供调用方判断会话是否已清。
 function signOutLocalTraced(sb: NonNullable<ReturnType<typeof getSupabase>>, scene: string) {
-  sb.auth.signOut({ scope: 'local' }).then(
+  return sb.auth.signOut({ scope: 'local' }).then(
     (res) => {
       const leftover = listSbSessionKeys()
       if (res.error) {
@@ -569,8 +569,23 @@ export default function App() {
       const sb = getSupabase()
       if (sb) {
         skipNextCloudSave()
-        signOutLocalTraced(sb, 'device-kicked踢出')
-        localStorage.removeItem('device_session_token')
+        // ⚠️ 只有会话确实被清掉才删设备锁。若 signOut 因弱网/5xx 失败（实测返回
+        // AuthRetryableFetchError）却仍在这里无条件删锁，就会留下「会话仍有效但没有锁」的僵尸设备：
+        //   · 轮询 `if (!myToken) return`（本文件下方）→ 它再也不会发现自己被踢
+        //   · 保存前 `if (myToken)`（cloud-sync-context）→ 也不再验锁
+        //   → 它会无限期正常保存，每次整档 upsert 都可能盖掉另一台设备的新数据。
+        // 保留锁则锁不匹配持续存在，下一轮轮询 / 下次保存会继续重试踢出，直到登出成功。
+        signOutLocalTraced(sb, 'device-kicked踢出').finally(() => {
+          const leftover = listSbSessionKeys()
+          if (leftover.length === 0) {
+            localStorage.removeItem('device_session_token')
+          } else {
+            pushAuthDiag({
+              reason: 'device-kicked踢出未完成',
+              detail: `会话残留，保留设备锁以便下轮重试踢出: ${leftover.join(',')}`,
+            })
+          }
+        })
         // 本地业务数据与 tab_active 保留：云端为准（重登后云端覆盖），
         // 且避免下次冷启动被误判为"新浏览器会话"再次被踢
       }
