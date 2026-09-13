@@ -444,7 +444,6 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
               {/* 免租期（空置期）：业主给的免租天数 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">免租期</label>
-                <p className="text-[10px] text-gray-400 mb-1 leading-tight">不勾：每年都用此天数；勾选：逐年单独填</p>
                 <div className="flex items-center gap-1.5">
                   <div className="relative flex-1 min-w-0">
                     <input
@@ -487,6 +486,8 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
                     按年设置
                   </label>
                 </div>
+                {/* 提示必须放在输入框【下方】：放在上方会多占一行，把本列输入框压得比左侧「付款方式」低一行 */}
+                <p className="text-[10px] text-gray-400 mt-1 leading-tight">不勾：每年都用此天数；勾选：逐年单独填</p>
               </div>
             </div>
 
