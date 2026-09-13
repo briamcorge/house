@@ -135,8 +135,11 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
       showError(setError, '请输入有效的金额')
       return
     }
-    if (amountNum <= 0) {
-      showError(setError, '请输入大于 0 的金额')
+    // 负数金额是既有业务（退押金 / 退租金 / 返款），导入校验（checkFinite）与 store 均按此口径支持。
+    // 此处若拒绝负数，负数账单连改备注/日期都保存不了，也无法手工补录退款单。
+    // 只拦 0（无意义的空账单）；Infinity 等极端值原实现（<= 0）同样未拦，故不在此扩大改动。
+    if (amountNum === 0) {
+      showError(setError, '金额不能为 0')
       return
     }
 

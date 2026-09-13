@@ -9,7 +9,7 @@ import AlertModal from '../components/AlertModal'
 import { Search, Edit2, Trash2, MoreVertical, User, Phone, Home, Calendar } from 'lucide-react'
 
 export default function Tenants() {
-  const { tenants, properties, rooms, updateTenant, deleteTenant } = useStore()
+  const { tenants, properties, rooms, updateTenant, deleteTenant, editTenantContract } = useStore()
   const location = useLocation()
   const initState = (location.state as { filter?: 'all' | 'active' | 'ended' | 'renewed' } | null)?.filter
   const [showModal, setShowModal] = useState(false)
@@ -184,6 +184,11 @@ export default function Tenants() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSave={handleSaveTenant}
+        onContractUpdate={(tenantId, tenantData, draftBills) => {
+          // 与 RoomDetail 一致：合同修改 = 删除该租客应收账单并按新合同重新生成（已收/已退需手动重新认账）
+          // 已退租/已续约的租客走不到这里——TenantModal 对非在租状态隐藏了「下一步」按钮
+          editTenantContract(tenantId, tenantData, draftBills, tenantData.roomId)
+        }}
         properties={properties}
         rooms={rooms}
         editingTenant={editingTenant}

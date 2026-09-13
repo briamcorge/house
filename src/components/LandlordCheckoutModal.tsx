@@ -33,6 +33,22 @@ export default function LandlordCheckoutModal({ isOpen, onClose, landlordName, d
     return () => document.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
+  // 打开时重置表单：本组件由 RoomList 常驻渲染（传 isOpen 而非条件挂载），
+  // useState 初值只在挂载时算一次（那时 landlordCheckout 还是 null → deposit 为 undefined），
+  // 不重置会有两个后果：① 退还押金永远不预填 ② 上一次退租填的金额/日期泄漏到下一次——
+  // 用户只点「确认退租并结算」不改字段时，泄漏的违约金/退还租金会真的生成错误账单。
+  useEffect(() => {
+    if (isOpen) {
+      setDepositRefund(deposit?.toString() || '0')
+      setPenalty('0')
+      setCheckoutDate(todayStr())
+      setRentRefund('0')
+      setRentRefundStart('')
+      setRentRefundEnd('')
+      setError('')
+    }
+  }, [isOpen, landlordName, deposit])
+
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current) }, [])
 

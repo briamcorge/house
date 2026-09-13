@@ -674,9 +674,13 @@ export default function TenantModal({ isOpen, onClose, onSave, onContractConfirm
               {editingTenant && (
                 <button type="button" onClick={(e) => { e.preventDefault(); handleSave(e as any) }} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors">保存</button>
               )}
-              <button type="button" onClick={handleNext} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-1">
-                下一步 <ChevronRight className="w-4 h-4" />
-              </button>
+              {/* 已退租/已续约的合同不走「下一步 → 重新生成账单」：editTenantContract 会把状态强制置回 active，
+                  在租客管理（唯一能编辑旧租客的入口）里会因此复活已结束的合同。改字段用「保存」即可。 */}
+              {(!editingTenant || editingTenant.status === 'active') && (
+                <button type="button" onClick={handleNext} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-1">
+                  下一步 <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         )}

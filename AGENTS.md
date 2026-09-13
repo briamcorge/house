@@ -1,6 +1,6 @@
 # 房屋管理系统
 
-最后更新: 2026-09-06
+最后更新: 2026-09-13（六处静默失败修复：导入白名单 / 编辑业主合同 / 编辑租客合同 / 恢复租客 / 负数账单 / 业主退租表单）
 
 ## 凭据 & API（非常重要，切勿丢失）
 
@@ -40,6 +40,51 @@
 - **已知低危未修**: ① 重复 ID 不校验 ② 电话号/createdAt 可能被 Excel 转数字（重存后导入类型变化）③ 部分状态字段允许空值导入 ④ 回收站不在备份内（有意设计）
 - **改动**: `src/pages/More.tsx`（导入校验），已推送 master；注意：**修复后旧 APK 的导入校验仍是旧逻辑，需装新 APK 才能享受负数账单/负利润导入**
 
+### 编辑合同 / 导入 / 恢复租客 三处静默失败修复（2026-09-13，已修复 → 待发版）
+- **背景**: 应要求通读全部源码（14965 行）+ 用真实云端数据核对触发条件，区分「真 bug」与「有意设计」。三项均为"用户以为操作成功了、实际什么都没发生"类问题
+- **修复 1 — 导入字符串白名单漏字段**（`src/pages/More.tsx` 的 `STRING_FIELDS`，原为 `new Set(['phone'])`）
+  - `landlordPhone` 被兜底 `Number()` 转成数字 → `Home.tsx` 搜索 `c.landlordPhone.includes(q)` 抛 TypeError（整页 ErrorBoundary 白屏）+ `LandlordContractModal` 保存 `landlordPhone.trim()` 抛错（点保存无反应）
+  - `description` 被转数字 → `profit.ts` 的 `bill.description?.match(...)` 抛错（**`?.` 只挡 undefined/null，挡不住数字**）→ 利润计算失败
+  - 修复: `new Set(['phone', 'landlordPhone', 'description'])`（2026-09-06 那次只补了 `phone`，属漏补）
+- **修复 2 — 编辑业主合同确认框点「确定」什么都不执行**（`src/pages/RoomList.tsx`）
+  - 根因: `onEditContract` 把表单存进 `editContractPending` 时**漏存 `cid`**，而 `LandlordContractModal` 的 `handleConfirm` 在回调后**立即 `onClose()`** → `setEditContractId(null)`；用户在确认框点确定时再读 `editContractId` 恒为 `null` → `if (!cid) return`
+  - 修复: `cid` 一并存入 pending，`onConfirm` 从 pending 解构取用
+  - ⚠️ **修复后该功能第一次真正生效**：点确定会真的执行「更新合同 → 删除该合同全部账单（含已付/已收/已退款/已取消）→ 按新合同重新生成待付账单」。这是本文件既有设计，但此前不可达
+- **修复 3 — 恢复租客/恢复业主合同时 `description.startsWith` 未判空**（`src/store/useStore.ts`）
+  - 真实数据里目标租客有 **11 张 `description === undefined`**（注意：是 undefined，**不是**空字符串也不是数字）的账单 → 必现 TypeError，事件处理内异常不弹提示 → 恢复静默失败
+  - 修复: 改 `String(b.description || '').startsWith(...)`。**特意用 `String()` 而非 `?.`**，因为 `?.` 挡不住被导入兜底转成的数字
+- **【重要】触发路径澄清（排查时勿再搞错）**
+  - `restoreTenant` 的**唯一** UI 入口 = **房间详情 → 已退租租客「操作 ▾ → 恢复」**（`RoomDetail.tsx:290`）；`restoreLandlordContract` = 房源页合同「操作 ▾ → 恢复」（`RoomList.tsx:165`）
+  - **回收站的「恢复」走 `restoreFromTrash`（`useStore.ts:711-722`），只把数据原样塞回数组，完全不经过上述 description 过滤** → 故「删除房源 → 回收站恢复租客」**不会**触发本 bug（曾误报为此路径，已更正）
+  - 房源删除另有前置守卫（`Properties.tsx:192-203`）：房源下有活跃租客或活跃合同则拒绝删除
+- **验证方式（真机之外已做）**: 专用隔离测试账号（见使用说明）+ 真实浏览器端到端。导入后 `landlordPhone` 为 string 且首页搜索命中不崩；编辑合同月租 5425→5430 生效且 4 张账单 ID 全换、状态全 pending；恢复租客后回「在租」、房间回 occupied、窗口无未捕获错误。对照：老表达式在同一批真实账单上抛 TypeError，新表达式不抛
+- **未做**: 未跑 `npm run build` / `release`（版本仍 1.291，待用户决定发版时机）；改动已本地 commit `8f563bb`，未推送
+
+### 编辑租客合同 / 负数账单 / 业主退租表单 三处静默失败修复（2026-09-13 第二批，已修复 → 待发版）
+- 背景：用户在真实浏览器中逐项复现确认后授权修复。三项均属同一类"走完了完整流程、还给了确认提示，但实际什么都没发生 / 写入了错值"
+- **修复 A — 租客管理页「保存合同修改」什么都不执行**（`src/pages/Tenants.tsx` + `src/components/TenantModal.tsx`）
+  - 现象：租客管理 → 编辑 → 月租 2750 改 2777 → 下一步 → 「保存合同修改」→ 确认框 → 点「继续，删除并重新生成」→ **数据零变化、无任何报错、弹窗照常关闭**（确认框还谎称"将删除这些账单记录"）
+  - 根因：`Tenants.tsx` 给 TenantModal **只传了 `onSave`，没传 `onContractUpdate`**；`TenantModal.doConfirmContract()` 的编辑分支 `onContractUpdate?.(...)` 可选链空转后直接 `onClose()`（`onSave` 是信息页那个「保存」按钮用的另一个函数）
+  - 修复：补传 `onContractUpdate` → `editTenantContract(tenantId, tenantData, draftBills, tenantData.roomId)`
+  - ⚠️ **配套护栏（勿删）**：`TenantModal` 对非在租（ended / renew）租客**隐藏「下一步」**。原因：`editTenantContract` 会把 status 强制置回 `active`，而**租客管理是唯一能编辑已退租/已续约租客的入口**（RoomDetail 的「编辑」只对 active 显示，RoomList 的 `editingTenantId` 只被赋 null、编辑路径是死代码），不拦会把已结束的旧合同"复活"。已退租租客仍可用「保存」改字段（实测状态保持 ended）
+- **修复 B — 负数账单无法编辑、也无法手工补录**（`src/components/BillModal.tsx`）
+  - 现象：账单页 →「已退还」筛选 → 打开一张 -2300 退款单 → **只改「备注」** → 保存 → 弹「请输入大于 0 的金额」，弹窗不关、数据不变
+  - 根因：`if (amountNum <= 0)` 拒绝负数，**对编辑态无例外**；而金额框被负值预填，所以打开即必然触发
+  - 修复：改判 `if (amountNum === 0)`（只拦无意义的空账单），与 2026-09-06 导入侧的 `checkFinite`（仅拒 NaN/Infinity）口径统一
+  - 影响面：线上有 **7 张负数账单**（退押金/退租金/返款）此前全部不可编辑
+- **修复 C — 业主退租结算表单不重置，上次填的金额泄漏到下一次**（`src/components/LandlordCheckoutModal.tsx`）
+  - 现象：同一合同 →「退租」→ 填「退还押金 888 / 违约金 999」→ 取消 → 再点「退租」→ 数字框**仍是 888 / 999**
+  - 后果确凿：`RoomList.tsx:433-444` 会用这些值生成真实账单——泄漏的 `penalty` 生成 **+「业主违约金」收入单（type='other'，计入利润）**，泄漏的 `depositRefund` 生成退款单。用户"点开看看、填了点、取消、再看一眼就点确认"即可触发
+  - 根因：组件只有 `useState` 挂载初值，**没有 `isOpen` 重置 effect**；而 `RoomList.tsx:424` 是**无条件渲染**（传 `isOpen` 而非条件挂载），组件常驻 → state 跨次打开保留
+  - 修复：照 `CheckoutModal.tsx:31-44` 补 `isOpen` 重置 effect，顺带修好**「退还押金」从不预填**（原先第一次打开时提示写着「原押金 ¥8100」而输入框是 0，因为挂载时 `deposit` 还是 undefined）
+  - ⚠️ **触发路径澄清（勿再报错）**：**不是**"切换房源"（经房源列表中转会卸载 RoomList、状态重置），而是**同一合同关掉再打开**；且只有**有押金的合同**才走结算弹窗（`RoomList.tsx:163` = `if (c.deposit) 结算弹窗 else 普通确认框`）
+- **验证（真实浏览器端到端，隔离测试账号）**：A → 月租 2750→2777 生效、账单 22→12 张且全 pending；B → -2300 退款单改备注保存成功；C → 第一次 `["8100","0","0"]`（已预填）、填 888/999 取消后重开仍 `["8100","0","0"]`；回归 → 已退租租客弹窗无「下一步」、其「保存」仍正常写入且状态保持 ended
+- 未做：未 `npm run build` / `release`（版本仍 1.291）
+
+### 已知数据质量问题（2026-09-13 实测发现，未修）
+- **两个租客共用同一个 `displayId`**：线上真实数据中 `ZL-0012` 同时属于 `8f3ec210…`（梁佳铭，5 张账单）与 `ce7fdde4…`（刘红秋，17 张账单）
+- 这是本文件「导入已知低危未修」第 ① 条「重复 ID 不校验」的实例，**已真实存在于生产数据**，不只是理论风险；界面上会出现两行同名编号难以区分。`nextDisplayId` 已扫描 tenants + 回收站防新增重复，但既有重复不会被清理
+
 ### 云同步数据丢失排查记录（2026-08-28，已修复 → 1.259 实施）
 - **现象**: 手机 APK 确认林世轮 2200 房租收款（第3期 2026-08-25~09-24），重新登录后恢复为未交
 - **实锤（日志分析 2026-08-28）**: 24h API 日志中 user_data **零写请求**（全部是 GET）——收款从未上云；云端停留在 8-26 10:27
@@ -62,15 +107,16 @@
 - **说明**: 2026-08-28 起恢复推送（用户明确要求"推送"）；`vite.config.ts` 的 `base` 已为 `'/house/'`（GitHub Pages 部署需要，勿改回 `./`）
 
 ### Android 签名 (APK 打包必需)
-- **keystore 路径**: `E:\新项目\house\android\app\house-management.keystore`
+- **keystore 路径**: `D:\新项目\house\android\app\house-management.keystore`（已从密钥包 zip 解压就位，2026-09-12）
 - **keyAlias**: `house-management`
 - **凭据**: 密码在 `android/app/keystore.properties`（构建自动读取）与 `房屋管理系统-使用说明.txt`（人工查询），**不在 AGENTS.md 存明文**（2026-09-06 安全整改：旧 keystore 曾随公开仓库泄露，已轮换新密钥）
 - **⚠️ 重要**: 签名文件丢失后无法覆盖安装已装过的 APK，务必保留；新密钥签名与旧 APK 不同，**换新 keystore 后旧 APK 无法覆盖安装，需卸载重装**
 
-### 项目路径
-- **本地**: `E:\新项目\house`
+### 项目路径（2026-09-12 文件夹重组）
+- **工作区**: `D:\新项目`（4 个项目：house / fund-app / 房屋业绩计算器 / 房源聚合器，另有「金融」资料目录）
+- **本地(本项目)**: `D:\新项目\house`
 - **APK 输出**: 桌面 `房屋管理-v{version}.apk`
-- **Android 项目**: `E:\新项目\house\android`
+- **Android 项目**: `D:\新项目\house\android`
 
 ## 构建 & 发布命令
 
@@ -151,7 +197,7 @@ ProfitRecord / TrashItem
 ```
 
 **Key fields**: Tenant(name, phone, roomId, contractStart/End, monthlyRent, paymentMethod, advanceDays, deposit, status)
-**Bill**: amount, type(rent|water|electric|gas|other), status(pending|paid|overdue), direction(payable|receivable), dueDate, paidDate
+**Bill**: amount, type(rent|water|electric|gas|other), status(pending|paid|overdue|cancelled|refunded), direction(payable|receivable), dueDate, paidDate
 **PaymentMethod**: monthly | quarterly | semi-annual | annual
 
 ## 约定
@@ -216,6 +262,12 @@ ProfitRecord / TrashItem
 - **业主/租客提前续约时，旧合同的未付账单依然有效，继续支付/收款**——续约只把旧合同标记为 ended（endReason: 'renew'），**不删除旧合同未付账单**（区别于退租 terminateLandlordContract 会删除未付账单）
 - 排查时若发现"续约后旧合同还有未付账单"，属预期行为，不是 bug；用户原话："业主一般会提前续约，但是未付账单依然有效。还要继续支付。租客提前续约也是这样的逻辑。如有未收账单，依然需要继续支付"
 - **已修复（2026-09-03）：`normalizeCloudData`（supabase.ts）和 migrate v2→v3（useStore.ts）曾无差别删除所有 ended 租客的 pending 正数应收账单，误删续约(renew)租客的未付账单**。已改为**只删除 endReason === 'checkout'（退租）租客的未付账单**；renew 与 endReason 为空（旧数据无法确认）的保守不删（删除不可逆，宁可多显示未收也不误删）。用户原话："已续约的不能删，已退租的未付账单可以删"
+
+### 编辑业主合同（2026-09-12 用户确认，有意设计，勿报 bug）
+- **编辑业主合同 = 旧账单本来就有误 → 全部删除并重新生成 → 已付记录由用户手动重新认账**（v1.230 起的有意设计，代码注释见 `src/pages/RoomList.tsx`；用户原话："一般不需要编辑业主，既然编辑了，说明账单是错的，自然需要重新认账"）
+- 执行细节：删除按 `landlordContractId` 匹配、**不过滤状态**（已付/已收/已退款/已取消一并删除）→ 随后按新合同参数重新生成账单（待付状态）
+- 有已付账单时（`status === 'paid'` 的计数 > 0）先弹 danger 二次确认框（文案："已付记录需手动重新认账"）；无已付账单时直接执行（被删的都是会被重新生成的待付/逾期账单）
+- 排查时若发现"编辑合同后已付记录消失、需要手动重新认账"，属预期行为，不是 bug
 
 ### 删除租客（2026-09-03 用户确认，勿报 bug）
 - **删除租客 = 彻底断绝关系，已付账单也一并删除**（进回收站可恢复）；想保留已付流水应走「退租」而非删除
