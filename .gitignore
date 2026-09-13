@@ -16,6 +16,7 @@ dist-ssr
 .playwright-mcp/
 .omo/
 .opencode/
+.cortexkit/
 filters.xml
 
 # Environment (contains Supabase credentials)

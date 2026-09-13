@@ -1,3 +1,7 @@
+-- ⚠️ 状态（2026-09-12 核验）：已被取代，勿执行 —— 本文件全部 5 条 CREATE POLICY 在线上 0 命中；
+-- 线上对应策略为 user_data_select_own / user_data_insert_own / user_data_update_own / users_own_data / admins_read_all。
+-- 仅作历史参考。详见 sql/README.md。
+
 -- ============================================
 -- Supabase 数据库修复脚本 - user_data 表权限
 -- ============================================

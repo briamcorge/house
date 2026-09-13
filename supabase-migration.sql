@@ -1,3 +1,6 @@
+-- ⚠️ 状态（2026-09-12 核验）：部分过时，仅作历史参考 —— 本文件 user_data 建表最接近线上（缺 last_active_at 列）；
+-- users_own_data 策略含 not disabled，与线上不符。详见 sql/README.md。
+
 -- 房屋管理系统 - Supabase 数据表
 -- 在 Supabase Dashboard → SQL Editor 中运行此脚本
 

@@ -1,3 +1,7 @@
+-- ⚠️ 状态（2026-09-12 核验）：部分过时，勿整体重跑 —— user_data 建表(user_id PK)与 users_own_data(含 not disabled)
+-- 与线上不符；但 admin_users 表、users_can_check_own_admin / admins_read_all 策略是线上对象的仓库唯一定义源；
+-- 4 个函数(is_admin / get_all_user_data / update_last_active / set_user_disabled)与线上一致。详见 sql/README.md。
+
 -- 0. 如果 user_data 表不存在则创建
 create table if not exists user_data (
   user_id uuid references auth.users(id) primary key,
