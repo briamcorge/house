@@ -15,6 +15,18 @@ import { getSyncLog, getLastSyncOkAt } from '../lib/sync-log'
 import { calculatePeriodProfit, PeriodProfitResult } from '../utils/profit'
 import { calculateBalance } from '../utils/balance'
 import { todayLocal } from '../lib/utils'
+import {
+  SHEET_NAMES,
+  buildSheetRows,
+  sheetToAoa,
+  parseSheetRows,
+  postProcessRows,
+  validateImportRow,
+  findDuplicateIds,
+  findMissingRefs,
+  extractPeriod,
+} from '../lib/excel-io'
+import type { SheetName } from '../lib/excel-io'
 
 type MenuColor = 'blue' | 'green' | 'purple' | 'gray' | 'orange'
 
@@ -196,12 +208,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   }
 
   // 从描述中提取账单起止日（格式：第N期 xxx YYYY-MM-DD ~ YYYY-MM-DD）
-  const extractPeriod = (desc?: string): { startDate: string; endDate: string } => {
-    if (!desc) return { startDate: '', endDate: '' }
-    const match = desc.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
-    if (match) return { startDate: match[1], endDate: match[2] }
-    return { startDate: '', endDate: '' }
-  }
+  // 实现已搬到 src/lib/excel-io.ts（导出/导入共用），此处仅引用
 
   // 业主账单描述简化显示：只保留期数和日期，去掉付款方式（月租/季租/半年付/年付等）
   const formatBillDesc = (desc?: string): string => {
@@ -217,58 +224,15 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
   const handleExportExcel = async () => {
     const wb = XLSX.utils.book_new()
 
-    // 账单排序：应收在前、应付在后；同方向按房源聚合；再按应收日升序（便于人工查阅）
-    const sortedBills = [...bills].sort((a, b) => {
-      if (a.direction !== b.direction) return a.direction === 'receivable' ? -1 : 1
-      if ((a.propertyId || '') !== (b.propertyId || '')) return (a.propertyId || '') < (b.propertyId || '') ? -1 : 1
-      return (a.dueDate || '').localeCompare(b.dueDate || '')
-    })
+    // 各表行的组装（含账单排序）与列定义都在 src/lib/excel-io.ts：导出与导入共用同一份列定义，
+    // 避免「加了导出忘了导入 / 加了导入忘了导出」这类静默丢列的漏口
+    const exportData = { properties, rooms, landlordContracts, tenants, bills, profitRecords }
 
-    const sheets: [string, Record<string, unknown>[], Record<string, string>][] = [
-      ['房源', properties.map(p => ({ ...p, houseType: p.houseType ?? '', area: p.area ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', address: '地址', houseType: '户型', area: '面积', description: '备注', createdAt: '创建时间' }],
-      ['房间', rooms as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', label: '编号', roomType: '类型', status: '状态', createdAt: '创建时间' }],
-      ['代理合同', landlordContracts.map(c => ({ ...c, landlordPhone: c.landlordPhone ?? '', endReason: c.endReason ?? '', previousContractId: c.previousContractId ?? '', deposit: c.deposit ?? '', vacancyAllowance: Array.isArray(c.vacancyAllowance) ? c.vacancyAllowance.join(',') : (c.vacancyAllowance ?? ''), pendingBills: c.pendingBills?.length ? JSON.stringify(c.pendingBills) : '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', propertyId: '房源ID', landlordName: '业主姓名', landlordPhone: '业主电话', monthlyRent: '月租金', paymentMethod: '付款方式', deposit: '押金', vacancyAllowance: '免租期', contractStart: '合同开始', contractEnd: '合同结束', status: '状态', endReason: '结束原因', previousContractId: '上一合同ID', pendingBills: '暂存账单', createdAt: '创建时间' }],
-      ['租客', tenants.map(t => ({ ...t, billSplit: t.billSplit ?? '', deposit: t.deposit ?? '', otherFeeAmount: t.otherFeeAmount ?? '', effectiveEnd: t.effectiveEnd ?? '', endReason: t.endReason ?? '', previousTenantId: t.previousTenantId ?? '', vacancyStart: t.vacancyStart ?? '', vacancyEnd: t.vacancyEnd ?? '', pendingBills: t.pendingBills?.length ? JSON.stringify(t.pendingBills) : '' })) as unknown as Record<string, unknown>[], { id: 'ID', displayId: '合同编号', name: '姓名', phone: '电话', roomId: '房间ID', contractStart: '合同开始', contractEnd: '合同结束', effectiveEnd: '退租日', monthlyRent: '月租金', paymentMethod: '付款方式', advanceDays: '提前天数', billSplit: '切分方式', deposit: '押金', otherFeeName: '其他费用', otherFeeAmount: '其他金额', vacancyStart: '免租开始', vacancyEnd: '免租结束', status: '状态', endReason: '结束原因', previousTenantId: '上一合同ID', pendingBills: '暂存账单', createdAt: '创建时间' }],
-      ['账单', sortedBills.map(b => {
-        const { startDate, endDate } = extractPeriod(b.description)
-        return {
-          ...b,
-          paidAmount: b.paidAmount ?? '',
-          propertyId: b.propertyId ?? '',
-          roomId: b.roomId ?? '',
-          tenantId: b.tenantId ?? '',
-          // 方向特定列
-          收款日: b.direction === 'receivable' ? b.dueDate : '',
-          付款日: b.direction === 'payable' ? b.dueDate : '',
-          实收日: b.direction === 'receivable' && b.paidDate ? b.paidDate : '',
-           实付日: b.direction === 'payable' && b.paidDate ? b.paidDate : '',
-           startDate,
-           endDate,
-           periodStart: b.periodStart || (b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[1] ?? ''),
-           periodEnd: b.periodEnd || (b.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[2] ?? ''),
-         }
-       }) as unknown as Record<string, unknown>[], {
-         id: 'ID', propertyId: '房源ID', roomId: '房间ID', tenantId: '租客ID',
-         amount: '金额', paidAmount: '已付金额', type: '类型', status: '状态',
-         direction: '方向',
-         收款日: '收款日', 付款日: '付款日',
-         startDate: '开始日', endDate: '结束日',
-          periodStart: '覆盖开始', periodEnd: '覆盖结束',
-          实收日: '实收日', 实付日: '实付日',
-          landlordContractId: '业主合同ID',
-          description: '期间描述', createdAt: '创建时间',
-        }],
-       // 注意：settings / trash / auditLogs 有意不导出（非业务核心数据，导入还原仅覆盖业务表）
-       ['利润提取', profitRecords.map(r => ({ ...r, extractedAt: r.extractedAt ?? '', withdrawnAt: r.withdrawnAt ?? '', isManual: r.isManual ? '是' : '', remark: r.remark ?? '' })) as unknown as Record<string, unknown>[], { id: 'ID', propertyId: '房源ID', cycleStart: '周期开始', cycleEnd: '周期结束', tenantIncome: '租客收入', landlordExpense: '业主支出', profitAmount: '利润', status: '状态', extractedAt: '提取日期', withdrawnAt: '提现时间', isManual: '手动', remark: '备注', createdAt: '创建时间' }],
-    ]
-
-    for (const [name, data, headers] of sheets) {
-      const headerLabels = Object.values(headers)
-      // 全量写入：第一行表头 + 数据行（保证表头单元格可控，可加样式）
-      const rows = data.map((item: Record<string, unknown>) =>
-        headerLabels.map(label => item[Object.keys(headers).find(k => headers[k] === label)!] ?? '')
-      )
-      const ws = XLSX.utils.aoa_to_sheet([headerLabels, ...rows])
+    for (const name of SHEET_NAMES) {
+      // 第一行表头 + 数据行（表头单元格可控，可加样式）
+      const aoa = sheetToAoa(name, buildSheetRows(name, exportData))
+      const headerLabels = aoa[0] as string[]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
       // 表头样式：加粗 + 浅蓝底色
       headerLabels.forEach((_, i) => {
         const cell = ws[XLSX.utils.encode_cell({ r: 0, c: i })]
@@ -342,7 +306,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     }
     // 操作日志
     const s = useStore.getState()
-    useStore.setState({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'export', entity: 'excel', details: `导出Excel (${sheets.length}个表)`, createdAt: new Date().toISOString() }] })
+    useStore.setState({ auditLogs: [...s.auditLogs, { id: Date.now().toString(), timestamp: new Date().toISOString(), action: 'export', entity: 'excel', details: `导出Excel (${SHEET_NAMES.length}个表)`, createdAt: new Date().toISOString() }] })
   }
 
   // 导出排查日志（同步日志 + 诊断日志）为纯文本 .log 文件，供开发者定位同步问题
@@ -473,305 +437,38 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         const data = new Uint8Array(ev.target?.result as ArrayBuffer)
         const wb = XLSX.read(data, { type: 'array' })
 
-        // 按 sheet 类型分别映射字段，避免同名字段冲突（如'类型'→roomType vs type）
-        const sheetHeaders: Record<string, Record<string, string>> = {
-          '房源': { 'ID': 'id', '地址': 'address', '户型': 'houseType', '面积': 'area', '备注': 'description', '创建时间': 'createdAt' },
-          '房间': { 'ID': 'id', '房源ID': 'propertyId', '编号': 'label', '类型': 'roomType', '状态': 'status', '创建时间': 'createdAt' },
-          '代理合同': { 'ID': 'id', '合同编号': 'displayId', '房源ID': 'propertyId', '业主姓名': 'landlordName', '业主电话': 'landlordPhone', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '押金': 'deposit', '免租期': 'vacancyAllowance', '合同开始': 'contractStart', '合同结束': 'contractEnd', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousContractId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
-          '租客': { 'ID': 'id', '合同编号': 'displayId', '姓名': 'name', '电话': 'phone', '房间ID': 'roomId', '合同开始': 'contractStart', '合同结束': 'contractEnd', '退租日': 'effectiveEnd', '月租金': 'monthlyRent', '付款方式': 'paymentMethod', '提前天数': 'advanceDays', '切分方式': 'billSplit', '押金': 'deposit', '其他费用': 'otherFeeName', '其他金额': 'otherFeeAmount', '免租开始': 'vacancyStart', '免租结束': 'vacancyEnd', '状态': 'status', '结束原因': 'endReason', '上一合同ID': 'previousTenantId', '暂存账单': 'pendingBills', '创建时间': 'createdAt' },
-          '账单': { 'ID': 'id', '房源ID': 'propertyId', '房间ID': 'roomId', '租客ID': 'tenantId', '金额': 'amount', '已付金额': 'paidAmount', '类型': 'type', '状态': 'status', '方向': 'direction', '到期日': 'dueDate', '收款日': '_dueDateR', '付款日': '_dueDateP', '实收日': '_paidDateR', '实付日': 'paidDate', '描述': 'description', '期间描述': 'description', '开始日': '_startDate', '结束日': '_endDate', '覆盖开始': 'periodStart', '覆盖结束': 'periodEnd', '业主合同ID': 'landlordContractId', '创建时间': 'createdAt' },
-          '利润提取': { 'ID': 'id', '房源ID': 'propertyId', '周期开始': 'cycleStart', '周期结束': 'cycleEnd', '租客收入': 'tenantIncome', '业主支出': 'landlordExpense', '利润': 'profitAmount', '状态': 'status', '提取日期': 'extractedAt', '提现时间': 'withdrawnAt', '手动': 'isManual', '备注': 'remark', '创建时间': 'createdAt' },
-        }
-
-        const validBillTypes = new Set(['rent', 'deposit', 'agency', 'sublease', 'hygiene', 'internet', 'utilities', 'other'])
-
-        // 纯日期字段（YYYY-MM-DD）。createdAt 是 ISO 时间戳，不在此列，避免归一化误伤
-        const DATE_FIELDS = new Set([
-          'dueDate', 'paidDate', '_dueDateR', '_dueDateP', '_paidDateR',
-          '_startDate', '_endDate', 'periodStart', 'periodEnd',
-          'contractStart', 'contractEnd', 'effectiveEnd',
-          'vacancyStart', 'vacancyEnd',
-          'cycleStart', 'cycleEnd', 'extractedAt', 'withdrawnAt',
-        ])
-
-        // 字符串字段：即使 Excel 存成数字（如 11 位手机号被转数值）也强制还原为字符串（2026-09-06 修复）
-        // 2026-09-13 补漏：landlordPhone 变数字会让 Home 搜索 .includes 抛 TypeError（整页白屏）、
-        //                业主合同保存 .trim 抛错；description 变数字会让 profit.ts 的 .match 抛错，利润计算失败
-        const STRING_FIELDS = new Set(['phone', 'landlordPhone', 'description'])
-
-        // ISO 时间戳字段：Excel 可能把 ISO 时间转成日期序列号，检测到序列号转回 ISO 字符串（2026-09-06 修复）
-        const ISO_FIELDS = new Set(['createdAt'])
-
-        // 归一化 Excel 日期值 → YYYY-MM-DD；空值返回 ''（由调用方决定是否置 undefined）
-        // 处理：Excel 日期序列号（如 46244）、斜杠/点号格式（2026/8/5）、已是 YYYY-MM-DD 原样保留
-        const normalizeExcelDate = (v: unknown): string => {
-          if (v === undefined || v === null || v === '') return ''
-          if (typeof v === 'number' && v >= 36526 && v < 60000) {
-            // Excel 日期序列号 → UTC 日期（25569 = 1970-01-01 在 Excel 中的序列号）
-            // 下限 36526 = 2000-01-01，避免把手填的年份数字（如 2026）误当序列号转成 1905 年
-            const d = new Date(Math.round((v - 25569) * 86400 * 1000))
-            if (!isNaN(d.getTime())) {
-              return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-            }
-          }
-          const s = String(v).trim()
-          const m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/)
-          if (m) {
-            return `${m[1]}-${String(Number(m[2])).padStart(2, '0')}-${String(Number(m[3])).padStart(2, '0')}`
-          }
-          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-          const d = new Date(s)
-          if (!isNaN(d.getTime())) {
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-          }
-          return s
-        }
-
-        const parseSheet = (sheetName: string): Record<string, unknown>[] => {
+        // 表头映射、字段类型分流、行校验都在 src/lib/excel-io.ts（导出与导入共用同一份列定义）
+        const parseSheet = (sheetName: SheetName): Record<string, unknown>[] => {
           const sheet = wb.Sheets[sheetName]
           if (!sheet) return []
-          const headerMap = sheetHeaders[sheetName]
-          if (!headerMap) return []
-          const json = XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[]
-          return json.map(row => {
-            const obj: Record<string, unknown> = {}
-            for (const [cn, en] of Object.entries(headerMap)) {
-              if (row[cn] !== undefined) {
-                if (DATE_FIELDS.has(en)) {
-                  // 日期字段：空值保持 undefined，非空归一化为 YYYY-MM-DD
-                  obj[en] = row[cn] === '' ? undefined : normalizeExcelDate(row[cn])
-                } else if (ISO_FIELDS.has(en)) {
-                  // ISO 时间戳字段：Excel 数字序列号 → 转回 ISO 字符串；已是字符串原样保留
-                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
-                    ? undefined
-                    : (typeof row[cn] === 'number' && row[cn] >= 36526 && row[cn] < 60000
-                      ? new Date(Math.round((row[cn] - 25569) * 86400 * 1000)).toISOString()
-                      : String(row[cn]))
-                } else if (STRING_FIELDS.has(en)) {
-                  // 字符串字段（电话号）：Excel 可能转成数字，强制还原为字符串
-                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
-                    ? undefined
-                    : String(row[cn])
-                } else {
-                  // 数字字段：空值保持 undefined（不做 0 填充，避免押金 0 被误判），非数字则保留原值
-                  // 安全：拒绝 Infinity/NaN（Number('Infinity')/Number('1e999') 会得到 Infinity，必须拦下）
-                  const n = Number(row[cn])
-                  obj[en] = row[cn] === '' || row[cn] === undefined || row[cn] === null
-                    ? undefined
-                    : (isNaN(n) || !isFinite(n) ? row[cn] : n)
-                }
-              }
-            }
-            return obj
-          })
-        }
-
-        function validateImportRow(sheetName: string, row: Record<string, unknown>, index: number): string[] {
-          const errors: string[] = []
-          const prefix = `[${sheetName} 第${index + 1}行]`
-
-          // 通用：id 非空（引用完整性依赖 id，缺失会导致账单引用校验误判）
-          if (!row.id || String(row.id).trim() === '') errors.push(`${prefix} ID不能为空`)
-
-          // 通用：日期字段格式校验（YYYY-MM-DD，防畸形日期 NaN 传播）
-          const checkDate = (field: string, label: string) => {
-            const v = row[field]
-            if (v === undefined || v === null || v === '') return
-            if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-              errors.push(`${prefix} ${label} 格式必须为 YYYY-MM-DD`)
-            }
-          }
-
-          // 通用：金额字段拒绝 Infinity/NaN/负数
-          const checkAmount = (field: string, label: string) => {
-            const v = row[field]
-            if (v === undefined || v === null || v === '') return
-            const n = Number(v)
-            if (isNaN(n) || !isFinite(n) || n < 0) {
-              errors.push(`${prefix} ${label} 必须为有效非负数字`)
-            }
-          }
-
-          // 通用：金额字段只拒绝 Infinity/NaN，允许负数（账单退押金/退租金、负利润是正常业务，2026-09-06 修复）
-          const checkFinite = (field: string, label: string) => {
-            const v = row[field]
-            if (v === undefined || v === null || v === '') return
-            const n = Number(v)
-            if (isNaN(n) || !isFinite(n)) {
-              errors.push(`${prefix} ${label} 必须为有效数字`)
-            }
-          }
-
-          switch (sheetName) {
-            case '房源':
-              if (!row.address || String(row.address).trim() === '') errors.push(`${prefix} 地址不能为空`)
-              break
-            case '房间':
-              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
-              if (!row.label || String(row.label).trim() === '') errors.push(`${prefix} 编号不能为空`)
-              if (!row.roomType || String(row.roomType).trim() === '') errors.push(`${prefix} 类型不能为空`)
-              // 状态空值默认 vacant（2026-09-06 修复：避免导入后 undefined 导致 UI 异常）
-              if (row.status === undefined || row.status === '') row.status = 'vacant'
-              if (row.status !== undefined && row.status !== '' && !['vacant', 'occupied'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 vacant/occupied 之一`)
-              break
-            case '代理合同':
-              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
-              checkAmount('monthlyRent', '月租金')
-              checkAmount('deposit', '押金')
-              if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
-              if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
-              if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
-              checkDate('contractStart', '合同开始日期')
-              checkDate('contractEnd', '合同结束日期')
-              if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
-              // 状态空值默认 active（2026-09-06 修复）
-              if (row.status === undefined || row.status === '') row.status = 'active'
-              if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
-              if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
-              break
-            case '租客':
-              if (!row.name || String(row.name).trim() === '') errors.push(`${prefix} 姓名不能为空`)
-              if (!row.roomId || String(row.roomId).trim() === '') errors.push(`${prefix} 房间ID不能为空`)
-              if (!row.contractStart || String(row.contractStart).trim() === '') errors.push(`${prefix} 合同开始日期不能为空`)
-              if (!row.contractEnd || String(row.contractEnd).trim() === '') errors.push(`${prefix} 合同结束日期不能为空`)
-              checkDate('contractStart', '合同开始日期')
-              checkDate('contractEnd', '合同结束日期')
-              checkDate('effectiveEnd', '退租日')
-              checkAmount('monthlyRent', '月租金')
-              checkAmount('deposit', '押金')
-              checkAmount('otherFeeAmount', '其他金额')
-              if (row.monthlyRent === undefined || Number(row.monthlyRent) <= 0) errors.push(`${prefix} 月租金必须大于0`)
-              if (row.paymentMethod !== undefined && row.paymentMethod !== '' && !['monthly', 'bi-monthly', 'quarterly', 'semi-annual', 'annual'].includes(String(row.paymentMethod))) errors.push(`${prefix} 付款方式必须为 monthly/bi-monthly/quarterly/semi-annual/annual 之一`)
-              // 状态空值默认 active（2026-09-06 修复）
-              if (row.status === undefined || row.status === '') row.status = 'active'
-              if (row.status !== undefined && row.status !== '' && !['active', 'ended'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 active/ended 之一`)
-              if (row.endReason !== undefined && row.endReason !== '' && !['checkout', 'renew'].includes(String(row.endReason))) errors.push(`${prefix} 结束原因必须为 checkout/renew 之一`)
-              if (row.billSplit !== undefined && row.billSplit !== '' && !['front', 'rear'].includes(String(row.billSplit))) errors.push(`${prefix} 切分方式必须为 front/rear 之一`)
-              break
-            case '账单':
-              if (row.amount === undefined || isNaN(Number(row.amount)) || !isFinite(Number(row.amount))) errors.push(`${prefix} 金额必须为有效数字`)
-              // 空值默认值（2026-09-06 修复：避免导入后 undefined 导致 UI 异常）
-              if (row.type === undefined || row.type === '') row.type = 'other'
-              if (row.status === undefined || row.status === '') row.status = 'pending'
-              if (row.direction === undefined || row.direction === '') row.direction = 'receivable'
-              if (row.type && !validBillTypes.has(String(row.type))) errors.push(`${prefix} 类型必须为 rent/deposit/agency/sublease/hygiene/internet/utilities/other 之一`)
-              if (row.status !== undefined && row.status !== '' && !['pending', 'paid', 'overdue', 'cancelled', 'refunded'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 pending/paid/overdue/cancelled/refunded 之一`)
-              if (row.direction !== undefined && row.direction !== '' && !['payable', 'receivable'].includes(String(row.direction))) errors.push(`${prefix} 方向必须为 payable/receivable 之一`)
-              if (!row.dueDate || String(row.dueDate).trim() === '') errors.push(`${prefix} 到期日不能为空`)
-              checkDate('dueDate', '到期日')
-              checkDate('paidDate', '实付日')
-              checkDate('periodStart', '覆盖开始')
-              checkDate('periodEnd', '覆盖结束')
-              // 账单金额允许负数（退押金/退租金/返款为负数账单，2026-09-06 修复导入被拒 bug）
-              checkFinite('amount', '金额')
-              checkFinite('paidAmount', '已付金额')
-              break
-            case '利润提取':
-              if (!row.propertyId || String(row.propertyId).trim() === '') errors.push(`${prefix} 房源ID不能为空`)
-              checkAmount('tenantIncome', '租客收入')
-              checkAmount('landlordExpense', '业主支出')
-              // 利润允许负数（负利润也要允许提取，2026-09-06 修复导入被拒 bug）
-              checkFinite('profitAmount', '利润')
-              checkDate('cycleStart', '周期开始')
-              checkDate('cycleEnd', '周期结束')
-              checkDate('extractedAt', '提取日期')
-              checkDate('withdrawnAt', '提现时间')
-              // 状态空值默认 available（2026-09-06 修复）
-              if (row.status === undefined || row.status === '') row.status = 'available'
-              if (row.status !== undefined && row.status !== '' && !['available', 'withdrawn'].includes(String(row.status))) errors.push(`${prefix} 状态必须为 available/withdrawn 之一`)
-              break
-          }
-          return errors
+          return parseSheetRows(XLSX.utils.sheet_to_json(sheet) as Record<string, unknown>[], sheetName)
         }
 
         const rawProps = parseSheet('房源')
         const rawRooms = parseSheet('房间')
-        const rawContracts = parseSheet('代理合同').map(c => ({
-          ...c,
-          // 空押金规范化为 undefined（与数据模型一致）
-          deposit: Number(c.deposit) > 0 ? Number(c.deposit) : undefined,
-          // 免租期：逗号分隔字符串 → 单值为 number，多值为 number[]
-          // 注意：0 值必须保留（某年无免租），不能用 n>0 过滤，否则数组错位
-          vacancyAllowance: (() => {
-            const v = c.vacancyAllowance
-            if (v === undefined || v === null || v === '') return undefined
-            const parts = String(v).split(',').map(s => parseFloat(s)).filter(n => !isNaN(n))
-            if (parts.length === 0) return undefined
-            return parts.length === 1 ? parts[0] : parts
-          })(),
-          // pendingBills 是 JSON 字符串，解析回数组；解析失败则为 undefined
-          pendingBills: (() => {
-            const v = c.pendingBills
-            if (!v) return undefined
-            try {
-              const arr = JSON.parse(String(v))
-              return Array.isArray(arr) ? arr : undefined
-            } catch { return undefined }
-          })(),
-        }))
-        const rawTenants = parseSheet('租客').map(t => ({
-          ...t,
-          // 空押金规范化为 undefined（与数据模型一致）
-          deposit: Number(t.deposit) > 0 ? Number(t.deposit) : undefined,
-          pendingBills: (() => {
-            const v = t.pendingBills
-            if (!v) return undefined
-            try {
-              const arr = JSON.parse(String(v))
-              return Array.isArray(arr) ? arr : undefined
-            } catch { return undefined }
-          })(),
-        }))
-        const rawBills = parseSheet('账单').map(b => {
-          // 合并方向特定列：新格式的收款日/付款日 → dueDate，实收日 → paidDate
-          if (!b.dueDate) {
-            b.dueDate = String((b as any)._dueDateR || (b as any)._dueDateP || '')
-          }
-          if (!b.paidDate) {
-            b.paidDate = String((b as any)._paidDateR || b.paidDate || '')
-          }
-          delete (b as any)._dueDateR; delete (b as any)._dueDateP
-          delete (b as any)._paidDateR; delete (b as any)._startDate; delete (b as any)._endDate
-          return b
-        })
-        const rawProfitRecords = parseSheet('利润提取').map(r => ({
-          ...r,
-          tenantIncome: Number(r.tenantIncome) || 0,
-          landlordExpense: Number(r.landlordExpense) || 0,
-          profitAmount: Number(r.profitAmount) || 0,
-          extractedAt: String(r.extractedAt || ''),
-          isManual: r.isManual === '是' ? true as any : undefined,
-          remark: String(r.remark || ''),
-        }))
+        const rawContracts = postProcessRows('代理合同', parseSheet('代理合同'))
+        const rawTenants = postProcessRows('租客', parseSheet('租客'))
+        const rawBills = postProcessRows('账单', parseSheet('账单'))
+        const rawProfitRecords = postProcessRows('利润提取', parseSheet('利润提取'))
 
         // ─── 行级校验 ───
         const allErrors: string[] = []
-        // 重复 ID 检测：每个 sheet 内 ID 必须唯一，重复行报错并跳过（2026-09-06 修复：防 React key 冲突）
-        const checkDuplicateIds = (sheetName: string, rows: Record<string, unknown>[], seen: Set<string>) => {
-          const result: boolean[] = []
-          rows.forEach((row, i) => {
-            const id = String((row as { id?: unknown }).id ?? '')
-            if (!id) { result.push(true); return }
-            if (seen.has(id)) {
-              allErrors.push(`[${sheetName} 第${i + 1}行] ID 重复：${id}`)
-              result.push(false)
-            } else {
-              seen.add(id)
-              result.push(true)
-            }
+        // 去重 + 逐表校验：ID 重复的行报错并跳过，且不再报该行的字段错误（与原实现一致）
+        const validateSheet = (sheetName: SheetName, rows: Record<string, unknown>[]) => {
+          const { ok, errors } = findDuplicateIds(sheetName, rows)
+          allErrors.push(...errors)
+          return rows.filter((row, i) => {
+            if (!ok[i]) return false
+            const e = validateImportRow(sheetName, row, i)
+            allErrors.push(...e)
+            return e.length === 0
           })
-          return result
         }
-        const propIdOk = checkDuplicateIds('房源', rawProps, new Set())
-        const roomIdOk = checkDuplicateIds('房间', rawRooms, new Set())
-        const contractIdOk = checkDuplicateIds('代理合同', rawContracts, new Set())
-        const tenantIdOk = checkDuplicateIds('租客', rawTenants, new Set())
-        const profitIdOk = checkDuplicateIds('利润提取', rawProfitRecords, new Set())
-        const validProps = rawProps.filter((row, i) => { if (!propIdOk[i]) return false; const e = validateImportRow('房源', row, i); allErrors.push(...e); return e.length === 0 })
-        const validRooms = rawRooms.filter((row, i) => { if (!roomIdOk[i]) return false; const e = validateImportRow('房间', row, i); allErrors.push(...e); return e.length === 0 })
-        const validContracts = rawContracts.filter((row, i) => { if (!contractIdOk[i]) return false; const e = validateImportRow('代理合同', row, i); allErrors.push(...e); return e.length === 0 })
-        const validTenants = rawTenants.filter((row, i) => { if (!tenantIdOk[i]) return false; const e = validateImportRow('租客', row, i); allErrors.push(...e); return e.length === 0 })
-        const validProfitRecords = rawProfitRecords.filter((row, i) => { if (!profitIdOk[i]) return false; const e = validateImportRow('利润提取', row, i); allErrors.push(...e); return e.length === 0 })
+        const validProps = validateSheet('房源', rawProps)
+        const validRooms = validateSheet('房间', rawRooms)
+        const validContracts = validateSheet('代理合同', rawContracts)
+        const validTenants = validateSheet('租客', rawTenants)
+        const validProfitRecords = validateSheet('利润提取', rawProfitRecords)
 
         // 引用完整性：以各实体的有效 ID 集合为准，剔除引用不存在的租客/房间/业主合同的孤儿账单
         // 注：validTenants/validContracts 经过 .map() 后 TS 推断丢失了展开的 id 字段，此处经 unknown 断言访问（运行时必存在）
@@ -779,16 +476,14 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
         const roomIds = new Set(validRooms.map(r => String((r as { id: string }).id)))
         const contractIds = new Set(validContracts.map(c => String((c as unknown as { id: string }).id)))
         const billWarnings: string[] = []
-        const billIdOk = checkDuplicateIds('账单', rawBills, new Set())
+        const billDup = findDuplicateIds('账单', rawBills)
+        allErrors.push(...billDup.errors)
         const validBills = rawBills.filter((row, i) => {
-          if (!billIdOk[i]) return false
+          if (!billDup.ok[i]) return false
           const e = validateImportRow('账单', row, i)
           allErrors.push(...e)
           if (e.length > 0) return false
-          const refProblems: string[] = []
-          if (row.tenantId && !tenantIds.has(String(row.tenantId))) refProblems.push(`租客ID ${String(row.tenantId)} 不存在`)
-          if (row.roomId && !roomIds.has(String(row.roomId))) refProblems.push(`房间ID ${String(row.roomId)} 不存在`)
-          if (row.landlordContractId && !contractIds.has(String(row.landlordContractId))) refProblems.push(`业主合同ID ${String(row.landlordContractId)} 不存在`)
+          const refProblems = findMissingRefs(row, tenantIds, roomIds, contractIds)
           if (refProblems.length > 0) {
             billWarnings.push(`[账单 第${i + 1}行] ${refProblems.join('；')}`)
             return false
