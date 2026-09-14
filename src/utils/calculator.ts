@@ -188,6 +188,55 @@ function toIndex360(d: Date360): number {
  * - 'front'（默认）先整后零：从合同开始日切整期，零头截在合同末尾
  * - 'rear'  先零后整：从合同结束日往回切整期，零头作为首期
  */
+/**
+ * front（先整后零）方向补齐：若最后一期没有覆盖到合同结束日，把结束日并入末期。
+ *
+ * 为什么需要：铺期时"期数 = ceil(跨度 ÷ 期长)"，最后一期只在**超出**时被截断，
+ * 从不补齐。当跨度恰好是期长的整数倍时（如 2026-01-01~2027-01-01 的月付：
+ * 12 期正好铺满 360 天），末期会停在结束日的**前一天** → 少算 1 天，而且
+ * **少不少取决于付款方式的期长** → 同一份合同换个付款方式总额就变。
+ * 补齐后总天数恒为「跨度 + 1」（含尾），与付款方式无关。
+ *
+ * 没有 periodStart360/periodEnd360 的旧数据（或未涉及）→ 原样不动。
+ */
+function extendLastToEnd(bills: DraftBill[], end: Date360, monthlyRent: number, periodLabel: string): void {
+  if (bills.length === 0) return
+  const last = bills[bills.length - 1]
+  if (typeof last.periodStart360 !== 'number' || typeof last.periodEnd360 !== 'number') return
+  const endIndex = toIndex360(end)
+  if (last.periodEnd360 >= endIndex) return // 已覆盖到最后一天或超出 → 不动
+  const days = endIndex - last.periodStart360 + 1
+  const periodEnd = formatDate360Display(end)
+  bills[bills.length - 1] = {
+    ...last,
+    amount: Math.round((monthlyRent / 30) * days * 100) / 100,
+    periodEnd,
+    periodEnd360: endIndex,
+    description: `第${bills.length}期 ${periodLabel}租 ${last.periodStart} ~ ${periodEnd}`,
+  }
+}
+
+/**
+ * rear（先零后整）方向补齐：若首期没有从合同起租日开始，把起租日并入首期。
+ * 与 extendLastToEnd 对称，保证 front / rear 两个方向的"总天数"一致，且都等于「跨度 + 1」。
+ */
+function extendFirstToStart(bills: DraftBill[], start: Date360, monthlyRent: number, periodLabel: string): void {
+  if (bills.length === 0) return
+  const first = bills[0]
+  if (typeof first.periodStart360 !== 'number' || typeof first.periodEnd360 !== 'number') return
+  const startIndex = toIndex360(start)
+  if (first.periodStart360 <= startIndex) return // 已从起租日开始或更早 → 不动
+  const days = first.periodEnd360 - startIndex + 1
+  const periodStart = formatDate360Display(start)
+  bills[0] = {
+    ...first,
+    amount: Math.round((monthlyRent / 30) * days * 100) / 100,
+    periodStart,
+    periodStart360: startIndex,
+    description: `第1期 ${periodLabel}租 ${periodStart} ~ ${first.periodEnd}`,
+  }
+}
+
 export function generateRentBills(
   monthlyRent: number,
   contractStart: string,
@@ -285,6 +334,7 @@ export function generateRentBills(
       })
     }
 
+    extendFirstToStart(bills, start, monthlyRent, periodLabel)
     return bills
   }
 
@@ -318,6 +368,7 @@ export function generateRentBills(
     cursor = periodEnd
   }
 
+  extendLastToEnd(bills, end, monthlyRent, periodLabel)
   return bills
 }
 

@@ -261,12 +261,17 @@ describe('generateRentBills 具体值', () => {
     expect(bills.map(b => b.amount)).toEqual(Array(12).fill(RENT))
   })
 
-  it('季付：恰好 360 天合同只切 4 期，不多切一期（历史 bug 锚点）', () => {
-    // 注释 calculator.ts:218-219：合同天数恰好整期倍数时 while 多切一期，
-    // 产生倒置日期的 1 天多余账单，等于多收 1 天房租
+  it('季付：恰好 360 天合同只切 4 期，且末期补齐到合同结束日（含尾）', () => {
+    // 两个锚点：
+    // ① 历史 bug：合同天数恰好整期倍数时 while 多切一期，产生倒置日期的 1 天多余账单 → 期数必须仍是 4（不能变 5）
+    // ② 2026-09 口径统一：铺期原本"只截断不补齐"，末期会停在结束日前一天（少收 1 天），
+    //    而少不少取决于付款方式的期长 → 同一合同换个付款方式总额就变。
+    //    统一补齐后总天数恒为「跨度 + 1」（含尾）= 361 天，末期因此是 91 天、金额 9100。
     const bills = generateRentBills(RENT, '2026-01-01', '2027-01-01', 'quarterly', 0)
     expect(bills).toHaveLength(4)
-    expect(bills.map(b => b.amount)).toEqual([9000, 9000, 9000, 9000])
+    expect(bills.map(b => b.amount)).toEqual([9000, 9000, 9000, 9100])
+    expect(bills[3].periodStart).toBe('2026-10-01')
+    expect(bills[3].periodEnd).toBe('2027-01-01')
   })
 
   it('季付 rear 切分：恰好 360 天同样只切 4 期（历史 bug 的第二处）', () => {
@@ -397,6 +402,39 @@ describe('generateRentBills 不变量：覆盖合同首尾', () => {
         const rear = generateRentBills(RENT, cs, ce, method, 0, 'rear')
         expect(parseDate360(rear[rear.length - 1].periodEnd), `rear/${method} 末期终点应为合同结束日`).toEqual(parseDate360(ce))
       }
+    })
+  }
+})
+
+// ============================================================
+// 核心不变量：同一合同的总天数必须与付款方式无关
+// （2026-09 口径统一后新增。此前"跨度能被期长整除"时会少一天，
+//   表现为月付 210 / 季付 211 这类"同一合同总额随付款方式漂移"。）
+// ============================================================
+describe('不变量：同一合同 × 5 付款方式 × front/rear 的总天数必须全部相同', () => {
+  const CASES: Array<[string, string, string]> = [
+    ['2026-01-01', '2026-08-01', '跨度 210：能被 30/60 整除，不能被 90 整除'],
+    ['2026-03-01', '2026-11-01', '跨度 240：能被 30/60 整除，不能被 90 整除'],
+    ['2026-01-01', '2027-01-01', '跨度 360：能被全部期长整除'],
+    ['2026-01-01', '2026-12-31', '跨度 359：全部除不尽（与实际合同的常态写法一致）'],
+    ['2026-06-30', '2027-02-28', '跨度 240 且起租日在月末'],
+  ]
+
+  for (const [cs, ce, desc] of CASES) {
+    it(`${cs}~${ce}（${desc}）：总额与付款方式无关，且 = 跨度 + 1 天`, () => {
+      const detail: string[] = []
+      for (const method of METHODS) {
+        for (const mode of ALL_MODES) {
+          const bills = generateRentBills(RENT, cs, ce, method, 0, mode)
+          // RENT = 3000 → 日租 100 元整，各期金额都是 100 的整数倍 → 天数是精确整数，不受取整噪声影响
+          const days = Math.round(bills.reduce((s, b) => s + b.amount / (RENT / 30), 0) * 100) / 100
+          detail.push(`${method}/${mode}=${days}`)
+        }
+      }
+      const dayValues = detail.map(d => Number(d.split('=')[1]))
+      expect(new Set(dayValues).size, `各方式总天数应完全一致，实际：${detail.join(' ')}`).toBe(1)
+      const span = diffDays360(parseDate360(cs), parseDate360(ce))
+      expect(dayValues[0], `${cs}~${ce} 总天数应 = 跨度 + 1（含尾）`).toBe(span + 1)
     })
   }
 })
