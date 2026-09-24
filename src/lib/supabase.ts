@@ -471,6 +471,20 @@ export function isLocalNewerThanCloud(dirtyAt: string | null, cloudUpdatedAt: st
   return dirtyAt > cloudUpdatedAt
 }
 
+/**
+ * 加载窗口判定（2026-09-24 同步覆盖缺陷修复 Layer 2）：
+ * 在「本次云端加载发起之后」被打上的 dirty 标记，只可能描述对加载前（可能陈旧）数据的改写，
+ * 不代表本地持有比云端更新的持久改动 → 不得据此阻止云端覆盖
+ * （产品规则：加载完成前的操作以云端为准，加载约 1-2 秒后云端数据会覆盖本地）。
+ * 返回 true = 该标记落在本次加载窗口内，判定 kept-local 时应忽略它。
+ * 无标记 / 无加载起点 / 无法解析 → 返回 false（保守沿用既有的未同步保护，不误删上一会话遗留的真实改动）。
+ */
+export function isDirtyStampedDuringLoad(dirtyAt: string | null, loadStartedAt: number): boolean {
+  if (!dirtyAt || !loadStartedAt) return false
+  const ms = Date.parse(dirtyAt)
+  return Number.isFinite(ms) && ms >= loadStartedAt
+}
+
 // ========== 管理员功能 ==========
 
 // 检查指定用户是否是管理员（先 RPC 绕过 RLS，失败则直查表）

@@ -4,7 +4,7 @@ import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "luci
 import { useAuth } from "./lib/auth-context";
 import { useStore, setCloudSyncBroken } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
-import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry } from "./lib/cloud-sync-context";
+import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry, markCloudAuthoritative } from "./lib/cloud-sync-context";
 import { pushAuthDiag, listSbSessionKeys, scanAuthSnapshot } from "./lib/auth-diag";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
@@ -488,6 +488,8 @@ export default function App() {
               // A1（2026-09-06）：整文档已入云，上传成功即清除「未同步」标记
               if (ok) {
                 clearLocalDirty()
+                // 冷启动播种成功 → 本地文档已成为云端文档，建立本会话权威（放行 checkOverdue 等自动派生写入）
+                markCloudAuthoritative()
               } else {
                 // 首传失败不再静默（2026-09-06 二阶段修复）：置 broken 挡业务写入 + 红横幅提示
                 // + 10 秒自动重试（doSave 正规管道：带设备锁校验/成功清标记/失败继续重试）

@@ -8,6 +8,7 @@ import AlertModal from '../components/AlertModal'
 import WheelDatePicker from '../components/WheelDatePicker'
 import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
+import { isCloudAuthoritative } from '../lib/cloud-sync-context'
 import { calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 
 function getDaysAgo(days: number): string {
@@ -40,8 +41,12 @@ export default function Bills() {
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
 
   // 自动标记逾期账单（每分钟检测一次）
+  // ⚠️ 必须等本会话首次云端加载建立权威后才执行（2026-09-24 同步覆盖缺陷修复）：
+  // 加载完成前本地可能只是陈旧缓存，提前把 pending 改成 overdue 会打上新的未同步标记，
+  // 使陈旧本地被判定为「比云端新」而整档推云覆盖（曾把云端已付账单改回逾期）。
   useEffect(() => {
     const checkOverdue = () => {
+      if (!isCloudAuthoritative()) return
   const today = todayLocal()
       const { bills: currentBills, updateBill: updateCurrentBill } = useStore.getState()
       for (const bill of currentBills) {
@@ -51,8 +56,13 @@ export default function Bills() {
       }
     }
     checkOverdue()
+    // 首次加载完成建立权威时（事件）自动补跑一次；此后每分钟定期检测
+    window.addEventListener('cloud-authoritative', checkOverdue)
     const interval = setInterval(checkOverdue, 60000)
-    return () => clearInterval(interval)
+    return () => {
+      window.removeEventListener('cloud-authoritative', checkOverdue)
+      clearInterval(interval)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 import { pushSyncLog, setLastSyncOkAt } from './sync-log'
 
@@ -100,7 +100,31 @@ export function requestSaveRetry() {
 // 有更新的代际已开始 → 本次结果整体作废（不覆盖本地、不清 dirty）。
 // 「后代际优先」成立：发起更晚的请求读到的是更晚的云端状态。
 let _cloudApplyToken = 0
+// 本次云端加载窗口起点（毫秒）：用于区分「上一会话遗留的真实未同步标记」与
+// 「加载窗口内自动生成/用户临时操作产生的标记」——后者不得阻止云端覆盖（2026-09-24 同步覆盖缺陷修复 Layer 2）。
+let _cloudLoadStartedAt = 0
+// 本会话云端是否已建立权威（成功读到云端 / 采用本地并已推云 / 冷启动播种成功）。
+// checkOverdue 这类「自动派生写入」必须等它置位后才可执行：加载完成前本地可能只是陈旧缓存，
+// 提前改写会打上新的未同步标记，使陈旧本地冒充「比云端新」而整档推云覆盖（本次事故根因）。
+let _cloudAuthoritative = false
+
+/** 云端权威是否已建立（供 Home/Bills 的自动逾期标记做前置守卫） */
+export function isCloudAuthoritative() { return _cloudAuthoritative }
+
+/** 本地文档已成为云端文档（成功读到云端 / 冷启动播种成功）时调用：建立权威并通知已挂载页面 */
+export function markCloudAuthoritative() {
+  if (_cloudAuthoritative) return
+  _cloudAuthoritative = true
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cloud-authoritative'))
+}
+
+/** 登出/切换用户时复位：新会话需重新等待首次加载建立权威 */
+export function resetCloudAuthoritative() { _cloudAuthoritative = false }
+
 export function beginCloudLoad(): number {
+  // 加载进行中 → 尚未建立权威；记录窗口起点供 applyCloudLoad 区分加载窗口内的脏标记
+  _cloudLoadStartedAt = Date.now()
+  _cloudAuthoritative = false
   return ++_cloudApplyToken
 }
 
@@ -117,7 +141,11 @@ export function applyCloudLoad(token: number, result: { data: any; updatedAt: st
   if (token !== _cloudApplyToken) return 'stale'
   if (!result) return 'none'
   const dirtyAt = getLocalDirtyAt()
-  if (dirtyAt && result.updatedAt && isLocalNewerThanCloud(dirtyAt, result.updatedAt)) {
+  // 加载窗口内打上的 dirty 不代表本地有比云端更新的持久改动 → 忽略它，让云端覆盖（Layer 2）
+  const dirtyStampedDuringLoad = isDirtyStampedDuringLoad(dirtyAt, _cloudLoadStartedAt)
+  if (!dirtyStampedDuringLoad && dirtyAt && result.updatedAt && isLocalNewerThanCloud(dirtyAt, result.updatedAt)) {
+    // 窗口前（上一会话遗留）的真实未同步改动 → 保留本地，此时本地即权威
+    markCloudAuthoritative()
     return 'kept-local'
   }
   const normalized = normalizeCloudData(result.data)
@@ -132,6 +160,7 @@ export function applyCloudLoad(token: number, result: { data: any; updatedAt: st
   } as any)
   // 本地已被云端数据替换 → 清除未同步标记
   clearLocalDirty()
+  markCloudAuthoritative()
   return 'applied'
 }
 
@@ -163,6 +192,13 @@ export function triggerCloudSave() {
   if (_saveTimer) clearTimeout(_saveTimer)
   _saveTimer = setTimeout(() => {
     _saveTimer = null
+    // 防抖窗口内云端加载已开始（触发时 _loading 还是 false，定时器晚于加载置位才触发）→
+    // 不得用（可能陈旧的）本地状态推云；排队到加载完成后由 loadNow 的 finally 重排（Layer 3）
+    if (_loading) {
+      pushSyncLog('save_deferred_loading', '加载中，保存已排队待加载完成后重排')
+      _pending = true
+      return
+    }
     pushSyncLog('save_queued', '保存已排队（50ms防抖）')
     _saveCallback?.()
   }, 50)
@@ -448,7 +484,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   // 启动时无条件拉取云端数据（在线强制：云端为唯一权威，本地只是缓存；
   // 云端无数据时 loadNow 跳过覆盖，仅云端有数据才覆盖本地）
   useEffect(() => {
-    if (!isSupabaseConfigured() || !ready || !user) return
+    // 登出/切换用户 → 复位权威标记，下一次会话重新等待首次加载建立权威
+    if (!user) { resetCloudAuthoritative(); return }
+    if (!isSupabaseConfigured() || !ready) return
     loadNow()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user])
