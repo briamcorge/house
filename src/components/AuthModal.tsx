@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Mail, Lock, Loader2, Eye, EyeOff, User, Phone } from 'lucide-react'
+import { getAuthErrorMessage } from '../lib/auth-error-message'
 import { signIn, signUp, resetPassword } from '../lib/supabase'
 
 interface AuthModalProps {
@@ -33,7 +34,7 @@ export default function AuthModal({ isOpen, onClose, required = false }: AuthMod
       if (mode === 'forgot') {
         const { error } = await resetPassword(email)
         if (error) {
-          setError(error.message)
+          setError(getAuthErrorMessage(error, '发送失败，请稍后重试'))
           return
         }
         setSuccess('密码重置链接已发送到你的邮箱，请查收')
@@ -42,8 +43,9 @@ export default function AuthModal({ isOpen, onClose, required = false }: AuthMod
         const { error } = await signIn(email, password)
         if (error) {
           // 错误泛化（2026-09-06 安全加固）：不向用户展示 Supabase 原始错误，
-          // 避免泄露内部细节（如账号状态、限流信息）
-          setError('登录失败，请检查邮箱和密码')
+          // 避免泄露内部细节（如账号状态）；2026-09-24 起网络/限流类失败使用准确文案，
+          // 凭据类仍保持模糊（防账号枚举）
+          setError(getAuthErrorMessage(error, '登录失败，请检查邮箱和密码'))
           return
         }
         onClose()
@@ -55,10 +57,12 @@ export default function AuthModal({ isOpen, onClose, required = false }: AuthMod
         }
         const { error: signUpErr } = await signUp(email, password, name, phone)
         if (signUpErr) {
-          if (signUpErr.message.includes('already registered')) {
+          const code = (signUpErr as { code?: string }).code
+          if (code === 'email_exists' || code === 'user_already_exists' || signUpErr.message.includes('already registered')) {
             setError('该邮箱已注册，请直接登录')
           } else {
-            setError(signUpErr.message)
+            // 其余错误统一走分类文案（弱密码/网络/限流），不展示原始英文错误
+            setError(getAuthErrorMessage(signUpErr, '注册失败，请稍后重试'))
           }
           return
         }
