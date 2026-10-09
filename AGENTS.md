@@ -1,6 +1,6 @@
 # 房屋管理系统
 
-最后更新: 2026-09-13（十三处修复：导入白名单 / 编辑业主合同 / 编辑租客合同 / 恢复租客 / 负数账单 / 业主退租表单 / 续约丢电话 / 设备踢出僵尸态 / 业主免租期逐年 / 续约绕过利润门槛 / 拆单期间反置 / effectiveEnd 取错退租金 / 重复合同编号自动去重）
+最后更新: 2026-10-10（写入闸门修复第二批：三类合法删除回执 / 规则③按 id 精确扣减 / kept-local 基线归一化 / 「以云端为准」逃生口）
 
 ## 凭据 & API（非常重要，切勿丢失）
 
@@ -26,16 +26,16 @@
   - ⚠️ 前端改动（`src/lib/supabase.ts` 的 upsert 带 `last_writer`）**需要装新 APK / 重新部署网页版才生效**；旧客户端写入时该列为 null
 - **写入闸门 + 本地快照（2026-10-09 已上线，用户选「硬拦」）**: 同一事故的第二道修复，补上推送侧的检查。**这是本项目第一条会主动拒绝写入的规则，改同步逻辑前务必读这一节。**
   - **闸门**（`src/lib/supabase.ts` 的 `checkPushGate`）：`saveCloudDataInner` 在 upsert 前比对「本地待推送数据」与「云端摘要基线」，命中即抛 `PushGateBlockedError` 拒绝上传。三条规则：
-    ① 记录静默消失（本地缺云端有的 id，且不在本地 `trash` 里）
+    ① 记录静默消失（本地缺云端有的 id，且不在任何「合法删除回执」里）
     ② 已收款账单被退回（云端有 `paidDate` 的账单在本地变成未收/不存在）
-    ③ 数组缩水但 `trash` 没相应增加（兜底）
-  - **合法删除的签名 = 数组变小 且 `trash` 变大**（`useStore` 所有删除都入 `trash`），因此正常删租客/账单/房源**不会被拦**——已实测。
-  - 基线由 `loadNow` 与保存成功后用 `setCloudSummary(useStore.getState())` 刷新。**必须取「应用静止状态下实际持有的数据」**，不能用云端原文：`normalizeCloudData` 会合法清理（如退租租客遗留账单），用原文当基线会把自己误拦。
+    ③ 数组缩水，但超出所有「合法删除回执」能解释的范围（2026-10-10 改按 id 精确扣减；旧版只比 trash 条数增量，退租暂存/本机回执都不进 trash → 误报，已废弃）
+  - **合法删除回执（2026-10-10 修复误伤后为三类，闸门三条规则都只认它们）**：① 回收站 `trash.originalId`；② 退租暂存 `tenants[].pendingBills` / `landlordContracts[].pendingBills`（覆盖租客退租 / 业主退租）；③ 本机删除回执 `localStorage['property-manager-deleted-ids']`（`src/lib/deletion-receipt.ts`，覆盖编辑租客合同 / 恢复租客 / 恢复业主合同 / 删除利润记录——这 4 条路径有意不进回收站）。**⚠️ 线上第一版只认回收站，导致上述 6 条合法路径的首次保存全被误拦（"useStore 所有删除都入 trash"的说法是错的，已实测更正）**。回执生命周期与 dirty 同节奏：删除时登记 → 保存成功 / 云端覆盖本地后清除。
+  - 基线统一取「**云端数据经 `normalizeCloudData` 后的形态**」（`setCloudSummaryFromCloud`，加载路径与保存前回读重建共用）。不能取云端原文（归一化会合法清理退租遗留账单等，会自我误拦）；**也不能取本地自身**——kept-local 分支曾用本地当基线，等于该分支把闸门关掉：陈旧设备"dirty 比云端新"时会把旧数据整档推上云（2026-10-09 事故同型通道，2026-10-10 修复并实测拦截）。
   - 命中后：作废基线（下次保存回读云端重建）、不清 dirty、**不触发 10 秒自动重试**（否则会反复撞）。
-  - UI：`App.tsx` 专用红横幅列出具体丢失项 + 关闭按钮，与网络类「正在自动重试」分开展示；状态在 `cloud-sync-context` 的 `gateBlocked`。
+  - UI：`App.tsx` 专用红横幅列出具体丢失项 + 关闭按钮，与网络类「正在自动重试」分开展示；状态在 `cloud-sync-context` 的 `gateBlocked`。**逃生口（2026-10-10 加，用户选定只做这一个）**：「以云端为准」= 清 dirty / 删除回执后整页重载 → 云端覆盖本地（放弃本机未上传改动，danger 二次确认）。**没有**「强制上传」按钮——不要擅自新增。
   - **本地快照兜底**：保存成功后写 `localStorage['property-manager-snapshot']`（距上次 >3 分钟才写、配额不足静默降级）。**动机**：L1/L2 都在同一个 Supabase 项目里，项目一旦不可用则两者同时失效，这份是不依赖云端的最后兜底。读取用 `readLocalSnapshot()`。
-  - 测试：`zcode测试/push-gate.test.ts`（10 例，含两个事故场景）。**改动闸门规则后必须保持它全绿。**
-  - ⚠️ **仍未有写入拦截**：本次只加归因，不阻止覆盖。若再次发生覆盖，仍要靠 `user_data_history` 还原
+  - 测试：`zcode测试/push-gate.test.ts`（10 例，含两个事故场景）+ `zcode测试/push-gate-deletions.test.ts`（15 例：6 条合法删除路径用**真实 store 动作 + 真实闸门**逐条验证、两个反向对照、基线归一化、规则③、回执生命周期）。**改动闸门规则后必须保持两个文件全绿。**
+  - ⚠️ 闸门是**客户端防线**：只在带此代码的客户端生效（网页版自动更新；旧 APK / 旧缓存页面没有这道防线）。归因同理：旧客户端写入时 `last_writer` 为 null。
 - **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）。⚠️ 2026-09-06 安全加固：`list_user_data_backups` 已加 `is_admin()` 校验（防 IDOR），所有 SECURITY DEFINER 函数已 `set search_path = public`（`get_all_user_data` 因返回类型与旧版不同需先 drop 再重建）；脚本见 `sql/2026-09-06_security_definer_fix.sql`，已由临时 PAT 在 Dashboard 执行完毕
 - **L1/L2 脚本位置**: 原执行脚本放在项目外的临时目录（未入库；两台机器位置不同，且可能已不存在）。线上结构的权威快照见 `sql/2026-09-12_live_rls_functions_dump.sql`，各脚本状态说明见 `sql/README.md`；改/恢复前读这两份与 `sql/2026-09-06_updated_at_trigger.sql`
 - **注意事项**: 备份表**已开 RLS**（2026-09-12 线上快照实测 `rowsecurity=True`），且 `anon` 角色无 SELECT 授权（未登录客户端查询返回 42501 insufficient_privilege）；直接查表需 service/postgres 权限；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
