@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad, setCloudSummary, clearCloudSummary, PushGateBlockedError } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad, setCloudSummary, setCloudSummaryFromCloud, clearCloudSummary, PushGateBlockedError } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 import { pushSyncLog, setLastSyncOkAt } from './sync-log'
+import { clearLocalDeletionReceipt } from './deletion-receipt'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -165,6 +166,8 @@ export function applyCloudLoad(token: number, result: { data: any; updatedAt: st
   } as any)
   // 本地已被云端数据替换 → 清除未同步标记
   clearLocalDirty()
+  // 本机未同步的删除回执随本次覆盖作废（云端为准，本地删除不再需要豁免）
+  clearLocalDeletionReceipt()
   markCloudAuthoritative()
   return 'applied'
 }
@@ -376,6 +379,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         // ⚠️ _pending 存在 = 本次快照之后又产生了新改动（busy 排队），本快照不含它，
         // 此时不清除，等 finally 已重排的下一轮保存成功后由该轮清除，避免新改动失去保护。
         if (!_pending) clearLocalDirty()
+        // 删除回执同节奏清除：本快照的删除已入云，回执使命完成（2026-10-10）
+        if (!_pending) clearLocalDeletionReceipt()
         pushSyncLog('save_ok', `保存成功（${elapsed}ms）`)
       }
       return ok
@@ -459,12 +464,12 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         // dirty 比云端 updated_at 新 → 同步断链期间本地有未同步数据，禁止云端旧数据覆盖本地
         // （8-28 / 9-03 两次事故都是「云端旧数据覆盖本地新数据」导致操作丢失）
         //
-        // ⚠️ 闸门基线（2026-10-09）：记录的是**本地静止状态**，不是云端原始数据。
-        // 原因：normalizeCloudData 会做修复（清理退租租客遗留账单等），归一化后的数据
-        // 可能比云端原文少几条；若拿云端原文当基线，随后推送本地时会被自己误拦。
-        // 基线 = 「应用在当前静止状态下实际持有的数据」，这样正常保存必然与基线一致。
-        const st = useStore.getState()
-        setCloudSummary(st)
+        // ⚠️ 闸门基线（2026-10-10 修正）：必须取「云端数据经 normalizeCloudData 后的形态」，
+        // 与 applied 分支同一口径（归一化会做合法清理，直接拿云端原文当基线会自我误拦）。
+        // 此前这里取的是**本地状态**（= 即将被推送的数据本身）：那等于在该分支把闸门关掉——
+        // 「陈旧设备 + dirty 比云端新」会把旧数据整档推上云（2026-10-09 事故同型通道，
+        // 2026-10-10 审阅确认）。合法的新数据（云端记录的严格超集）不会被拦：规则①②③均不命中。
+        if (result?.data) setCloudSummaryFromCloud(result.data)
         const dirtyAt = getLocalDirtyAt()
         console.warn('[loadNow] 本地有比云端新的未同步数据，保留本地并自动同步（跳过云端覆盖）:', { dirtyAt, cloudUpdatedAt: result?.updatedAt })
         setStatus('syncing')

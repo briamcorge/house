@@ -3,9 +3,10 @@ import { HashRouter as Router, Routes, Route, useNavigate } from "react-router-d
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./lib/auth-context";
 import { useStore, setCloudSyncBroken } from "./store/useStore";
-import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus } from "./lib/supabase";
+import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus, clearLocalDirty } from "./lib/supabase";
 import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry, markCloudAuthoritative } from "./lib/cloud-sync-context";
 import { pushAuthDiag, listSbSessionKeys, scanAuthSnapshot } from "./lib/auth-diag";
+import { clearLocalDeletionReceipt } from "./lib/deletion-receipt";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -20,6 +21,7 @@ import Admin from "./pages/Admin";
 import BottomNav from "./components/BottomNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
+import ConfirmModal from "./components/ConfirmModal";
 import LoginPage from "./pages/LoginPage";
 
 const STORAGE_KEY = "property-manager-data"
@@ -202,6 +204,16 @@ function LoginRedirect({ triggered }: { triggered: boolean }) {
 export default function App() {
   const { user: currentUser, ready: authReady, lastEvent } = useAuth()
   const { status: syncStatus, lastError: syncError, gateBlocked, clearGateBlocked } = useCloudSync()
+  // 闸门逃生口（2026-10-10）：以云端为准——放弃本机未上传改动，整页重载让云端覆盖本地。
+  // 动机：闸门是硬拦（不自动重试），没有出口时，万一规则对了但用户想立刻恢复，
+  // 或出现未预料的误拦，设备会卡在"永远传不上去"。这是用户确认过的唯一出口。
+  const [gateAdoptCloudOpen, setGateAdoptCloudOpen] = useState(false)
+  const handleAdoptCloud = useCallback(() => {
+    clearLocalDirty()
+    clearLocalDeletionReceipt()
+    setGateAdoptCloudOpen(false)
+    window.location.reload()
+  }, [])
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
@@ -748,14 +760,24 @@ export default function App() {
                       本地改动仍保留在本机。请勿在其它设备继续录入，并检查是否误开了旧版本 / 旧缓存；详情见「更多 → 诊断日志」。
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={clearGateBlocked}
-                    className="shrink-0 rounded border border-red-400 px-2 py-0.5 text-xs hover:bg-red-100"
-                    title="仅关闭提示；数据仍未被上传，本地改动仍在"
-                  >
-                    关闭
-                  </button>
+                  <div className="shrink-0 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setGateAdoptCloudOpen(true)}
+                      className="rounded border border-red-400 px-2 py-0.5 text-xs hover:bg-red-100"
+                      title="放弃本机未上传的改动，用云端数据重新载入本机"
+                    >
+                      以云端为准
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearGateBlocked}
+                      className="rounded border border-red-400 px-2 py-0.5 text-xs hover:bg-red-100"
+                      title="仅关闭提示；数据仍未被上传，本地改动仍在"
+                    >
+                      关闭
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : syncStatus === 'error' ? (
@@ -787,6 +809,16 @@ export default function App() {
                 </div>
               </div>
             )}
+            {/* 闸门逃生口确认框（2026-10-10）：以云端为准 = 放弃本机未上传改动 */}
+            <ConfirmModal
+              isOpen={gateAdoptCloudOpen}
+              onClose={() => setGateAdoptCloudOpen(false)}
+              onConfirm={handleAdoptCloud}
+              title="以云端为准，放弃本机改动？"
+              message="本机尚未上传到云端的改动将被丢弃，界面随后重新载入云端最新数据。此操作不可撤销。"
+              confirmText="放弃本机改动"
+              variant="danger"
+            />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/properties" element={<Properties />} />

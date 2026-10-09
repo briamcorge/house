@@ -4,6 +4,7 @@ import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, P
 import { DraftBill } from '../utils/calculator'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
 import { setLocalDirtyAt } from '../lib/supabase'
+import { recordLocalDeletions } from '../lib/deletion-receipt'
 import { formatRoomLabel, todayLocal } from '../lib/utils'
 
 interface AppStore {
@@ -376,6 +377,8 @@ export const useStore = create<AppStore>()(
               ) && (!effectiveEnd || (b.paidDate || b.dueDate) >= effectiveEnd))
               .map(b => b.id)
           )
+          // 被撤销的退租账单不进回收站 → 登记本机删除回执（2026-10-10 闸门误伤修复）
+          recordLocalDeletions([...checkoutBillIds])
           // 找回退租时暂存的未付账单（未来期数）
           const pendingBills = tenant?.pendingBills || []
           return {
@@ -464,6 +467,10 @@ export const useStore = create<AppStore>()(
       editTenantContract: (tenantId, tenant, draftBills, roomId) =>
         set((state) => {
           const now = new Date().toISOString()
+          // 被替换掉的旧应收账单（本操作有意不入回收站）→ 登记本机删除回执，
+          // 让推送闸门知道这批删除是合法操作（2026-10-10 闸门误伤修复，见 lib/deletion-receipt.ts）
+          const removedBills = state.bills.filter((b) => b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenantId)
+          recordLocalDeletions(removedBills.map((b) => b.id))
           const newBills: Bill[] = draftBills.map((b) => ({
             id: createId(),
             roomId,
@@ -483,7 +490,7 @@ export const useStore = create<AppStore>()(
               t.id === tenantId ? { ...t, ...tenant, id: tenantId, createdAt: t.createdAt, status: 'active' } : t
             ),
             bills: [
-              ...state.bills.filter((b) => !(b.roomId === roomId && b.direction === 'receivable' && b.tenantId === tenantId)),
+              ...state.bills.filter((b) => !removedBills.includes(b)),
               ...newBills,
             ],
             auditLogs: recordLog(state, 'update', 'tenant', tenantId, `修改合同`),
@@ -620,6 +627,8 @@ export const useStore = create<AppStore>()(
               ))
               .map(b => b.id)
           )
+          // 被撤销的退租账单不进回收站 → 登记本机删除回执（2026-10-10 闸门误伤修复）
+          recordLocalDeletions([...checkoutBillIds])
           // 找回退租时暂存的未付账单（未来期数）
           const contract = state.landlordContracts.find(c => c.id === id)
           const pendingBills = contract?.pendingBills || []
@@ -669,10 +678,14 @@ export const useStore = create<AppStore>()(
         })),
 
       deleteProfitRecord: (id) =>
-        set((state) => ({
-          profitRecords: state.profitRecords.filter((r) => r.id !== id),
-          auditLogs: recordLog(state, 'delete', 'profit_record', id, '删除利润记录'),
-        })),
+        set((state) => {
+          // 删除利润记录有意不入回收站 → 登记本机删除回执（2026-10-10 闸门误伤修复）
+          recordLocalDeletions([id])
+          return {
+            profitRecords: state.profitRecords.filter((r) => r.id !== id),
+            auditLogs: recordLog(state, 'delete', 'profit_record', id, '删除利润记录'),
+          }
+        }),
 
       addToTrash: (type, originalId, data, label) =>
         set((state) => ({

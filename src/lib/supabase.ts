@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { dedupeDisplayIds } from './display-id'
 import { pushSyncLog } from './sync-log'
+import { getLocalDeletionReceipt } from './deletion-receipt'
 
 let _supabase: SupabaseClient | null = null
 
@@ -403,9 +404,16 @@ export function clearCloudSummary(): void {
   _cloudSummary = null
 }
 
-/** 加载云端成功后提供基线（只含 id 与已收信息，不含完整数据） */
+/**
+ * 从云端原文建立闸门基线（2026-10-10 口径统一）。
+ * ⚠️ 必须先过 normalizeCloudData：归一化会合法清理（退租租客遗留账单等），
+ * 直接拿云端原文当基线，会让随后推送"应用实际持有的数据"时被自己误拦。
+ * 基线 = 云端数据在应用内的静止形态（与 applyCloudLoad 落库口径一致）。
+ */
 export function setCloudSummaryFromCloud(cloudData: any): void {
-  setCloudSummary(cloudData)
+  let normalized: any = cloudData
+  try { normalized = normalizeCloudData(cloudData as SupabaseData) } catch (e) { console.warn('[cloudGuard] 云端数据归一化失败，退回原文作基线:', e) }
+  setCloudSummary(normalized)
 }
 
 type GateResult = { blocked: true; reason: string; details: string[] } | { blocked: false }
@@ -422,34 +430,60 @@ export function checkPushGate(syncData: any): GateResult {
   const summary = _cloudSummary
   if (!summary || !summary.ids) return { blocked: false }
 
+  // ── 合法删除回执（2026-10-10 扩展）──────────────────────────────────────
+  // 闸门此前只认「回收站里有 originalId」；但有几类删除是设计上不入回收站的，
+  // 会把正常业务操作误判成"记录静默消失"（2026-10-10 审阅：编辑租客合同 / 租客退租 /
+  // 业主退租 / 恢复租客 / 恢复业主合同 / 删除利润记录 共 6 条路径全被误拦）。现在三类回执并认：
+  //   ① 回收站 originalId（原有）；
+  //   ② 退租暂存：terminateTenant / terminateLandlordContract 把删掉的账单存进
+  //      tenant.pendingBills / contract.pendingBills（恢复时可原样找回）；
+  //   ③ 本机删除回执：编辑租客合同 / 恢复租客 / 恢复业主合同 / 删除利润记录
+  //      （src/lib/deletion-receipt.ts，保存成功或云端覆盖本地后清除）。
+  const legitDeletedIds = new Set<string>()
   const localTrash: any[] = Array.isArray(syncData?.trash) ? syncData.trash : []
-  const localTrashOriginalIds = new Set(
-    localTrash.map((t: any) => String(t?.originalId ?? '')).filter((s) => s !== '' && s !== 'undefined'),
-  )
+  for (const t of localTrash) {
+    const id = String(t?.originalId ?? '')
+    if (id && id !== 'undefined') legitDeletedIds.add(id)
+  }
+  for (const key of ['tenants', 'landlordContracts'] as const) {
+    const arr: any[] = Array.isArray(syncData?.[key]) ? syncData[key] : []
+    for (const rec of arr) {
+      const pend: any[] = Array.isArray(rec?.pendingBills) ? rec.pendingBills : []
+      for (const b of pend) {
+        const id = String(b?.id ?? '')
+        if (id && id !== 'undefined') legitDeletedIds.add(id)
+      }
+    }
+  }
+  for (const id of getLocalDeletionReceipt()) legitDeletedIds.add(id)
 
-  /** 合法删除判定：该 id 在本地 trash 里有对应 originalId */
-  const isLegitimatelyDeleted = (id: string) => localTrashOriginalIds.has(id)
+  /** 合法删除判定：该 id 有回收站 / 退租暂存 / 本机删除回执之一 */
+  const isLegitimatelyDeleted = (id: string) => legitDeletedIds.has(id)
 
   const hits: { rule: string; detail: string }[] = []
+  /** 各数组「被回执解释掉」的缺失 id 数（规则③按 id 精确扣减缩水量用） */
+  const explainedByArray: Record<string, number> = {}
 
-  // ── 规则 ①：记录静默消失（本地缺失，且不在本地回收站里）────────────────
+  // ── 规则 ①：记录静默消失（本地缺失，且不在任何删除回执里）──────────────
   for (const k of BIZ_ARRAYS) {
     const cloudIds = summary.ids[k]
     if (!cloudIds) continue
     const localArr: any[] = Array.isArray(syncData?.[k]) ? syncData[k] : []
     const localIds = new Set(localArr.map((x: any) => String(x?.id ?? '')))
     let missing = 0
+    let explained = 0
     const samples: string[] = []
     for (const id of cloudIds) {
       if (localIds.has(id)) continue
-      if (isLegitimatelyDeleted(id)) continue // 正常删除，回收站里有
+      if (isLegitimatelyDeleted(id)) { explained++; continue } // 正常删除，有回执
       missing++
       if (samples.length < 3) samples.push(id.slice(0, 8))
     }
+    explainedByArray[k] = explained
     if (missing > 0) {
       hits.push({
         rule: '记录静默消失',
-        detail: `${k} 比云端少 ${missing} 条，且不在本地回收站（如 ${samples.join(', ')}）`,
+        detail: `${k} 比云端少 ${missing} 条，且不在本地回收站/删除回执（如 ${samples.join(', ')}）`,
       })
     }
   }
@@ -480,21 +514,25 @@ export function checkPushGate(syncData: any): GateResult {
     })
   }
 
-  // ── 规则 ③：数组缩水但没有回收站增加来解释 ─────────────────────────────
-  const trashDelta = (Array.isArray(syncData?.trash) ? syncData.trash.length : 0) - summary.trashCount
+  // ── 规则 ③：数组缩水，但超出所有删除回执能解释的范围（兜底）────────────
+  // 2026-10-10 改为按 id 精确扣减：旧实现只比较 trash 条数增量——退租暂存 / 本机回执
+  // 都不增加 trash（会误报），而"删完顺手清空回收站"又会击穿旧补偿算法。
+  // 语义：净缩水条数 > 被回执解释的缺失条数 → 还有缩水说不清来历 → 拦。
   let shrinkTotal = 0
+  let explainedTotal = 0
   const shrinkDetail: string[] = []
   for (const k of BIZ_ARRAYS) {
-    const d = summary.counts[k] - (Array.isArray(syncData?.[k]) ? syncData[k].length : 0)
+    explainedTotal += explainedByArray[k] ?? 0
+    const d = (summary.counts[k] ?? 0) - (Array.isArray(syncData?.[k]) ? syncData[k].length : 0)
     if (d > 0) {
       shrinkTotal += d
       shrinkDetail.push(`${k} -${d}`)
     }
   }
-  if (shrinkTotal > 0 && trashDelta < shrinkTotal) {
+  if (shrinkTotal > explainedTotal) {
     hits.push({
-      rule: '数组缩水无回收站解释',
-      detail: `${shrinkDetail.join('、')}；回收站仅增加 ${trashDelta} 条`,
+      rule: '数组缩水无合法删除解释',
+      detail: `${shrinkDetail.join('、')}；回收站/删除回执只解释了其中 ${explainedTotal} 条`,
     })
   }
 
@@ -614,7 +652,9 @@ async function saveCloudDataInner(syncData: SupabaseData, maxRetries = 1): Promi
   if (summaryStale) {
     try {
       const { data: cur } = await sb.from('user_data').select('data').eq('user_id', user.id).maybeSingle()
-      if (cur?.data) setCloudSummary(cur.data)
+      // 云端原文先归一化再当基线（2026-10-10 口径统一，与加载路径一致；
+      // 归一化会合法清理退租遗留账单等，用原文会自我误拦）
+      if (cur?.data) setCloudSummaryFromCloud(cur.data as SupabaseData)
     } catch (e) {
       console.warn('[cloudGuard] 回读云端摘要失败，本次跳过闸门:', e)
     }
