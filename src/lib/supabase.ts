@@ -392,12 +392,19 @@ async function saveCloudDataInner(syncData: SupabaseData, maxRetries = 1): Promi
     bills: syncData.bills.length,
   })
 
+  // 写入者归因（2026-10-09 事故后加）：把本设备的会话 token 一并写入，
+  // 归档触发器会把它记进 user_data_history.writer / writer_next，
+  // 这样「某次覆盖是哪台设备干的」可直接查证，不必再靠时间戳反推。
+  let lastWriter: string | null = null
+  try { lastWriter = localStorage.getItem('device_session_token') } catch { /* SSR/隐私模式忽略 */ }
+
   const { data, error } = await sb
     .from('user_data')
     .upsert({
       user_id: user.id,
       data: syncData,
       updated_at: new Date().toISOString(),
+      last_writer: lastWriter,
     }, { onConflict: 'user_id' })
 
   if (error) {

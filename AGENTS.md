@@ -16,10 +16,15 @@
 
 ### 云端自动备份 L1+L2（2026-09-06 实施，用户同意，临时 PAT 代办执行）
 - **动机**: 四次数据丢失后用户明确要求云端自动备份（Supabase 免费版无平台级备份）；本小节取代早期「免费版无备份、Excel 是唯一可控备份」的说法——**2026-09-06 起云端有自动备份**，但每周 More 页导出 Excel 仍建议保留（双保险、可离线留档）
-- **线上表结构（2026-09-06 实测，勿按旧 DDL 猜）**: `user_data(id uuid PK, user_id uuid UNIQUE REFERENCES auth.users, data jsonb, updated_at timestamptz, last_active_at timestamptz, disabled boolean default false)`，RLS 开启；`last_active_at`/`disabled` 两列 2026-09-06 由 SQL 补加（线上原本只有 4 列）；`admin-sql.sql` 里的 user_id-PK 旧结构未生效
+- **线上表结构（2026-09-06 实测，勿按旧 DDL 猜）**: `user_data(id uuid PK, user_id uuid UNIQUE REFERENCES auth.users, data jsonb, updated_at timestamptz, last_active_at timestamptz, disabled boolean default false)`，RLS 开启；`last_active_at`/`disabled` 两列 2026-09-06 由 SQL 补加（线上原本只有 4 列）；**`last_writer text` 列 2026-10-09 补加**（写入者归因，见下）；`admin-sql.sql` 里的 user_id-PK 旧结构未生效
 - **L1 覆盖前存档**: 表 `user_data_history`（identity id PK、user_id、data、updated_at_before、reason('overwrite'|'delete')、archived_at），保留 30 天；触发器 `trg_user_data_archive`（BEFORE UPDATE OR DELETE，仅 data 真变才存档；1% 概率清 30 天前旧档）
 - **L2 每日全量快照**: 表 `user_data_daily_snapshots`（PK(user_id, snap_date)，含 data/updated_at/taken_at），保留 90 天；函数 `take_user_data_snapshot()` 同日重复执行=覆盖为最新；pg_cron 任务 `house-daily-snapshot` 每天 **22:00 UTC（北京 06:00）** 自动执行
 - **A4 DB trigger（已执行）**: `trg_user_data_updated_at` BEFORE INSERT OR UPDATE 强制 `updated_at = now()`（服务器时钟，A4 代码修复的 DB 侧落地；SQL 见 `sql/2026-09-06_updated_at_trigger.sql`）
+- **写入者归因（2026-10-09 已执行，只做归因不做拦截）**: 第五次覆盖事故（10-09）后加。`user_data.last_writer` 记最后写入的设备会话 token（客户端 `localStorage.device_session_token`，与 `active_sessions.session_token` 同源）；归档触发器把它写进 `user_data_history.writer`（被替换的数据是谁写的）与 `writer_next`（本次覆盖是谁发起的）。
+  - **排查覆盖事故时先查这两列**，不要再用时间戳反推设备（10-09 那次因为没有这两列，调查多花了很多轮）
+  - SQL 见 `sql/2026-10-09_writer_attribution.sql`（含事后查证 SQL 与回滚脚本）；已由临时 PAT 执行并验证（测试账号受控写入 → 归档正确记录 writer/writer_next）
+  - ⚠️ 前端改动（`src/lib/supabase.ts` 的 upsert 带 `last_writer`）**需要装新 APK / 重新部署网页版才生效**；旧客户端写入时该列为 null
+  - ⚠️ **仍未有写入拦截**：本次只加归因，不阻止覆盖。若再次发生覆盖，仍要靠 `user_data_history` 还原
 - **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）。⚠️ 2026-09-06 安全加固：`list_user_data_backups` 已加 `is_admin()` 校验（防 IDOR），所有 SECURITY DEFINER 函数已 `set search_path = public`（`get_all_user_data` 因返回类型与旧版不同需先 drop 再重建）；脚本见 `sql/2026-09-06_security_definer_fix.sql`，已由临时 PAT 在 Dashboard 执行完毕
 - **L1/L2 脚本位置**: 原执行脚本放在项目外的临时目录（未入库；两台机器位置不同，且可能已不存在）。线上结构的权威快照见 `sql/2026-09-12_live_rls_functions_dump.sql`，各脚本状态说明见 `sql/README.md`；改/恢复前读这两份与 `sql/2026-09-06_updated_at_trigger.sql`
 - **注意事项**: 备份表**已开 RLS**（2026-09-12 线上快照实测 `rowsecurity=True`），且 `anon` 角色无 SELECT 授权（未登录客户端查询返回 42501 insufficient_privilege）；直接查表需 service/postgres 权限；`get_all_user_data` RPC 仍可用调试账号只读核对线上数据
