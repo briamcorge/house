@@ -6,7 +6,7 @@ import { useStore, setCloudSyncBroken } from "./store/useStore";
 import { isSupabaseConfigured, getSupabase, updatePassword, getUserDisabledStatus, clearLocalDirty } from "./lib/supabase";
 import { skipNextCloudSave, setDeviceLockWriteFailed, isDeviceLockWriteFailed, useCloudSync, beginCloudLoad, applyCloudLoad, requestSaveRetry, markCloudAuthoritative } from "./lib/cloud-sync-context";
 import { pushAuthDiag, listSbSessionKeys, scanAuthSnapshot } from "./lib/auth-diag";
-import { clearLocalDeletionReceipt } from "./lib/deletion-receipt";
+import { clearAllLocalReceipts } from "./lib/deletion-receipt";
 import Home from "./pages/Home";
 import Properties from "./pages/Properties";
 import RoomList from "./pages/RoomList";
@@ -210,7 +210,7 @@ export default function App() {
   const [gateAdoptCloudOpen, setGateAdoptCloudOpen] = useState(false)
   const handleAdoptCloud = useCallback(() => {
     clearLocalDirty()
-    clearLocalDeletionReceipt()
+    clearAllLocalReceipts()
     setGateAdoptCloudOpen(false)
     window.location.reload()
   }, [])

@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore'
 import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad, setCloudSummary, setCloudSummaryFromCloud, clearCloudSummary, PushGateBlockedError } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 import { pushSyncLog, setLastSyncOkAt } from './sync-log'
-import { clearLocalDeletionReceipt } from './deletion-receipt'
+import { clearAllLocalReceipts } from './deletion-receipt'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -166,8 +166,8 @@ export function applyCloudLoad(token: number, result: { data: any; updatedAt: st
   } as any)
   // 本地已被云端数据替换 → 清除未同步标记
   clearLocalDirty()
-  // 本机未同步的删除回执随本次覆盖作废（云端为准，本地删除不再需要豁免）
-  clearLocalDeletionReceipt()
+  // 本机未同步的删除 / 撤回收款回执随本次覆盖作废（云端为准，本地改动不再需要豁免）
+  clearAllLocalReceipts()
   markCloudAuthoritative()
   return 'applied'
 }
@@ -379,8 +379,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         // ⚠️ _pending 存在 = 本次快照之后又产生了新改动（busy 排队），本快照不含它，
         // 此时不清除，等 finally 已重排的下一轮保存成功后由该轮清除，避免新改动失去保护。
         if (!_pending) clearLocalDirty()
-        // 删除回执同节奏清除：本快照的删除已入云，回执使命完成（2026-10-10）
-        if (!_pending) clearLocalDeletionReceipt()
+        // 删除 / 撤回收款回执同节奏清除：本快照的改动已入云，回执使命完成（2026-10-10）
+        if (!_pending) clearAllLocalReceipts()
         pushSyncLog('save_ok', `保存成功（${elapsed}ms）`)
       }
       return ok

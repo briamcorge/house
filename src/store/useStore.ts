@@ -4,7 +4,7 @@ import { Property, Room, Tenant, Bill, LandlordContract, TrashItem, TrashType, P
 import { DraftBill } from '../utils/calculator'
 import { triggerCloudSave } from '../lib/cloud-sync-context'
 import { setLocalDirtyAt } from '../lib/supabase'
-import { recordLocalDeletions } from '../lib/deletion-receipt'
+import { recordLocalDeletions, recordLocalUnpay } from '../lib/deletion-receipt'
 import { formatRoomLabel, todayLocal } from '../lib/utils'
 
 interface AppStore {
@@ -414,6 +414,10 @@ export const useStore = create<AppStore>()(
       updateBill: (id, bill) =>
         set((state) => {
           const current = state.bills.find(b => b.id === id)
+          // 2026-10-10（第 3 项）：已收账单改回未收/逾期（撤回收款、纠错）是合法操作——
+          // 登记"撤回收款回执"，让推送闸门规则②放行这次付款回退（只豁免该 id 的付款回退，
+          // 不豁免记录消失；陈旧设备没有回执，仍会被拦）。见 lib/deletion-receipt.ts。
+          if (current?.paidDate && !bill.paidDate) recordLocalUnpay(id)
           return {
             bills: state.bills.map((b) =>
               b.id === id ? { ...b, ...bill } : b

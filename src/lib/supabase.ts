@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { dedupeDisplayIds } from './display-id'
 import { pushSyncLog } from './sync-log'
-import { getLocalDeletionReceipt } from './deletion-receipt'
+import { getLocalDeletionReceipt, getLocalUnpayReceipt } from './deletion-receipt'
 
 let _supabase: SupabaseClient | null = null
 
@@ -457,6 +457,11 @@ export function checkPushGate(syncData: any): GateResult {
   }
   for (const id of getLocalDeletionReceipt()) legitDeletedIds.add(id)
 
+  // 撤回收款回执（2026-10-10 第 3 项）：本机刚执行过「已收 → 未收/逾期」的账单 id，
+  // 规则②对它们放行（只豁免付款回退这一件事，不豁免记录消失/数组缩水）。
+  // 陈旧设备没有这张回执 → 「陈旧数据把已收打回未收」照旧被拦（事故场景 B 不受影响）。
+  const localUnpayIds = getLocalUnpayReceipt()
+
   /** 合法删除判定：该 id 有回收站 / 退租暂存 / 本机删除回执之一 */
   const isLegitimatelyDeleted = (id: string) => legitDeletedIds.has(id)
 
@@ -499,6 +504,7 @@ export function checkPushGate(syncData: any): GateResult {
     // 早期写成 `if (local && isLegitimatelyDeleted(id))` 会因 local 为空而短路，
     // 把「已正确进回收站的删除」误判成财损（已被 push-gate.test.ts 抓出）。
     if (isLegitimatelyDeleted(id)) continue
+    if (localUnpayIds.has(id)) continue // 本机刚做过「撤回收款」，属合法回退
     const local = localBillById.get(id)
     const localPaid = local?.paidDate
     const lostPaid = !local || localPaid === undefined || localPaid === null || String(localPaid).trim() === ''

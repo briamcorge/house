@@ -23,7 +23,7 @@ vi.hoisted(() => {
 
 import { checkPushGate, setCloudSummary, setCloudSummaryFromCloud } from '../src/lib/supabase'
 import { useStore } from '../src/store/useStore'
-import { clearLocalDeletionReceipt, getLocalDeletionReceipt, recordLocalDeletions } from '../src/lib/deletion-receipt'
+import { clearAllLocalReceipts, clearLocalDeletionReceipt, getLocalDeletionReceipt, recordLocalDeletions, recordLocalUnpay } from '../src/lib/deletion-receipt'
 
 // ============================================================================
 // 推送闸门 × 合法删除路径（2026-10-10 误伤修复）
@@ -77,7 +77,7 @@ function gateAfter(op: () => void) {
 }
 
 beforeEach(() => {
-  clearLocalDeletionReceipt()
+  clearAllLocalReceipts()
   seedStore({})
 })
 
@@ -256,6 +256,50 @@ describe('规则③重写：缩水必须被回执按 id 解释', () => {
     setCloudSummary(cloud)
     recordLocalDeletions(['a-1', 'a-2', 'a-3'])
     expect(checkPushGate(snap({ bills: [] })).blocked).toBe(false)
+  })
+})
+
+describe('撤回收款回执（第 3 项：合法「已收改未收」不拦）', () => {
+  const paidBill = (extra: any = {}) => ({
+    id: 'p-1', roomId: 'room-1', tenantId: 't-1', amount: 1100, type: 'rent',
+    direction: 'receivable', status: 'paid', paidDate: '2026-10-01', dueDate: '2026-10-01',
+    description: '第1期 月租', createdAt: '2026-10-01T00:00:00.000Z', ...extra,
+  })
+
+  it('真实动作：BillModal 式「已收改未收」（updateBill 清空 paidDate）→ 不拦', () => {
+    seedStore({ bills: [paidBill()] })
+    setCloudSummary(snap7())
+    useStore.getState().updateBill('p-1', { status: 'pending', paidDate: undefined })
+    expect(checkPushGate(snap7()).blocked).toBe(false)
+  })
+
+  it('对照：同样的付款回退但没有回执（模拟陈旧推送）→ 拦（事故场景 B 不受影响）', () => {
+    setCloudSummary(snap({ bills: [paidBill()] }))
+    const stale = snap({ bills: [{ ...paidBill(), status: 'pending', paidDate: undefined }] })
+    const r = checkPushGate(stale)
+    expect(r.blocked).toBe(true)
+    if (r.blocked) expect(r.details.join(' ')).toMatch(/已收款记录被退回/)
+  })
+
+  it('回执生命周期：清除后同一回退恢复拦截', () => {
+    seedStore({ bills: [paidBill()] })
+    const cloud = snap7()
+    setCloudSummary(cloud)
+    useStore.getState().updateBill('p-1', { status: 'overdue', paidDate: undefined })
+    const local = snap7()
+    expect(checkPushGate(local).blocked).toBe(false)
+
+    clearAllLocalReceipts()
+    setCloudSummary(cloud)
+    expect(checkPushGate(local).blocked).toBe(true)
+  })
+
+  it('范围限定：撤回收执只豁免「付款回退」，不豁免「记录消失」', () => {
+    setCloudSummary(snap({ bills: [paidBill()] }))
+    recordLocalUnpay('p-1')
+    const r = checkPushGate(snap({ bills: [] }))
+    expect(r.blocked).toBe(true)
+    if (r.blocked) expect(r.details.join(' ')).toMatch(/记录静默消失/)
   })
 })
 
