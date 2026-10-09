@@ -24,6 +24,17 @@
   - **排查覆盖事故时先查这两列**，不要再用时间戳反推设备（10-09 那次因为没有这两列，调查多花了很多轮）
   - SQL 见 `sql/2026-10-09_writer_attribution.sql`（含事后查证 SQL 与回滚脚本）；已由临时 PAT 执行并验证（测试账号受控写入 → 归档正确记录 writer/writer_next）
   - ⚠️ 前端改动（`src/lib/supabase.ts` 的 upsert 带 `last_writer`）**需要装新 APK / 重新部署网页版才生效**；旧客户端写入时该列为 null
+- **写入闸门 + 本地快照（2026-10-09 已上线，用户选「硬拦」）**: 同一事故的第二道修复，补上推送侧的检查。**这是本项目第一条会主动拒绝写入的规则，改同步逻辑前务必读这一节。**
+  - **闸门**（`src/lib/supabase.ts` 的 `checkPushGate`）：`saveCloudDataInner` 在 upsert 前比对「本地待推送数据」与「云端摘要基线」，命中即抛 `PushGateBlockedError` 拒绝上传。三条规则：
+    ① 记录静默消失（本地缺云端有的 id，且不在本地 `trash` 里）
+    ② 已收款账单被退回（云端有 `paidDate` 的账单在本地变成未收/不存在）
+    ③ 数组缩水但 `trash` 没相应增加（兜底）
+  - **合法删除的签名 = 数组变小 且 `trash` 变大**（`useStore` 所有删除都入 `trash`），因此正常删租客/账单/房源**不会被拦**——已实测。
+  - 基线由 `loadNow` 与保存成功后用 `setCloudSummary(useStore.getState())` 刷新。**必须取「应用静止状态下实际持有的数据」**，不能用云端原文：`normalizeCloudData` 会合法清理（如退租租客遗留账单），用原文当基线会把自己误拦。
+  - 命中后：作废基线（下次保存回读云端重建）、不清 dirty、**不触发 10 秒自动重试**（否则会反复撞）。
+  - UI：`App.tsx` 专用红横幅列出具体丢失项 + 关闭按钮，与网络类「正在自动重试」分开展示；状态在 `cloud-sync-context` 的 `gateBlocked`。
+  - **本地快照兜底**：保存成功后写 `localStorage['property-manager-snapshot']`（距上次 >3 分钟才写、配额不足静默降级）。**动机**：L1/L2 都在同一个 Supabase 项目里，项目一旦不可用则两者同时失效，这份是不依赖云端的最后兜底。读取用 `readLocalSnapshot()`。
+  - 测试：`zcode测试/push-gate.test.ts`（10 例，含两个事故场景）。**改动闸门规则后必须保持它全绿。**
   - ⚠️ **仍未有写入拦截**：本次只加归因，不阻止覆盖。若再次发生覆盖，仍要靠 `user_data_history` 还原
 - **恢复工具（SECURITY DEFINER，还原仅限 is_admin）**: `list_user_data_backups(user_id)` 只读列出备份点；`restore_user_data_from_backup(user_id, kind, at)` 还原（还原会先经 L1 再存档，可逆）。⚠️ 2026-09-06 安全加固：`list_user_data_backups` 已加 `is_admin()` 校验（防 IDOR），所有 SECURITY DEFINER 函数已 `set search_path = public`（`get_all_user_data` 因返回类型与旧版不同需先 drop 再重建）；脚本见 `sql/2026-09-06_security_definer_fix.sql`，已由临时 PAT 在 Dashboard 执行完毕
 - **L1/L2 脚本位置**: 原执行脚本放在项目外的临时目录（未入库；两台机器位置不同，且可能已不存在）。线上结构的权威快照见 `sql/2026-09-12_live_rls_functions_dump.sql`，各脚本状态说明见 `sql/README.md`；改/恢复前读这两份与 `sql/2026-09-06_updated_at_trigger.sql`
