@@ -1,0 +1,13 @@
+name = "house-supabase-proxy"
+main = "worker.js"
+compatibility_date = "2026-09-24"
+
+# 默认会分配一个免费的 <name>.<你的子域>.workers.dev 地址
+workers_dev = true
+
+# 如果你有自己的域名（推荐，最稳）：
+# 在 Cloudflare 里把这个域名接进来，然后取消下面注释并改成你的域名，
+# 之后接口地址就是 https://api.你的域名.com（不需要备案，因为不落在国内主机）
+# routes = [
+#   { pattern = "api.example.com", custom_domain = true }
+# ]

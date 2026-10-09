@@ -3,6 +3,7 @@ import { Mail, Lock, Loader2, Eye, EyeOff, User, Phone, Building2 } from 'lucide
 import { getAuthErrorMessage } from '../lib/auth-error-message'
 import { signIn, signUp, resetPassword } from '../lib/supabase'
 import { APP_VERSION } from '../version'
+import NetworkDiagnostics, { recordAuthFailure } from '../components/NetworkDiagnostics'
 
 interface LoginPageProps {
   onLogin: () => void
@@ -37,11 +38,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         setSuccess('密码重置链接已发送到你的邮箱，请查收')
         setMode('login')
       } else if (mode === 'login') {
+        const loginStartedAt = Date.now()
         const { error } = await signIn(email, password)
         if (error) {
           // 错误泛化（2026-09-06 安全加固）：不向用户展示 Supabase 原始错误，
           // 避免泄露内部细节（如账号状态）；2026-09-24 起网络/限流类失败使用准确文案，
           // 凭据类仍保持模糊（防账号枚举）
+          recordAuthFailure(error, Date.now() - loginStartedAt) // 临时诊断：原始错误进诊断面板
           setError(getAuthErrorMessage(error, '登录失败，请检查邮箱和密码'))
           return
         }
@@ -239,6 +242,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </p>
             )}
           </form>
+
+          {/* 临时诊断面板（排查手机端登录失败用，排查完删除） */}
+          <NetworkDiagnostics />
         </div>
 
         {/* Version */}

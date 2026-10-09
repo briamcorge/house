@@ -1,0 +1,23 @@
+# Supabase 反向代理 —— VPS 版（Caddy）
+#
+# 用途：让 App 通过你自己的域名访问 Supabase，绕开 `*.supabase.co` 被按域名(SNI)重置的问题。
+# 只转发 /auth 与 /rest，其它路径一律 404。
+#
+# 用法：把 api.example.com 换成你的域名（该域名的 A 记录指向本机），
+#       放到 /etc/caddy/Caddyfile，然后 systemctl reload caddy。
+#       Caddy 会自动申请并续期 HTTPS 证书，无需手动配置证书。
+
+api.example.com {
+	encode gzip
+
+	@supabase path /auth/* /rest/*
+	reverse_proxy @supabase https://jvpkqqnfzkkcztkbzpdx.supabase.co {
+		# 上游 TLS 用 SNI = 上游域名；Host 头也要改回上游域名，否则 Supabase 会拒绝
+		header_up Host jvpkqqnfzkkcztkbzpdx.supabase.co
+		# 保留客户端真实 IP 供 Supabase 侧限流/审计参考
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# 其它路径不给任何转发能力（避免变成开放代理）
+	respond 404
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Supabase 反代（运行中）</title>
+    <style>
+      body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 24px; background: #f8fafc; color: #0f172a; line-height: 1.7; }
+      code { background: #e2e8f0; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+      .ok { color: #16a34a; font-weight: 600; }
+      .box { max-width: 640px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>Supabase 反向代理 <span class="ok">运行中</span></h2>
+      <p>这个地址只转发两类请求到 Supabase 项目：<code>/auth/v1/*</code> 与 <code>/rest/v1/*</code>。
+         <code>apikey</code> / <code>Authorization</code> 由客户端原样带上，本代理不保存任何密钥或数据。</p>
+      <p><b>自检方法：</b>把下面地址里的 <code>&lt;ANON_KEY&gt;</code> 换成你的 anon key，用手机浏览器打开——</p>
+      <p><code>/auth/v1/health?apikey=&lt;ANON_KEY&gt;</code></p>
+      <p>返回 <code>{"version":"...","name":"GoTrue"}</code> 之类的 JSON 就说明代理链路正常，
+         可以把它填进 App 的 <code>VITE_SUPABASE_URL</code>（末尾不要带斜杠）。</p>
+    </div>
+  </body>
+</html>
