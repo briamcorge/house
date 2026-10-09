@@ -201,7 +201,7 @@ function LoginRedirect({ triggered }: { triggered: boolean }) {
 
 export default function App() {
   const { user: currentUser, ready: authReady, lastEvent } = useAuth()
-  const { status: syncStatus, lastError: syncError } = useCloudSync()
+  const { status: syncStatus, lastError: syncError, gateBlocked, clearGateBlocked } = useCloudSync()
   const [showAuth, setShowAuth] = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [justLoggedIn, setJustLoggedIn] = useState(false)
@@ -729,6 +729,34 @@ export default function App() {
             {!online ? (
               <div className="fixed top-0 left-0 right-0 z-[55] bg-red-600 text-white px-4 py-2 text-sm text-center font-medium">
                 ⚠ 当前离线，数据无法同步，新增/修改操作已被阻止
+              </div>
+            ) : gateBlocked ? (
+              // 推送闸门拦截（2026-10-09）：硬拦、不自动重试，必须让用户看清丢了什么
+              <div className="fixed top-0 left-0 right-0 z-[56] bg-red-50 border-b-2 border-red-400 px-4 py-2 text-sm text-red-800">
+                <div className="flex items-start justify-center gap-3">
+                  <div className="flex-1 max-w-3xl text-left">
+                    <strong>⛔ 已阻止本次上传，以免覆盖云端数据</strong>
+                    <div className="mt-0.5">{gateBlocked.reason}</div>
+                    {gateBlocked.details.length > 0 && (
+                      <ul className="mt-1 list-disc list-inside text-xs text-red-700">
+                        {gateBlocked.details.map((d, i) => (
+                          <li key={i}>{d}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="mt-1 text-xs">
+                      本地改动仍保留在本机。请勿在其它设备继续录入，并检查是否误开了旧版本 / 旧缓存；详情见「更多 → 诊断日志」。
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearGateBlocked}
+                    className="shrink-0 rounded border border-red-400 px-2 py-0.5 text-xs hover:bg-red-100"
+                    title="仅关闭提示；数据仍未被上传，本地改动仍在"
+                  >
+                    关闭
+                  </button>
+                </div>
               </div>
             ) : syncStatus === 'error' ? (
               <div className="fixed top-0 left-0 right-0 z-[55] bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700 text-center">

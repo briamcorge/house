@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react'
 import { useAuth } from './auth-context'
 import { useStore } from '../store/useStore'
-import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad } from './supabase'
+import { isSupabaseConfigured, saveCloudData, loadCloudData, getSupabase, normalizeCloudData, getLocalDirtyAt, clearLocalDirty, isLocalNewerThanCloud, isDirtyStampedDuringLoad, setCloudSummary, clearCloudSummary, PushGateBlockedError } from './supabase'
 import { pushAuthDiag } from './auth-diag'
 import { pushSyncLog, setLastSyncOkAt } from './sync-log'
 
@@ -10,6 +10,9 @@ export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error'
 interface CloudSyncContextValue {
   status: SyncStatus
   lastError: string | null
+  /** 推送闸门拦截详情（2026-10-09）：非空时 UI 显示专用红横幅；与网络类同步失败分开 */
+  gateBlocked: { reason: string; details: string[] } | null
+  clearGateBlocked: () => void
   saveNow: () => Promise<boolean>
   loadNow: () => Promise<boolean>
 }
@@ -17,6 +20,8 @@ interface CloudSyncContextValue {
 const CloudSyncContext = createContext<CloudSyncContextValue>({
   status: 'idle',
   lastError: null,
+  gateBlocked: null,
+  clearGateBlocked: () => {},
   saveNow: async () => false,
   loadNow: async () => false,
 })
@@ -208,6 +213,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
   const [status, setStatus] = useState<SyncStatus>('idle')
   const [lastError, setLastError] = useState<string | null>(null)
+  const [gateBlocked, setGateBlocked] = useState<{ reason: string; details: string[] } | null>(null)
+  const clearGateBlocked = useCallback(() => setGateBlocked(null), [])
   const saving = useRef(false)
 
   const doSave = useCallback(async (): Promise<boolean> => {
@@ -361,6 +368,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         clearSyncBroken()
         clearSaveRetry()
         setLastSyncOkAt()
+        // 保存成功 → 解除闸门横幅（本次数据已被云端接受，冲突已消除）
+        setGateBlocked(null)
         // A1（2026-09-06）：保存成功即清除「未同步」标记——整文档快照已入云，
         // 标记语义=「存在未确认同步的本地改动」；继续保留会让陈旧设备冒充"比云端新"
         // （9-05 事故根因：旧语义保存成功也不清，陈旧标记永久有效）。
@@ -373,6 +382,18 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       const err = e as Error
       const elapsed = Date.now() - t0
+
+      // ── 推送闸门拦截（2026-10-09）────────────────────────────────────────
+      // 硬拦：不自动重试（重试只会再撞一次并刷屏），不改 broken 标记，
+      // 保留 dirty 标记（本地确实还有未同步改动），只让 UI 显示专用横幅。
+      if (e instanceof PushGateBlockedError) {
+        setStatus('error')
+        setGateBlocked({ reason: (e as PushGateBlockedError).message, details: (e as PushGateBlockedError).details })
+        setLastError(null)
+        pushSyncLog('save_fail', `推送闸门拦截（${elapsed}ms）：已阻止上传，未重试`)
+        return false
+      }
+
       markSyncBroken()
       setStatus('error')
       // AbortError = 20s 请求超时（supabase.ts createTimeoutFetch abort）→ 友好文案
@@ -437,6 +458,13 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         // ⚠️ 本地未同步数据保护（2026-09-03 数据丢失事故修复）：
         // dirty 比云端 updated_at 新 → 同步断链期间本地有未同步数据，禁止云端旧数据覆盖本地
         // （8-28 / 9-03 两次事故都是「云端旧数据覆盖本地新数据」导致操作丢失）
+        //
+        // ⚠️ 闸门基线（2026-10-09）：记录的是**本地静止状态**，不是云端原始数据。
+        // 原因：normalizeCloudData 会做修复（清理退租租客遗留账单等），归一化后的数据
+        // 可能比云端原文少几条；若拿云端原文当基线，随后推送本地时会被自己误拦。
+        // 基线 = 「应用在当前静止状态下实际持有的数据」，这样正常保存必然与基线一致。
+        const st = useStore.getState()
+        setCloudSummary(st)
         const dirtyAt = getLocalDirtyAt()
         console.warn('[loadNow] 本地有比云端新的未同步数据，保留本地并自动同步（跳过云端覆盖）:', { dirtyAt, cloudUpdatedAt: result?.updatedAt })
         setStatus('syncing')
@@ -448,6 +476,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         return true
       }
       if (outcome === 'applied') {
+        // 本地已被云端替换 → 以「归一化后实际入 store 的数据」作为闸门基线
+        // （不能直接用云端原文：归一化可能合法地少几条，会导致随后推送被误拦）
+        const st = useStore.getState()
+        setCloudSummary(st)
         setStatus('synced')
         pushSyncLog('load_cloud_overwrite', '云端数据覆盖本地完成')
         return true
@@ -484,15 +516,20 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
   // 启动时无条件拉取云端数据（在线强制：云端为唯一权威，本地只是缓存；
   // 云端无数据时 loadNow 跳过覆盖，仅云端有数据才覆盖本地）
   useEffect(() => {
-    // 登出/切换用户 → 复位权威标记，下一次会话重新等待首次加载建立权威
-    if (!user) { resetCloudAuthoritative(); return }
+    // 登出/切换用户 → 复位权威标记与闸门基线/横幅，下一次会话重新建立
+    if (!user) {
+      resetCloudAuthoritative()
+      clearCloudSummary()
+      setGateBlocked(null)
+      return
+    }
     if (!isSupabaseConfigured() || !ready) return
     loadNow()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user])
 
   return (
-    <CloudSyncContext.Provider value={{ status, lastError, saveNow, loadNow }}>
+    <CloudSyncContext.Provider value={{ status, lastError, gateBlocked, clearGateBlocked, saveNow, loadNow }}>
       {children}
     </CloudSyncContext.Provider>
   )

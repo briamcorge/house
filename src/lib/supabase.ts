@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { dedupeDisplayIds } from './display-id'
+import { pushSyncLog } from './sync-log'
 
 let _supabase: SupabaseClient | null = null
 
@@ -341,6 +342,215 @@ export function saveCloudData(syncData: SupabaseData, maxRetries = 1): Promise<b
   return next
 }
 
+// ============================================================================
+// 云端写入闸门（2026-10-09 第五次覆盖事故后加，用户选「硬拦」）
+//
+// 事故回放：某设备带着 10-08 之前的旧本地快照登录，被判为「比云端新」后
+// 整档 upsert 覆盖云端 → 林世轮租客 + 6 条续约账单消失，已收 15 元网费被打回逾期。
+//
+// 根因：applyCloudLoad 只防「云端覆盖本地」，反方向的 doSave 是无条件整档 upsert，
+// 不检查内容是否比云端更少。本闸门补上这一侧。
+//
+// 设计要点：
+//   1. 只拦截「有财损风险的缩水」，不拦正常编辑（改金额/改日期/新建都不受影响）
+//   2. 合法删除有可识别签名：业务数组变小 **且** trash 变大（useStore 所有删除都入 trash）
+//   3. 命中即拒绝推送：不更新摘要、不清 dirty、返回 false（调用方据此跳过自动重试）
+//   4. 摘要缓存优先用内存，只在本地计数增长时才回读云端（正常保存零额外请求）
+// ============================================================================
+
+/** 云端摘要：用于推送前比对，不保存完整数据，只保存判重所需的最小信息 */
+type CloudSummary = {
+  counts: Record<string, number>
+  ids: Record<string, Set<string>>
+  paidBillIds: string[]
+  /** 有收款日的账单 id → 收款日（用于检测「已收被打回未收」） */
+  paidBillDates: Record<string, string>
+  trashCount: number
+  at: number
+}
+
+const BIZ_ARRAYS = ['properties', 'rooms', 'tenants', 'bills', 'landlordContracts', 'profitRecords'] as const
+const SUMMARY_FRESH_MS = 5 * 60 * 1000
+let _cloudSummary: CloudSummary | null = null
+
+function summarize(syncData: any): CloudSummary {
+  const counts: Record<string, number> = {}
+  const ids: Record<string, Set<string>> = {}
+  const paidBillDates: Record<string, string> = {}
+  for (const k of [...BIZ_ARRAYS, 'trash'] as string[]) {
+    const arr = Array.isArray(syncData?.[k]) ? syncData[k] : []
+    counts[k] = arr.length
+    ids[k] = new Set(arr.map((x: any) => String(x?.id ?? '')))
+  }
+  for (const b of Array.isArray(syncData?.bills) ? syncData.bills : []) {
+    const pd = b?.paidDate
+    if (pd && typeof pd === 'string' && pd.trim() !== '') paidBillDates[String(b.id)] = pd
+  }
+  return { counts, ids, paidBillIds: Object.keys(paidBillDates), paidBillDates, trashCount: counts.trash, at: Date.now() }
+}
+
+/** 记录一份新的云端摘要（保存成功 / 云端加载成功后调用） */
+export function setCloudSummary(syncData: any): void {
+  try {
+    _cloudSummary = summarize(syncData)
+  } catch (e) {
+    console.warn('[cloudGuard] 摘要计算失败，已放弃本次摘要:', e)
+    _cloudSummary = null
+  }
+}
+
+export function clearCloudSummary(): void {
+  _cloudSummary = null
+}
+
+/** 加载云端成功后提供基线（只含 id 与已收信息，不含完整数据） */
+export function setCloudSummaryFromCloud(cloudData: any): void {
+  setCloudSummary(cloudData)
+}
+
+type GateResult = { blocked: true; reason: string; details: string[] } | { blocked: false }
+
+/**
+ * 推送前闸门：比对本地待推送数据与云端摘要基线（模块级 _cloudSummary）。
+ * 命中任一规则 → 拒绝推送（硬拦，用户 2026-10-09 选定）。
+ *
+ * ⚠️ 基线来自模块级缓存（由 setCloudSummary / setCloudSummaryFromCloud 维护），
+ * 不接受外部传入的第二参数——早期版本有个 `summary` 形参，导致生产调用只传一个参数时
+ * `!summary` 恒真、闸门静默失效（已被 push-gate.test.ts 抓出并修复）。
+ */
+export function checkPushGate(syncData: any): GateResult {
+  const summary = _cloudSummary
+  if (!summary || !summary.ids) return { blocked: false }
+
+  const localTrash: any[] = Array.isArray(syncData?.trash) ? syncData.trash : []
+  const localTrashOriginalIds = new Set(
+    localTrash.map((t: any) => String(t?.originalId ?? '')).filter((s) => s !== '' && s !== 'undefined'),
+  )
+
+  /** 合法删除判定：该 id 在本地 trash 里有对应 originalId */
+  const isLegitimatelyDeleted = (id: string) => localTrashOriginalIds.has(id)
+
+  const hits: { rule: string; detail: string }[] = []
+
+  // ── 规则 ①：记录静默消失（本地缺失，且不在本地回收站里）────────────────
+  for (const k of BIZ_ARRAYS) {
+    const cloudIds = summary.ids[k]
+    if (!cloudIds) continue
+    const localArr: any[] = Array.isArray(syncData?.[k]) ? syncData[k] : []
+    const localIds = new Set(localArr.map((x: any) => String(x?.id ?? '')))
+    let missing = 0
+    const samples: string[] = []
+    for (const id of cloudIds) {
+      if (localIds.has(id)) continue
+      if (isLegitimatelyDeleted(id)) continue // 正常删除，回收站里有
+      missing++
+      if (samples.length < 3) samples.push(id.slice(0, 8))
+    }
+    if (missing > 0) {
+      hits.push({
+        rule: '记录静默消失',
+        detail: `${k} 比云端少 ${missing} 条，且不在本地回收站（如 ${samples.join(', ')}）`,
+      })
+    }
+  }
+
+  // ── 规则 ②：已收款账单被打回未收 / 消失 ───────────────────────────────
+  const localBills: any[] = Array.isArray(syncData?.bills) ? syncData.bills : []
+  const localBillById = new Map(localBills.map((b: any) => [String(b?.id ?? ''), b]))
+  let regressed = 0
+  const regSamples: string[] = []
+  for (const id of summary.paidBillIds) {
+    const cloudPaidDate = summary.paidBillDates[id]
+    // ⚠️ 必须先判回收站：账单被正常删除时 local 为 undefined，
+    // 早期写成 `if (local && isLegitimatelyDeleted(id))` 会因 local 为空而短路，
+    // 把「已正确进回收站的删除」误判成财损（已被 push-gate.test.ts 抓出）。
+    if (isLegitimatelyDeleted(id)) continue
+    const local = localBillById.get(id)
+    const localPaid = local?.paidDate
+    const lostPaid = !local || localPaid === undefined || localPaid === null || String(localPaid).trim() === ''
+    if (lostPaid) {
+      regressed++
+      if (regSamples.length < 3) regSamples.push(`${id.slice(0, 8)}(云端收款日 ${cloudPaidDate})`)
+    }
+  }
+  if (regressed > 0) {
+    hits.push({
+      rule: '已收款记录被退回',
+      detail: `云端有 ${regressed} 条已收款账单在本地变成「未收款或不存在」（如 ${regSamples.join(', ')}）`,
+    })
+  }
+
+  // ── 规则 ③：数组缩水但没有回收站增加来解释 ─────────────────────────────
+  const trashDelta = (Array.isArray(syncData?.trash) ? syncData.trash.length : 0) - summary.trashCount
+  let shrinkTotal = 0
+  const shrinkDetail: string[] = []
+  for (const k of BIZ_ARRAYS) {
+    const d = summary.counts[k] - (Array.isArray(syncData?.[k]) ? syncData[k].length : 0)
+    if (d > 0) {
+      shrinkTotal += d
+      shrinkDetail.push(`${k} -${d}`)
+    }
+  }
+  if (shrinkTotal > 0 && trashDelta < shrinkTotal) {
+    hits.push({
+      rule: '数组缩水无回收站解释',
+      detail: `${shrinkDetail.join('、')}；回收站仅增加 ${trashDelta} 条`,
+    })
+  }
+
+  if (!hits.length) return { blocked: false }
+
+  const details = hits.map((h) => `${h.rule}：${h.detail}`)
+  const reason = `检测到本地数据可能比云端更旧（${hits.map((h) => h.rule).join('；')}），已阻止本次上传以免覆盖云端`
+  pushSyncLog('push_gate_blocked', `${reason} ｜ ${details.join(' ｜ ')}`)
+  // 摘要可能已陈旧或不一致 → 作废，下次保存会回读云端重建基线
+  _cloudSummary = null
+  return { blocked: true, reason, details }
+}
+
+/** 供 doSave 判定：本次失败是否为闸门拦截（闸门拦截不应触发 10 秒自动重试） */
+export class PushGateBlockedError extends Error {
+  readonly details: string[]
+  constructor(reason: string, details: string[]) {
+    super(reason)
+    this.name = 'PushGateBlockedError'
+    this.details = details
+  }
+}
+
+// ── 本地快照兜底（2026-10-09 加）─────────────────────────────────────────────
+// L1/L2（user_data_history / daily_snapshots）都在同一个 Supabase 项目里，
+// 项目一旦不可用则两者同时失效。这里在保存成功后另存一份到本机 localStorage，
+// 作为「不依赖云端」的最后一道兜底。只在距上次快照 >3 分钟时写，避免频繁 IO。
+export const LOCAL_SNAPSHOT_KEY = 'property-manager-snapshot'
+const SNAPSHOT_MIN_INTERVAL_MS = 3 * 60 * 1000
+
+export function writeLocalSnapshot(syncData: any): void {
+  try {
+    const cur = localStorage.getItem(LOCAL_SNAPSHOT_KEY)
+    if (cur) {
+      const parsed = JSON.parse(cur)
+      const lastAt = Number(parsed?.savedAt) || 0
+      if (Date.now() - lastAt < SNAPSHOT_MIN_INTERVAL_MS) return
+    }
+    const payload = JSON.stringify({ savedAt: Date.now(), data: syncData })
+    localStorage.setItem(LOCAL_SNAPSHOT_KEY, payload)
+    pushSyncLog('local_snapshot_ok', `本地快照已更新（${Math.round(payload.length / 1024)} KB）`)
+  } catch (e) {
+    // 配额不足/隐私模式：静默降级，绝不能影响正常保存
+    pushSyncLog('local_snapshot_fail', `本地快照写入失败（忽略）：${(e as Error)?.message || e}`)
+  }
+}
+
+export function readLocalSnapshot(): { savedAt: number; data: any } | null {
+  try {
+    const cur = localStorage.getItem(LOCAL_SNAPSHOT_KEY)
+    return cur ? JSON.parse(cur) : null
+  } catch {
+    return null
+  }
+}
+
 // 实际保存实现（仅供 saveCloudData 链内调用，勿直接使用）
 // maxRetries 默认 1：getUser 内部（auth-js）对 AuthRetryableFetchError 已有指数退避重试，
 // 外层再重试会放大最坏耗时，故只保留 1 次尝试（2026-09-05 Oracle 审查修复）。
@@ -398,6 +608,23 @@ async function saveCloudDataInner(syncData: SupabaseData, maxRetries = 1): Promi
   let lastWriter: string | null = null
   try { lastWriter = localStorage.getItem('device_session_token') } catch { /* SSR/隐私模式忽略 */ }
 
+  // ── 推送前闸门（2026-10-09 事故后加）────────────────────────────────────
+  // 摘要可能缺失或过期（>5 分钟）→ 回读一次云端重建基线；否则纯内存比对，零额外请求。
+  const summaryStale = !_cloudSummary || Date.now() - _cloudSummary.at > SUMMARY_FRESH_MS
+  if (summaryStale) {
+    try {
+      const { data: cur } = await sb.from('user_data').select('data').eq('user_id', user.id).maybeSingle()
+      if (cur?.data) setCloudSummary(cur.data)
+    } catch (e) {
+      console.warn('[cloudGuard] 回读云端摘要失败，本次跳过闸门:', e)
+    }
+  }
+  const gate = checkPushGate(syncData)
+  if (gate.blocked) {
+    console.error('[cloudGuard] 已阻止本次上传：', gate.details)
+    throw new PushGateBlockedError(gate.reason, gate.details)
+  }
+
   const { data, error } = await sb
     .from('user_data')
     .upsert({
@@ -437,7 +664,11 @@ async function saveCloudDataInner(syncData: SupabaseData, maxRetries = 1): Promi
       updated_at: verifyData.updated_at,
     })
   }
-  
+
+  // 保存成功 → 刷新云端摘要基线（闸门下次比对用），并写一份本地快照兜底
+  setCloudSummary(syncData)
+  writeLocalSnapshot(syncData)
+
   return true
 }
 
