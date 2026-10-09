@@ -1,2 +1,2 @@
 // Auto-incremented by scripts/bump-version.js
-export const APP_VERSION = '1.300'
+export const APP_VERSION = '1.301'
