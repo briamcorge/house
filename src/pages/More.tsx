@@ -1,9 +1,10 @@
 import { useStore, getCloudSyncBrokenAt } from '../store/useStore'
-import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronRight, Info, Copy, Check, FileText, KeyRound, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Settings, Database, Trash2, UserPlus, Calendar, FileSpreadsheet, Cloud, Users, DollarSign, X, LogOut, LogIn, Shield, TrendingUp, TrendingDown, CheckCircle, Clock, AlertTriangle, History, Bug, ChevronDown, ChevronRight, Info, Copy, Check, FileText, KeyRound, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
+import BugReportModal from '../components/BugReportModal'
 import WheelDatePicker from '../components/WheelDatePicker'
 import * as XLSX from 'xlsx'
 import { APP_VERSION } from '../version'
@@ -87,6 +88,12 @@ const menuItems: MenuItem[] = [
     color: 'gray'
   },
   {
+    icon: Bug,
+    label: '报 bug / 反馈',
+    description: '生成诊断包，复制给开发者',
+    color: 'orange'
+  },
+  {
     icon: Settings,
     label: '设置',
     description: '应用设置',
@@ -108,6 +115,7 @@ export default function More() {
   const [showAbout, setShowAbout] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showDiag, setShowDiag] = useState(false)
+  const [showBugReport, setShowBugReport] = useState(false)
   const [diagList, setDiagList] = useState<AuthDiagEntry[]>(() => getAuthDiag())
   const [diagCopied, setDiagCopied] = useState(false)
   const [showDepositList, setShowDepositList] = useState(false)
@@ -874,11 +882,13 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
               const isProfit = item.label === '利润提取'
               const isSettings = item.label === '设置'
               const isDiag = item.label === '诊断日志'
+              const isBugReport = item.label === '报 bug / 反馈'
               
               return (
                 <div key={index}>
                 <button
                   type="button"
+                  data-bug-action={isBugReport ? 'more.report-bug' : undefined}
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -888,6 +898,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                     else if (isSettings) setShowSettings(!showSettings)
                     else if (isAbout) setShowAbout(!showAbout)
                     else if (isDiag) { setDiagList(getAuthDiag()); setShowDiag(!showDiag) }
+                    else if (isBugReport) setShowBugReport(true)
                     else setAlertState({ title: '提示', message: `${item.label}功能开发中...`, variant: 'info' })
                   }}
                   className={`w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer ${isBackup && showBackup || isProfit && showProfitForm || isAbout && showAbout || isSettings && showSettings || isDiag && showDiag ? 'rounded-b-none border-b-0' : ''}`}
@@ -908,11 +919,11 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
                 {isBackup && showBackup && (
                   <div className="bg-white border border-gray-100 rounded-b-2xl shadow-sm px-4 pb-4 pt-2 -mt-px">
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <button type="button" onClick={handleExportExcel} className="py-3 px-4 bg-emerald-50 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors flex flex-col items-center gap-1">
+                      <button type="button" data-bug-action="more.export-excel" onClick={handleExportExcel} className="py-3 px-4 bg-emerald-50 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors flex flex-col items-center gap-1">
                         <FileSpreadsheet className="w-5 h-5" />
                         <span className="text-xs">导出Excel</span>
                       </button>
-                      <button type="button" onClick={() => excelInputRef.current?.click()} className="py-3 px-4 bg-orange-50 text-orange-700 rounded-xl font-medium hover:bg-orange-100 transition-colors flex flex-col items-center gap-1">
+                      <button type="button" data-bug-action="more.import-excel" onClick={() => excelInputRef.current?.click()} className="py-3 px-4 bg-orange-50 text-orange-700 rounded-xl font-medium hover:bg-orange-100 transition-colors flex flex-col items-center gap-1">
                         <FileSpreadsheet className="w-5 h-5" />
                         <span className="text-xs">导入Excel</span>
                       </button>
@@ -1625,6 +1636,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
           </div>
         </div>
       )}
+
+      <BugReportModal isOpen={showBugReport} onClose={() => setShowBugReport(false)} />
 
       <ConfirmModal
         isOpen={confirmAction !== null}

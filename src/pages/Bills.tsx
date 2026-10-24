@@ -7,9 +7,10 @@ import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import WheelDatePicker from '../components/WheelDatePicker'
 import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
-import { todayLocal, daysFromTodayLocal, formatDateLocal, formatRoomLabel } from '../lib/utils'
+import { todayLocal, daysFromTodayLocal, formatRoomLabel } from '../lib/utils'
 import { isCloudAuthoritative } from '../lib/cloud-sync-context'
 import { calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
+import { planPartialPayment } from '../utils/payment-split'
 
 function getDaysAgo(days: number): string {
   return daysFromTodayLocal(-days)
@@ -35,10 +36,19 @@ export default function Bills() {
   const [payDate, setPayDate] = useState('')
   const [payPeriodStart, setPayPeriodStart] = useState('')
   const [payPeriodEnd, setPayPeriodEnd] = useState('')
+  const [payRemainingDueDate, setPayRemainingDueDate] = useState('')
   const [showAllBills, setShowAllBills] = useState(false)
   const [dayRange, setDayRange] = useState(7)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+
+  const payAmountNumber = payAmount !== '' ? parseFloat(payAmount) : NaN
+  const isPartialRentPayment = !!payConfirmBill
+    && payConfirmBill.type === 'rent'
+    && payConfirmBill.direction === 'receivable'
+    && Number.isFinite(payAmountNumber)
+    && payAmountNumber > 0
+    && payAmountNumber < payConfirmBill.amount
 
   // 自动标记逾期账单（每分钟检测一次）
   // ⚠️ 必须等本会话首次云端加载建立权威后才执行（2026-09-24 同步覆盖缺陷修复）：
@@ -70,6 +80,7 @@ export default function Bills() {
     if (payConfirmBill) {
       setPayAmount(payConfirmBill.amount.toString())
       setPayDate(todayLocal())
+      setPayRemainingDueDate(payConfirmBill.dueDate)
       const m = payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
       if (m) {
         setPayPeriodStart(m[1])
@@ -732,13 +743,31 @@ export default function Bills() {
                 </div>
               )}
 
+              {isPartialRentPayment && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">剩余房租应缴日期</label>
+                  <WheelDatePicker
+                    value={payRemainingDueDate}
+                    onChange={(v) => setPayRemainingDueDate(v)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    剩余 ¥{(Math.round((payConfirmBill.amount - payAmountNumber) * 100) / 100).toFixed(2)} 按此日期判断是否逾期；早于今天会显示为逾期
+                  </p>
+                </div>
+              )}
+
               <div className="bg-yellow-50 rounded-xl px-4 py-2 text-xs text-yellow-700">
                 留空本次{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}金额则视为全额{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setPayConfirmBill(null)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200">取消</button>
-                <button type="button" onClick={() => {
+                <button
+                  type="button"
+                  data-bug-action="bill.confirm-payment"
+                  data-bug-entity={payConfirmBill.id}
+                  onClick={() => {
                   const paidAmt = payAmount !== '' ? parseFloat(payAmount) : undefined
                   // 校验：金额必须 > 0 且 ≤ 账单金额（负数/0 会篡改账单或生成垃圾账单）
                   if (paidAmt !== undefined && (isNaN(paidAmt) || paidAmt <= 0 || paidAmt > payConfirmBill.amount)) {
@@ -747,60 +776,20 @@ export default function Bills() {
                   }
                   const isPartial = paidAmt !== undefined && paidAmt < payConfirmBill.amount
                   if (isPartial) {
-                    // 拆单：原账单金额减少，新生成一笔已付账单
-                    // 四舍五入到分，避免多次拆单后浮点累积（如 33.33×3 后剩 0.0099…）导致无法结清
-                    const remaining = Math.round((payConfirmBill.amount - paidAmt) * 100) / 100
-                    // 剩余未收期间 = 本次收款结束日的次日 ~ 原账单结束日；无期间输入时无法得知拆分，保留原元数据
-                    let remainingRange: { start: string; end: string } | undefined
-                    if (payPeriodStart && payPeriodEnd) {
-                      const origEnd = payConfirmBill.periodEnd ||
-                        payConfirmBill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)?.[2]
-                      if (origEnd) {
-                        const d = new Date(payPeriodEnd)
-                        d.setDate(d.getDate() + 1)
-                        const start = formatDateLocal(d)
-                        // 剩余期间必须 start ≤ end。本次收款覆盖到（或超过）原账单结束日时（实收 ≥ 约 99.4%
-                        // 就会被 calcCoveredPeriodEnd 取整到原结束日），剩余区间会反置（如 03-31 ~ 03-30）。
-                        // 反置期间的房租在 profit.ts 里既不匹配业主周期、收入也按 0 计（days360 的 oStart>oEnd
-                        // 防御）→ 该期房租凭空消失。此时说明本次收款已覆盖整期、剩余部分无期间可言 → 保持原元数据。
-                        if (start <= origEnd) {
-                          remainingRange = { start, end: origEnd }
-                        }
-                      }
-                    }
-                    const baseDesc = payConfirmBill.description || ''
-                    const okUpdate = updateBill(payConfirmBill.id, {
-                      amount: remaining,
-                      paidDate: undefined,
-                      ...(remainingRange
-                        ? {
-                            periodStart: remainingRange.start,
-                            periodEnd: remainingRange.end,
-                            description: baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, `${remainingRange.start} ~ ${remainingRange.end}`),
-                          }
-                        : {}),
+                    const paymentDate = payDate || todayLocal()
+                    const plan = planPartialPayment({
+                      bill: payConfirmBill,
+                      paidAmount: paidAmt,
+                      paidDate: paymentDate,
+                      today: todayLocal(),
+                      payPeriodStart: payPeriodStart || undefined,
+                      payPeriodEnd: payPeriodEnd || undefined,
+                      remainingDueDate: payConfirmBill.type === 'rent' && payConfirmBill.direction === 'receivable'
+                        ? (payRemainingDueDate || payConfirmBill.dueDate)
+                        : undefined,
                     })
-                    const periodDesc = payPeriodStart && payPeriodEnd
-                      ? `${payPeriodStart} ~ ${payPeriodEnd}`
-                      : undefined
-                    const newDesc = periodDesc
-                      ? baseDesc.replace(/\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}/, periodDesc)
-                      : baseDesc
-                    const okAdd = addBill({
-                      propertyId: payConfirmBill.propertyId,
-                      roomId: payConfirmBill.roomId,
-                      tenantId: payConfirmBill.tenantId,
-                      amount: paidAmt,
-                      type: payConfirmBill.type,
-                      status: 'paid',
-                      direction: payConfirmBill.direction,
-                      dueDate: payConfirmBill.dueDate,
-                      paidDate: payDate || todayLocal(),
-                      description: newDesc,
-                      periodStart: payPeriodStart || payConfirmBill.periodStart,
-                      periodEnd: payPeriodEnd || payConfirmBill.periodEnd,
-                      landlordContractId: payConfirmBill.landlordContractId,
-                    })
+                    const okUpdate = updateBill(payConfirmBill.id, plan.remainingPatch)
+                    const okAdd = addBill(plan.paidBill)
                     // 离线/同步失败被拦截时保持弹窗打开并提示，避免「收款成功」假象
                     if (!okUpdate || !okAdd) {
                       setAlertState({ title: '提示', message: '网络异常，操作未保存，请稍后重试' })
