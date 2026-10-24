@@ -66,3 +66,5 @@ android/app/keystore.properties
 # 无关调研脚本（CSI300 分析，与本项目无关）
 /scripts/check_edge*.py
 /scripts/fetch_csi300_data.py
+# Local Netlify folder
+.netlify

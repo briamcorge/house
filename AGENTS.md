@@ -7,6 +7,7 @@
 ### 云端数据库 (Supabase)
 - **URL**: `https://jvpkqqnfzkkcztkbzpdx.supabase.co`
 - **Key**: 在 `.env`（`VITE_SUPABASE_ANON_KEY`，gitignore 不入库）；`src/lib/supabase.ts` 只从环境变量读取，无硬编码（2026-08-29 起）
+- **访问入口（2026-10-24 起）**: 家庭网络直连 `*.supabase.co` 会被按域名 TLS 重置（公司网络正常），App 改走 Netlify 反代 `https://house-supabase-proxy.netlify.app`（只转发 `/auth/v1/*`、`/rest/v1/*`）。`.env` 的 `VITE_SUPABASE_URL` 与 `index.html` CSP 已指向它，部署/排障见 `proxy/README.md`。网页版 CI 的仓库 Secret `VITE_SUPABASE_URL` 也已指向该地址；换电脑开发时仍要改本机 `.env` 并重新打包（`.env` 不入库）。
 - **说明**: 免费版，数据库 500MB + 文件存储 1GB + 带宽 2GB/月
 - **登录**: 邮箱+密码登录（app 内 AuthModal；**手机号验证码登录=付费功能，用户确认不做，勿加**）；修改密码入口在 More 页「设置」菜单（钥匙图标，2026-09-06 加，直接调 updatePassword，不校验旧密码——用户确认不做，勿加）
 - **App 账号（调试用）**: `c94138228@163.com`（邮箱+密码登录，非手机验证码；用 API 登录后可查 `user_data` 表；**密码在 `房屋管理系统-使用说明.txt`，不在 AGENTS.md 存明文**——2026-09-06 安全整改，原明文曾随公开仓库泄露）

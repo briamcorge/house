@@ -1,4 +1,24 @@
-# Supabase 反向代理（Cloudflare Worker）
+# Supabase 反向代理
+
+## 已部署实例（2026-10-24）
+
+- **地址**: `https://house-supabase-proxy.netlify.app`
+- **平台**: Netlify（免费版，站点名 `house-supabase-proxy`，团队 `briamcorge's team`）
+- **代码**: `proxy/netlify/`（Netlify Functions v2，路由 `/auth/*`、`/rest/*`）
+- **App 端**: `.env` 的 `VITE_SUPABASE_URL` 与 `index.html` 的 CSP `connect-src` 均已指向该地址；APK/网页需重新构建后才生效
+- **验证**: `/auth/v1/health?apikey=<ANON_KEY>` 返回 GoTrue JSON；测试账号登录 + `user_data` 读取通过
+
+### 部署时踩到的两个坑
+
+1. **新团队项目默认 Private**（Netlify 2026-07-28 起的新默认）：所有访客请求会得到 `401` + “Login Redirect” HTML，看起来像代理坏了。必须到 Project configuration → General → Visitor access → Project visibility 把生产环境改成 **Public**。这个开关没有公开 API，只能走控制台。
+2. **免费版不能选函数区域**：默认 `us-east-2`（美东），而 Supabase 项目在 `ap-northeast-1`（东京），实测每次请求约 1.5s。若以后升级 Pro，可把函数区域调到东京/新加坡。
+
+重新部署（本机已 link 过站点，`.netlify/` 已在 gitignore）：
+
+```bash
+cd proxy/netlify
+netlify deploy --prod --no-build --dir=public --functions=functions
+```
 
 ## 为什么需要它
 
