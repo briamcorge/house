@@ -6,8 +6,9 @@ import BillModal from '../components/BillModal'
 import ConfirmModal from '../components/ConfirmModal'
 import AlertModal from '../components/AlertModal'
 import WheelDatePicker from '../components/WheelDatePicker'
-import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, MoreVertical, ChevronLeft, AlertTriangle, Copy } from 'lucide-react'
 import { todayLocal, daysFromTodayLocal, formatRoomLabel } from '../lib/utils'
+import { copyText } from '../lib/bug-report/format'
 import { isCloudAuthoritative } from '../lib/cloud-sync-context'
 import { calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 import { planPartialPayment } from '../utils/payment-split'
@@ -41,6 +42,7 @@ export default function Bills() {
   const [dayRange, setDayRange] = useState(7)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null)
+  const [copiedBillId, setCopiedBillId] = useState<string | null>(null)
 
   const payAmountNumber = payAmount !== '' ? parseFloat(payAmount) : NaN
   const isPartialRentPayment = !!payConfirmBill
@@ -135,6 +137,16 @@ export default function Bills() {
     rent: '房租', deposit: '押金', agency: '中介费', sublease: '转租费',
     hygiene: '卫管费', internet: '网费', utilities: '水电燃气费',
     other: '其他费用'
+  }
+
+  /** 催租文案：一条纯文本，粘到微信/短信发给租客即可 */
+  const buildDunningText = (bill: Bill, isOverdue: boolean) => {
+    const name = getTenantName(bill.tenantId)
+    const where = getRoomInfo(bill.roomId)
+    const subject = bill.description || typeLabels[bill.type] || '本期费用'
+    const due = bill.dueDate.slice(5)
+    const tail = isOverdue ? `已于 ${due} 到期，请尽快支付，谢谢！` : `请于 ${due} 前支付，谢谢！`
+    return `${name ? `${name} 您好，` : ''}${where ? `${where} ` : ''}${subject} 共 ${bill.amount.toFixed(2)} 元，${tail}`
   }
 
   const statusClasses: Record<string, string> = {
@@ -529,6 +541,24 @@ export default function Bills() {
                             <span>¥{bill.amount.toFixed(2)}</span>
                           </p>
                           <div className="flex items-center gap-1 shrink-0">
+                            {bill.direction === 'receivable' && bill.amount > 0 && bill.status !== 'paid' && bill.status !== 'refunded' && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const ok = await copyText(buildDunningText(bill, isOverdue))
+                                  if (!ok) {
+                                    setAlertState({ title: '复制失败', message: '无法自动复制到剪贴板，请手动记录后重试。' })
+                                    return
+                                  }
+                                  setCopiedBillId(bill.id)
+                                  setTimeout(() => setCopiedBillId(null), 2000)
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-0.5"
+                              >
+                                <Copy className="w-3 h-3" />
+                                {copiedBillId === bill.id ? '已复制' : '复制'}
+                              </button>
+                            )}
                             {bill.status === 'refunded' ? (
                               <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600">退款</span>
                             ) : bill.status !== 'paid' && (
