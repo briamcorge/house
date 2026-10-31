@@ -139,11 +139,13 @@ export default function Bills() {
     other: '其他费用'
   }
 
-  /** 催租文案：一条纯文本，粘到微信/短信发给租客即可 */
+  /** 催租文案：一条纯文本，粘到微信/短信发给租客即可（房号/期数/付款方式不带，租客自己知道） */
   const buildDunningText = (bill: Bill, isOverdue: boolean) => {
     const name = getTenantName(bill.tenantId)
-    const where = getRoomInfo(bill.roomId)
-    const subject = bill.description || typeLabels[bill.type] || '本期费用'
+    const room = rooms.find(r => r.id === bill.roomId)
+    const where = room ? getPropertyAddress(room.propertyId) : ''
+    const period = bill.description?.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+    const subject = period ? `${period[1]} ~ ${period[2]}` : (typeLabels[bill.type] || '本期费用')
     const due = bill.dueDate.slice(5)
     const tail = isOverdue ? `已于 ${due} 到期，请尽快支付，谢谢！` : `请于 ${due} 前支付，谢谢！`
     return `${name ? `${name} 您好，` : ''}${where ? `${where} ` : ''}${subject} 共 ${bill.amount.toFixed(2)} 元，${tail}`
