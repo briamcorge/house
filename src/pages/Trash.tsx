@@ -247,7 +247,7 @@ export default function Trash() {
       </div>
 
       {confirmClear && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">清空回收站</h3>
             <p className="text-sm text-gray-500 mb-4">确定永久删除回收站中的所有项目？此操作不可恢复。</p>

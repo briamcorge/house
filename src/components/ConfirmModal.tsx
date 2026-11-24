@@ -27,7 +27,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, tit
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">

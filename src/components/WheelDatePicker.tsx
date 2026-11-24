@@ -193,7 +193,7 @@ export default function WheelDatePicker({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+        <div className="anim-overlay-fade fixed inset-0 z-[60] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/40" onClick={handleCancel} />
           <div className="relative w-full max-w-xs overflow-hidden rounded-2xl bg-white">
             <div className="pb-1 pt-4 text-center text-[16px] font-medium text-gray-900">{title}</div>

@@ -338,7 +338,7 @@ export default function Statistics() {
 
       {/* 房源选择弹窗 */}
       {showPropPicker && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPicker(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPicker(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">选择房源</h3>

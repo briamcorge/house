@@ -214,7 +214,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
   return (
     <>
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white px-4 pt-4 pb-1 border-b border-gray-100">
           <div className="flex items-center justify-between mb-2">
@@ -491,7 +491,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     {/* 房源选择弹窗 */}
     {showPropPickerForBill && (
-      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPickerForBill(false) }}>
+      <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPickerForBill(false) }}>
         <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">选择房源</h3>
@@ -527,7 +527,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     {/* 房间选择弹窗 */}
     {showRoomPickerForBill && (
-      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowRoomPickerForBill(false) }}>
+      <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowRoomPickerForBill(false) }}>
         <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">选择房间</h3>
@@ -565,7 +565,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     {/* 账单类型选择弹窗 */}
     {showTypePicker && (
-      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowTypePicker(false) }}>
+      <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowTypePicker(false) }}>
         <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">选择账单类型</h3>
@@ -595,7 +595,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     {/* 租客选择弹窗 */}
     {showTenantPickerForBill && (
-      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowTenantPickerForBill(false) }}>
+      <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowTenantPickerForBill(false) }}>
         <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">选择租客</h3>
@@ -628,7 +628,7 @@ export default function BillModal({ isOpen, onClose, onSave, properties, rooms, 
 
     {/* 重复间隔选择弹窗 */}
     {showRepeatPicker && (
-      <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowRepeatPicker(false) }}>
+      <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowRepeatPicker(false) }}>
         <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">重复间隔</h3>

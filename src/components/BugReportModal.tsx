@@ -109,7 +109,7 @@ export default function BugReportModal({ isOpen, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[70]">
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[70]">
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[92vh] overflow-y-auto">
         <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">

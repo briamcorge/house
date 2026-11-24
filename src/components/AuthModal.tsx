@@ -75,7 +75,7 @@ export default function AuthModal({ isOpen, onClose, required = false }: AuthMod
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (!required && e.target === e.currentTarget) onClose() }}>
+    <div className="anim-overlay fixed inset-0 bg-black/50 z-[70] flex items-end justify-center" onClick={(e) => { if (!required && e.target === e.currentTarget) onClose() }}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-5 pb-3 shrink-0">
           <h2 className="text-xl font-bold text-gray-900">

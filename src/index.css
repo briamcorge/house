@@ -21,3 +21,34 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ─── 过场动画（2026-11-24）─────────────────────────────────────
+   页面切换：轻微淡入上移；弹窗：遮罩淡入 + 面板上滑（居中弹窗改为缩放）。
+   只做入场：弹窗均为条件渲染，做退场需要延迟卸载，收益低风险高。
+   所有动画在系统「减少动态效果」下自动关闭。 */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheet-enter {
+  from { opacity: 0.6; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dialog-enter {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter { animation: page-enter 200ms ease-out; }
+  /* 底部弹层：遮罩 + 面板上滑 */
+  .anim-overlay { animation: overlay-enter 160ms ease-out; }
+  .anim-overlay > :first-child { animation: sheet-enter 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+  /* 居中的确认/提示弹窗：改为缩放，避免上滑显得突兀 */
+  .anim-overlay.items-center > :first-child { animation: dialog-enter 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+  /* 只淡入、不动面板（如滚轮日期选择器，遮罩与面板不是同一层） */
+  .anim-overlay-fade { animation: overlay-enter 160ms ease-out; }
+}

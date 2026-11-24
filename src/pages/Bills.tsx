@@ -12,6 +12,7 @@ import { copyText } from '../lib/bug-report/format'
 import { isCloudAuthoritative } from '../lib/cloud-sync-context'
 import { calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 import { planPartialPayment } from '../utils/payment-split'
+import { vibratePaymentSuccess } from '../lib/haptics'
 
 function getDaysAgo(days: number): string {
   return daysFromTodayLocal(-days)
@@ -689,7 +690,7 @@ export default function Bills() {
 
       {/* 收款/付款确认弹窗 */}
       {payConfirmBill && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+        <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
           <div className="bg-white rounded-t-3xl w-full max-w-md">
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">{(payConfirmBill.direction === 'receivable') ? '收款确认' : '付款确认'}</h2>
@@ -837,6 +838,8 @@ export default function Bills() {
                       return
                     }
                   }
+                  // 收款/付款已成功入账 → 手机端轻震一次（网页/电脑端无操作）
+                  void vibratePaymentSuccess()
                   setPayConfirmBill(null)
                 }} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700">
                   确认{payConfirmBill.direction === 'receivable' ? '收款' : '付款'}

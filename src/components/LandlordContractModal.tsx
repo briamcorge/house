@@ -302,7 +302,7 @@ export default function LandlordContractModal({ isOpen, onClose, onConfirm, onUp
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white px-4 py-2.5 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">

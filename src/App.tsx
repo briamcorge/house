@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { HashRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle, X, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { useAuth } from "./lib/auth-context";
 import { useStore, setCloudSyncBroken } from "./store/useStore";
@@ -23,6 +23,29 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import AuthModal from "./components/AuthModal";
 import ConfirmModal from "./components/ConfirmModal";
 import LoginPage from "./pages/LoginPage";
+
+// 路由切换过场动画（2026-11-24）：按 pathname 重挂载页面容器，触发淡入上移。
+// 注意：容器不能用 fill-mode 保留 transform，否则会改变页面内 position:fixed 弹窗的定位基准。
+function AppRoutes() {
+  const location = useLocation()
+  return (
+    <div key={location.pathname} className="page-enter">
+      <Routes location={location}>
+        <Route path="/" element={<Home />} />
+        <Route path="/properties" element={<Properties />} />
+        <Route path="/properties/:propertyId" element={<RoomList />} />
+        <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
+        <Route path="/bills" element={<Bills />} />
+        <Route path="/tenants" element={<Tenants />} />
+        <Route path="/more" element={<More />} />
+        <Route path="/contracts" element={<Contracts />} />
+        <Route path="/trash" element={<Trash />} />
+        <Route path="/statistics" element={<Statistics />} />
+        <Route path="/admin" element={<Admin />} />
+      </Routes>
+    </div>
+  )
+}
 
 const STORAGE_KEY = "property-manager-data"
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024
@@ -819,19 +842,7 @@ export default function App() {
               confirmText="放弃本机改动"
               variant="danger"
             />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/properties" element={<Properties />} />
-              <Route path="/properties/:propertyId" element={<RoomList />} />
-              <Route path="/properties/:propertyId/rooms/:roomId" element={<RoomDetail />} />
-              <Route path="/bills" element={<Bills />} />
-              <Route path="/tenants" element={<Tenants />} />
-              <Route path="/more" element={<More />} />
-              <Route path="/contracts" element={<Contracts />} />
-              <Route path="/trash" element={<Trash />} />
-              <Route path="/statistics" element={<Statistics />} />
-              <Route path="/admin" element={<Admin />} />
-            </Routes>
+            <AppRoutes />
             <BottomNav />
             <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
           </div>

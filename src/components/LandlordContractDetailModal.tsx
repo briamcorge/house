@@ -54,7 +54,7 @@ export default function LandlordContractDetailModal({
   const pendingCount = contractBills.filter(b => b.status === 'pending').length
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={onClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* 头部 */}
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100 z-10">

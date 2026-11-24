@@ -770,10 +770,9 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
     }
   }
 
-  /** 复制租客收入明细到剪贴板 */
+  /** 复制利润明细到剪贴板（2026-11-24：去掉地址，末尾附收入/支出/净收益汇总） */
   const copyProfitDetail = async () => {
     if (!profitResult) return
-    const prop = properties.find(p => p.id === profitPropertyId)
     const lines = profitResult.tenants.map(t => {
       let s = `${t.roomLabel} ${t.tenantName}：`
       if (t.overlapDays > 0) s += `${t.overlapDays}天${t.proratedRent.toFixed(0)}`
@@ -785,7 +784,8 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
       if (!t.rentPaid && t.expectedRent > 0) s += '（未齐）'
       return s
     })
-    const text = [`${prop?.address || ''} ${profitCycleStart}~${profitCycleEnd}`, ...lines].join('\n')
+    const summary = `租客收入：${profitResult.tenantIncome.toFixed(0)} -业主支出：${profitResult.landlordExpense.toFixed(0)} = ${profitResult.profitAmount.toFixed(0)}`
+    const text = [`${profitCycleStart}~${profitCycleEnd}`, ...lines, summary].join('\n')
     try {
       await navigator.clipboard.writeText(text)
     } catch {
@@ -1333,7 +1333,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 押金明细弹窗 */}
       {showDepositList && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowDepositList(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">押金明细</h3>
@@ -1370,7 +1370,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 已付押金明细弹窗 */}
       {showPaidDepositList && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPaidDepositList(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPaidDepositList(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">已付押金明细</h3>
@@ -1406,7 +1406,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 利润提取记录弹窗 */}
       {showProfitRecords && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowProfitRecords(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowProfitRecords(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">提取记录</h3>
@@ -1467,7 +1467,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 房源选择弹窗（利润提取） */}
       {showPropPickerForProfit && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPickerForProfit(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowPropPickerForProfit(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">选择房源</h3>
@@ -1509,7 +1509,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 业主账单期数选择弹窗 */}
       {showBillPicker && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowBillPicker(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowBillPicker(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">选择业主账单期数</h3>
@@ -1561,7 +1561,7 @@ const [showPropPickerForProfit, setShowPropPickerForProfit] = useState(false)
 
       {/* 修改密码弹窗 */}
       {showChangePassword && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowChangePassword(false) }}>
+        <div className="anim-overlay fixed inset-0 bg-black/50 z-[60] flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowChangePassword(false) }}>
           <div className="bg-white rounded-t-3xl w-full max-w-md flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold">修改密码</h3>

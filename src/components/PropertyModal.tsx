@@ -107,7 +107,7 @@ export default function PropertyModal({ isOpen, onClose, onSave, editingProperty
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={handleClose}>
+    <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]" onClick={handleClose}>
       <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b border-gray-100">
           <div className="flex items-center justify-between">

@@ -13,6 +13,7 @@ import WheelDatePicker from '../components/WheelDatePicker'
 import { add30Days, formatDate, calcCoveredPeriodEnd, freeDaysInPeriod } from '../utils/calculator'
 import { todayLocal, formatRoomLabel } from '../lib/utils'
 import { planPartialPayment } from '../utils/payment-split'
+import { vibratePaymentSuccess } from '../lib/haptics'
 
 export default function RoomDetail() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>()
@@ -483,7 +484,7 @@ export default function RoomDetail() {
 
       {/* 收款确认弹窗 */}
       {payConfirmBill && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+        <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
           <div className="bg-white rounded-t-3xl w-full max-w-md">
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">收款确认</h2>
@@ -620,6 +621,8 @@ export default function RoomDetail() {
                         return
                       }
                     }
+                    // 收款已成功入账 → 手机端轻震一次（网页/电脑端无操作）
+                    void vibratePaymentSuccess()
                     setPayConfirmBill(null)
                   }}
                   className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
@@ -642,7 +645,7 @@ export default function RoomDetail() {
 
       {/* 换房弹窗 */}
       {showRoomChange && roomChangeTenant && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
+        <div className="anim-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[60]">
           <div className="bg-white rounded-t-3xl w-full max-w-md">
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">换房</h2>
