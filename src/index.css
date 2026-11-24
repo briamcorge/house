@@ -22,6 +22,13 @@
   scrollbar-width: none;
 }
 
+/* 弹窗打开时锁住背景滚动（2026-11-24）：modal-open 由 src/lib/scroll-lock.ts 维护 */
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* ─── 过场动画（2026-11-24）─────────────────────────────────────
    页面切换：轻微淡入上移；弹窗：遮罩淡入 + 面板上滑（居中弹窗改为缩放）。
    只做入场：弹窗均为条件渲染，做退场需要延迟卸载，收益低风险高。
